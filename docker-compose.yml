@@ -13,6 +13,8 @@ services:
       - ./robot_diary.log:/app/robot_diary.log
       # Mount .env file
       - ./.env:/app/.env:ro
+      # Mount SSH key dynamically from .env (if DEPLOY_SSH_KEY is set)
+      - ${DEPLOY_SSH_KEY}:/app/.ssh/deploy_key:ro
     environment:
       - PYTHONUNBUFFERED=1
     # Uncomment if you need to expose Hugo dev server

@@ -7,7 +7,12 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     git \
+    rsync \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
+
+# Create .ssh directory for mounted key
+RUN mkdir -p /app/.ssh && chmod 700 /app/.ssh
 
 # Install Hugo
 # Download and install Hugo extended version (required for PaperMod theme)

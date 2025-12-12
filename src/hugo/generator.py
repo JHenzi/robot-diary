@@ -182,7 +182,9 @@ tags = {tags}
                 
                 # Add SSH key if specified
                 if DEPLOY_SSH_KEY:
-                    cmd.extend(['-e', f'ssh -i {DEPLOY_SSH_KEY}'])
+                    # Use fixed container path (key is mounted from .env)
+                    ssh_key_path = '/app/.ssh/deploy_key'
+                    cmd.extend(['-e', f'ssh -i {ssh_key_path}'])
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/")
@@ -204,7 +206,9 @@ tags = {tags}
                 
                 # Add SSH key if specified
                 if DEPLOY_SSH_KEY:
-                    cmd.extend(['-i', DEPLOY_SSH_KEY])
+                    # Use fixed container path (key is mounted from .env)
+                    ssh_key_path = '/app/.ssh/deploy_key'
+                    cmd.extend(['-i', ssh_key_path])
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/*")
