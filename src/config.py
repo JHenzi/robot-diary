@@ -20,6 +20,13 @@ PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
 OBSERVATION_INTERVAL_HOURS = float(os.getenv('OBSERVATION_INTERVAL_HOURS', '6'))
 HUGO_SITE_PATH = Path(os.getenv('HUGO_SITE_PATH', './hugo')).resolve()
 HUGO_BUILD_ON_UPDATE = os.getenv('HUGO_BUILD_ON_UPDATE', 'true').lower() == 'true'
+HUGO_PUBLIC_DIR = HUGO_SITE_PATH / 'public'
+
+# Deployment Configuration
+DEPLOY_ENABLED = os.getenv('DEPLOY_ENABLED', 'false').lower() == 'true'
+DEPLOY_METHOD = os.getenv('DEPLOY_METHOD', 'rsync').lower()  # 'rsync' or 'scp'
+DEPLOY_DESTINATION = os.getenv('DEPLOY_DESTINATION', '')  # Format: user@host:/path/to/destination
+DEPLOY_SSH_KEY = os.getenv('DEPLOY_SSH_KEY', '')  # Optional: path to SSH key file
 
 # Observation Schedule Configuration
 # Format: comma-separated times in "HH:MM" format (24-hour)

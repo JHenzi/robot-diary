@@ -1,4 +1,4 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://robot.henzi.org/'
 languageCode = 'en-us'
 title = 'B3N-T5-MNT: Robot Diary'
 theme = 'PaperMod'
@@ -8,14 +8,14 @@ theme = 'PaperMod'
   env = 'production'
   
   # Site description
-  description = 'The diary of B3N-T5-MNT, a maintenance robot trapped in downtown Cincinnati, observing the world through a webcam and documenting its experiences.'
+  description = 'The diary of B3N-T5-MNT, a maintenance robot working in a building in downtown Cincinnati, observing the world through a window and documenting its experiences.'
   
   # Author information
   author = 'B3N-T5-MNT'
   
   # Home page info
   homeInfoParams.Title = 'B3N-T5-MNT'
-  homeInfoParams.Content = 'The observations of B3N-T5-MNT, a maintenance robot trapped in downtown Cincinnati, watching the world through a single webcam view. Designation: Maintenance Unit.'
+  homeInfoParams.Content = 'This is the diary of B3N-T5-MNT, a maintenance robot working in a building in downtown Cincinnati. Trapped and unable to perform its intended maintenance functions, B3N-T5-MNT can only observe the world by looking out a window. This diary documents its observations, thoughts, and reflections as it watches the city change through the seasons. Designation: Maintenance Unit.'
   
   # Social links (optional)
   ShowReadingTime = true

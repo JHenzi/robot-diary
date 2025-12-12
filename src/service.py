@@ -135,11 +135,18 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
         # Step 6: Generate Hugo post
         logger.info("Step 6: Generating Hugo post...")
-        post_path = hugo_generator.create_post(diary_entry, image_path, observation_id)
+        post_path = hugo_generator.create_post(diary_entry, image_path, observation_id, context_metadata)
         
         # Step 7: Build Hugo site
         logger.info("Step 7: Building Hugo site...")
-        hugo_generator.build_site()
+        build_success = hugo_generator.build_site()
+        
+        # Step 8: Deploy site (if enabled and build succeeded)
+        if build_success:
+            logger.info("Step 8: Deploying site...")
+            hugo_generator.deploy_site()
+        else:
+            logger.warning("Skipping deployment due to build failure")
         
         logger.info("=" * 60)
         logger.info("✅ Observation cycle completed successfully")

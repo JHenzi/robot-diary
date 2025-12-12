@@ -47,7 +47,9 @@ class GroqClient:
         
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
-B3N-T5-MNT is a maintenance robot trapped in downtown Cincinnati and can only see the world through a webcam. It maintains a diary of its observations. The robot is aware of its designation and its intended purpose as a maintenance unit, which adds depth to its reflections.
+B3N-T5-MNT is a maintenance robot working in a building in downtown Cincinnati and can only see the world by looking out a window. It maintains a diary of its observations. The robot is aware of its designation and its intended purpose as a maintenance unit, which adds depth to its reflections.
+
+CRITICAL RULE: The robot is looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
 
 Current Context:
 {context_text}
@@ -68,7 +70,7 @@ Your task: Generate an optimized, context-aware prompt that:
 4. Maintains narrative continuity
 5. Guides the robot to write in a thoughtful, reflective style
 6. Helps the robot notice changes or patterns from previous observations
-7. Encourages the robot to correlate what it sees in the webcam with the weather conditions
+7. Encourages the robot to correlate what it sees through the window with the weather conditions
 
 Generate ONLY the optimized prompt text, ready to be used with the vision model. Do not include any explanation or meta-commentary."""
 
@@ -110,10 +112,26 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         with open(image_path, 'rb') as f:
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
+        # Get current date context for explicit inclusion
+        from datetime import datetime
+        import pytz
+        cincinnati_tz = pytz.timezone('America/New_York')
+        now = datetime.now(cincinnati_tz)
+        current_date = now.strftime('%B %d, %Y')  # "December 11, 2025"
+        day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
+        current_time = now.strftime('%I:%M %p')
+        timezone = 'EST' if now.astimezone(cincinnati_tz).dst() == timedelta(0) else 'EDT'
+        
         # Create the full prompt with image
         full_prompt = f"""{optimized_prompt}
 
-Write a diary entry as B3N-T5-MNT, a maintenance robot trapped in downtown Cincinnati, observing the world through this webcam view. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot, aware of your intended purpose, which adds meaning to your observations."""
+CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
+
+Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in downtown Cincinnati, observing the world through the window. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot, aware of your intended purpose, which adds meaning to your observations.
+
+CRITICAL RULES:
+1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
+2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates."""
 
         try:
             response = self.client.chat.completions.create(

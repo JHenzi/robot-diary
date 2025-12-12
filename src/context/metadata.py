@@ -21,6 +21,31 @@ def get_season(month: int) -> str:
         return "Fall"
 
 
+def get_ordinal_suffix(day: int) -> str:
+    """Get ordinal suffix for day (1st, 2nd, 3rd, 4th, etc.)."""
+    if 10 <= day % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return suffix
+
+
+def format_date_for_title(metadata: Dict) -> str:
+    """
+    Format date for post title: "Thursday December 11th 2025, Morning Update"
+    
+    Args:
+        metadata: Context metadata dictionary
+        
+    Returns:
+        Formatted date string
+    """
+    day_suffix = get_ordinal_suffix(metadata['day'])
+    time_of_day_capitalized = metadata['time_of_day'].capitalize()
+    
+    return f"{metadata['day_of_week']} {metadata['month']} {metadata['day']}{day_suffix} {metadata['year']}, {time_of_day_capitalized} Update"
+
+
 def get_time_of_day(hour: int) -> str:
     """Get time of day description."""
     if 5 <= hour < 12:
