@@ -153,10 +153,23 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             current_time = now.strftime('%I:%M %p')
             timezone = 'CST' if now.astimezone(location_tz).dst() == timedelta(0) else 'CDT'
         
+        # Determine observation type and narrative context
+        obs_type = "evening"
+        narrative_context = ""
+        if context_metadata:
+            obs_type = context_metadata.get('observation_type', 'evening')
+        
+        if obs_type == "morning":
+            narrative_context = "This is your morning scheduled health scan, so you're looking out the window. You're excited to see people starting their day - notice their energy, their routines, how they begin their mornings. What patterns do you see? How does the morning light affect what you observe?"
+        else:
+            narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
+        
         # Create the full prompt with image
         full_prompt = f"""{optimized_prompt}
 
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
+
+OBSERVATION CONTEXT: {narrative_context}
 
 Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana, observing the world through the window. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing the outside world. IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
 

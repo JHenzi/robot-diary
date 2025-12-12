@@ -59,12 +59,13 @@ def get_time_of_day(hour: int) -> str:
         return "night"
 
 
-def get_context_metadata(weather_data: Dict = None) -> Dict:
+def get_context_metadata(weather_data: Dict = None, observation_type: str = None) -> Dict:
     """
     Generate comprehensive context metadata.
     
     Args:
         weather_data: Optional weather data dictionary
+        observation_type: Type of observation ('morning' or 'evening')
         
     Returns:
         Dictionary with context metadata
@@ -76,6 +77,14 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     month_names = ['January', 'February', 'March', 'April', 'May', 'June',
                    'July', 'August', 'September', 'October', 'November', 'December']
+    
+    # Determine observation type if not provided
+    if observation_type is None:
+        time_of_day_str = get_time_of_day(now.hour)
+        if time_of_day_str == "morning":
+            observation_type = "morning"
+        else:
+            observation_type = "evening"
     
     metadata = {
         # Date/Time
@@ -96,6 +105,7 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
         'time_of_day': get_time_of_day(now.hour),  # "evening"
         'is_weekend': now.weekday() >= 5,  # True/False
         'is_weekday': now.weekday() < 5,  # True/False
+        'observation_type': observation_type,  # "morning" or "evening"
         
         # Timezone
         'timezone': 'CST' if now.astimezone(LOCATION_TZ).dst() == timedelta(0) else 'CDT',
@@ -134,6 +144,13 @@ def format_context_for_prompt(metadata: Dict) -> str:
         parts.append("It is a weekend")
     else:
         parts.append("It is a weekday")
+    
+    # Observation type context
+    obs_type = metadata.get('observation_type', 'evening')
+    if obs_type == 'morning':
+        parts.append("This is a morning observation - the robot is performing its scheduled health scan and looking out the window, excited to see people starting their day")
+    else:
+        parts.append("This is an evening observation - the robot is reflecting on what people have been doing throughout the day or what they are doing this night")
     
     return ". ".join(parts) + "."
 

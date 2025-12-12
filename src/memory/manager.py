@@ -6,10 +6,12 @@ from typing import List, Dict, Optional
 import logging
 
 from ..config import MEMORY_DIR, MEMORY_RETENTION_DAYS, MAX_MEMORY_ENTRIES
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 MEMORY_FILE = MEMORY_DIR / 'observations.json'
+SCHEDULE_FILE = MEMORY_DIR / 'schedule.json'
 
 
 class MemoryManager:
@@ -116,4 +118,44 @@ class MemoryManager:
         """Get total number of observations in memory."""
         memory = self._load_memory()
         return len(memory)
+    
+    def get_next_scheduled_time(self) -> Optional[Dict]:
+        """
+        Get the next scheduled observation time from memory.
+        
+        Returns:
+            Dictionary with 'datetime' (ISO string) and 'type' ('morning' or 'evening'), or None
+        """
+        if not SCHEDULE_FILE.exists():
+            return None
+        
+        try:
+            with open(SCHEDULE_FILE, 'r') as f:
+                schedule = json.load(f)
+                return schedule.get('next_observation')
+        except Exception as e:
+            logger.warning(f"Error loading schedule: {e}")
+            return None
+    
+    def save_next_scheduled_time(self, next_time: datetime, obs_type: str):
+        """
+        Save the next scheduled observation time to memory.
+        
+        Args:
+            next_time: Next observation datetime
+            obs_type: Type of observation ('morning' or 'evening')
+        """
+        try:
+            schedule = {
+                'next_observation': {
+                    'datetime': next_time.isoformat(),
+                    'type': obs_type
+                },
+                'last_updated': datetime.now().isoformat()
+            }
+            with open(SCHEDULE_FILE, 'w') as f:
+                json.dump(schedule, f, indent=2)
+            logger.debug(f"Saved next scheduled time: {next_time.isoformat()} ({obs_type})")
+        except Exception as e:
+            logger.error(f"Error saving schedule: {e}")
 

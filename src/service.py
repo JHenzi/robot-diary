@@ -17,11 +17,9 @@ from .config import (
     OBSERVATION_INTERVAL_HOURS,
     PROJECT_ROOT,
     PIRATE_WEATHER_KEY,
-    OBSERVATION_TIMES,
     USE_SCHEDULED_OBSERVATIONS
 )
 from .scheduler import (
-    parse_observation_times,
     get_next_observation_time,
     is_time_for_observation,
     get_observation_schedule_summary
@@ -48,8 +46,6 @@ logger = logging.getLogger(__name__)
 # Global flags
 shutdown_requested = False
 trigger_observation = False
-last_observation_time = None  # Track when we last ran an observation
-last_observation_scheduled_time = None  # Track which scheduled time we last ran
 
 # Location timezone (from config)
 from . import config as app_config
@@ -70,13 +66,14 @@ def trigger_observation_handler(signum, frame):
     trigger_observation = True
 
 
-def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False):
+def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False, observation_type: str = None):
     """
     Run a single observation cycle.
     
     Args:
         dry_run: If True, skip API calls and only test structure
         force_image_refresh: If True, force download of fresh image even if cached
+        observation_type: Type of observation ('morning' or 'evening')
     """
     logger.info("=" * 60)
     logger.info("Starting observation cycle" + (" (DRY RUN)" if dry_run else ""))
@@ -116,8 +113,8 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
             except Exception as e:
                 logger.warning(f"Failed to fetch weather: {e}")
         
-        context_metadata = get_context_metadata(weather_data)
-        logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']})")
+        context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
+        logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
         
@@ -163,7 +160,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
 
 def main():
     """Main service loop."""
-    global shutdown_requested, trigger_observation, last_observation_time, last_observation_scheduled_time
+    global shutdown_requested, trigger_observation
     
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
@@ -177,32 +174,36 @@ def main():
     logger.info("🤖 Robot Diary Service Starting...")
     logger.info(f"Project root: {PROJECT_ROOT}")
     
-    # Parse observation schedule
-    if USE_SCHEDULED_OBSERVATIONS:
-        observation_times = parse_observation_times(OBSERVATION_TIMES)
-        logger.info(get_observation_schedule_summary(observation_times))
-        
-        # Calculate next observation time
-        now = datetime.now(LOCATION_TZ)
-        next_time = get_next_observation_time(now, observation_times)
-        logger.info(f"Next scheduled observation: {next_time.strftime('%A, %B %d at %I:%M %p %Z')}")
-        logger.info("Service running. Waiting for scheduled observation time or manual triggers...")
-    else:
-        observation_times = None
-        logger.info(f"Using interval-based observations: every {OBSERVATION_INTERVAL_HOURS} hours")
-        
-        # Run initial observation immediately only for interval-based mode
-        logger.info("Running initial observation...")
+    # Initialize memory manager to track schedule
+    memory_manager = MemoryManager()
+    
+    # Get or calculate next observation time
+    now = datetime.now(LOCATION_TZ)
+    scheduled_info = memory_manager.get_next_scheduled_time()
+    
+    if scheduled_info and scheduled_info.get('datetime'):
+        # Load existing schedule
         try:
-            run_observation_cycle()
+            from datetime import datetime as dt
+            next_time = dt.fromisoformat(scheduled_info['datetime'])
+            next_time = LOCATION_TZ.localize(next_time.replace(tzinfo=None)) if next_time.tzinfo is None else next_time
+            obs_type = scheduled_info.get('type', 'evening')
+            logger.info(f"Loaded scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
         except Exception as e:
-            logger.error(f"Initial observation failed: {e}")
-            sys.exit(1)
-        
-        logger.info("Service running. Waiting for next interval or manual triggers...")
+            logger.warning(f"Error loading schedule: {e}, calculating new schedule")
+            next_time, obs_type = get_next_observation_time(now)
+            memory_manager.save_next_scheduled_time(next_time, obs_type)
+            logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
+    else:
+        # Calculate new schedule
+        next_time, obs_type = get_next_observation_time(now)
+        memory_manager.save_next_scheduled_time(next_time, obs_type)
+        logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
+    
+    logger.info("Service running. Waiting for scheduled observation time or manual triggers...")
+    logger.info("(Send SIGUSR1 signal to trigger immediate observation)")
     
     # Main service loop
-    
     while not shutdown_requested:
         try:
             # Check every minute for scheduled times or manual triggers
@@ -216,65 +217,50 @@ def main():
                 logger.info("Manual observation triggered!")
                 trigger_observation = False
                 try:
-                    run_observation_cycle()
-                    last_observation_time = datetime.now(TROY_TZ)  # Update last observation time
+                    # Determine observation type from current time
+                    current_time = datetime.now(LOCATION_TZ)
+                    current_hour = current_time.hour
+                    manual_obs_type = "morning" if 5 <= current_hour < 12 else "evening"
+                    run_observation_cycle(observation_type=manual_obs_type)
+                    
+                    # Schedule next observation
+                    next_time, obs_type = get_next_observation_time(current_time)
+                    memory_manager.save_next_scheduled_time(next_time, obs_type)
+                    logger.info(f"✅ Manual observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
                 except Exception as e:
                     logger.error(f"Manual observation failed: {e}", exc_info=True)
                 continue
             
             # Check for scheduled observation
-            if USE_SCHEDULED_OBSERVATIONS and observation_times:
+            if USE_SCHEDULED_OBSERVATIONS:
                 now = datetime.now(LOCATION_TZ)
                 
-                # Find which scheduled time we're closest to (if any)
-                current_time_only = now.time()
-                matched_scheduled_time = None
-                for obs_time in observation_times:
-                    obs_minutes = obs_time.hour * 60 + obs_time.minute
-                    current_minutes = current_time_only.hour * 60 + current_time_only.minute
-                    time_diff = abs(current_minutes - obs_minutes)
-                    if time_diff > 12 * 60:  # Handle wrap-around
-                        time_diff = 24 * 60 - time_diff
-                    if time_diff <= 5:  # Within 5 minute tolerance
-                        matched_scheduled_time = obs_time
-                        break
-                
-                # Check if we should run an observation
-                should_run = False
-                if matched_scheduled_time is not None:
-                    # Check if we've already run for this scheduled time
-                    if last_observation_scheduled_time != matched_scheduled_time:
-                        # This is a new scheduled time, run it
-                        should_run = True
-                    elif last_observation_time is None:
-                        # No previous observation recorded, run it
-                        should_run = True
-                    else:
-                        # Check if enough time has passed (cooldown period)
-                        time_since_last = (now - last_observation_time).total_seconds() / 60  # minutes
-                        if time_since_last >= 10:  # At least 10 minutes cooldown
-                            should_run = True
-                        else:
-                            logger.debug(f"Skipping observation - already ran for {matched_scheduled_time.strftime('%I:%M %p')} ({time_since_last:.1f} min ago, need 10 min cooldown)")
-                
-                if should_run:
-                    next_time = get_next_observation_time(now, observation_times)
-                    logger.info(f"⏰ Scheduled observation time reached ({matched_scheduled_time.strftime('%I:%M %p')})!")
+                # Check if it's time for the scheduled observation
+                if is_time_for_observation(now, next_time, tolerance_minutes=5):
+                    logger.info(f"⏰ Scheduled {obs_type} observation time reached!")
                     try:
-                        run_observation_cycle()
-                        last_observation_time = datetime.now(TROY_TZ)  # Update last observation time
-                        last_observation_scheduled_time = matched_scheduled_time  # Track which scheduled time we ran
-                        logger.info(f"✅ Observation completed. Next scheduled observation: {next_time.strftime('%A, %B %d at %I:%M %p %Z')}")
+                        run_observation_cycle(observation_type=obs_type)
+                        
+                        # Schedule next observation
+                        next_time, obs_type = get_next_observation_time(now)
+                        memory_manager.save_next_scheduled_time(next_time, obs_type)
+                        logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
                     except Exception as e:
                         logger.error(f"Scheduled observation failed: {e}", exc_info=True)
-            elif not USE_SCHEDULED_OBSERVATIONS:
+                        # Still schedule next time even if this one failed
+                        next_time, obs_type = get_next_observation_time(now)
+                        memory_manager.save_next_scheduled_time(next_time, obs_type)
+            else:
                 # Fallback to interval-based (legacy mode)
                 interval_seconds = OBSERVATION_INTERVAL_HOURS * 3600
                 logger.warning("Interval-based mode is deprecated. Use scheduled observations instead.")
                 time.sleep(interval_seconds - 60)  # Already slept 60 seconds
                 if not shutdown_requested:
                     try:
-                        run_observation_cycle()
+                        current_time = datetime.now(LOCATION_TZ)
+                        current_hour = current_time.hour
+                        interval_obs_type = "morning" if 5 <= current_hour < 12 else "evening"
+                        run_observation_cycle(observation_type=interval_obs_type)
                     except Exception as e:
                         logger.error(f"Interval observation failed: {e}", exc_info=True)
             
@@ -291,4 +277,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
