@@ -177,6 +177,9 @@ tags = {tags}
                 # Use rsync for efficient deployment
                 cmd = ['rsync', '-avz', '--delete']
                 
+                # Exclude files that should be preserved on destination
+                cmd.extend(['--exclude', 'log.html'])  # Preserve log.html on destination
+                
                 # Add SSH key if specified
                 if DEPLOY_SSH_KEY:
                     cmd.extend(['-e', f'ssh -i {DEPLOY_SSH_KEY}'])

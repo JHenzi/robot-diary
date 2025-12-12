@@ -59,6 +59,7 @@ def deploy_with_rsync():
         '--exclude', '.DS_Store',  # exclude macOS files
         '--exclude', '*.swp',  # exclude vim swap files
         '--exclude', '.git',  # exclude git files
+        '--exclude', 'log.html',  # preserve log.html on destination (don't overwrite)
     ]
     
     # Add SSH key if specified
