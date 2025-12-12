@@ -177,20 +177,27 @@ def main():
     if USE_SCHEDULED_OBSERVATIONS:
         observation_times = parse_observation_times(OBSERVATION_TIMES)
         logger.info(get_observation_schedule_summary(observation_times))
+        
+        # Calculate next observation time
+        now = datetime.now(CINCINNATI_TZ)
+        next_time = get_next_observation_time(now, observation_times)
+        logger.info(f"Next scheduled observation: {next_time.strftime('%A, %B %d at %I:%M %p %Z')}")
+        logger.info("Service running. Waiting for scheduled observation time or manual triggers...")
     else:
         observation_times = None
         logger.info(f"Using interval-based observations: every {OBSERVATION_INTERVAL_HOURS} hours")
-    
-    # Run initial observation immediately
-    logger.info("Running initial observation...")
-    try:
-        run_observation_cycle()
-    except Exception as e:
-        logger.error(f"Initial observation failed: {e}")
-        sys.exit(1)
+        
+        # Run initial observation immediately only for interval-based mode
+        logger.info("Running initial observation...")
+        try:
+            run_observation_cycle()
+        except Exception as e:
+            logger.error(f"Initial observation failed: {e}")
+            sys.exit(1)
+        
+        logger.info("Service running. Waiting for next interval or manual triggers...")
     
     # Main service loop
-    logger.info("Service running. Waiting for scheduled observations or manual triggers...")
     
     while not shutdown_requested:
         try:
