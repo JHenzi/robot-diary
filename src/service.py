@@ -167,11 +167,10 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
             date_str = ""
             if published_at:
                 try:
-                    from datetime import datetime
                     # Parse ISO format: "2025-12-12T17:33:20+00:00"
                     dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
                     date_str = f" (published {dt.strftime('%B %d, %Y at %I:%M %p')})"
-                except:
+                except Exception:
                     date_str = f" (published {published_at})"
             
             source_str = f" from {source}" if source else ""

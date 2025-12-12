@@ -12,9 +12,6 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 # Weather API Configuration
 PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
 
-# Angelcam API Configuration
-ANGEL_CAM_APIKEY = os.getenv('ANGEL_CAM_APIKEY')
-
 # Service Configuration
 OBSERVATION_INTERVAL_HOURS = float(os.getenv('OBSERVATION_INTERVAL_HOURS', '6'))
 HUGO_SITE_PATH = Path(os.getenv('HUGO_SITE_PATH', './hugo')).resolve()

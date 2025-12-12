@@ -61,11 +61,10 @@ class GroqClient:
                     published_at = article.get('published_at', '')
                     if published_at:
                         try:
-                            from datetime import datetime
                             dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
                             date_str = dt.strftime('%B %d')
                             article_refs.append(f"{title} (from {date_str})")
-                        except:
+                        except Exception:
                             article_refs.append(title)
                     else:
                         article_refs.append(title)
