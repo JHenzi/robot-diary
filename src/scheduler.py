@@ -3,8 +3,9 @@ from datetime import datetime, time, timedelta
 import pytz
 from typing import List, Tuple
 
-# Troy, Ohio timezone (Eastern Time)
-TROY_TZ = pytz.timezone('America/New_York')
+# Location timezone (from config)
+from .config import LOCATION_TIMEZONE
+LOCATION_TZ = pytz.timezone(LOCATION_TIMEZONE)
 
 # Default observation times (9:00 AM and 4:20 PM)
 DEFAULT_OBSERVATION_TIMES = [
@@ -47,22 +48,22 @@ def get_next_observation_time(current_time: datetime, observation_times: List[ti
     Returns:
         Next observation datetime
     """
-    current_time_troy = current_time.astimezone(TROY_TZ)
-    current_date = current_time_troy.date()
-    current_time_only = current_time_troy.time()
+    current_time_local = current_time.astimezone(LOCATION_TZ)
+    current_date = current_time_local.date()
+    current_time_only = current_time_local.time()
     
     # Check if any observation time is later today
     for obs_time in observation_times:
         if obs_time > current_time_only:
             # Next observation is today
-            return TROY_TZ.localize(
+            return LOCATION_TZ.localize(
                 datetime.combine(current_date, obs_time)
             )
     
     # Next observation is tomorrow (first time)
     next_date = current_date + timedelta(days=1)
     first_obs_time = observation_times[0]
-    return TROY_TZ.localize(
+    return LOCATION_TZ.localize(
         datetime.combine(next_date, first_obs_time)
     )
 
@@ -80,8 +81,8 @@ def is_time_for_observation(current_time: datetime, observation_times: List[time
     Returns:
         True if it's time for an observation
     """
-    current_time_troy = current_time.astimezone(TROY_TZ)
-    current_time_only = current_time_troy.time()
+    current_time_local = current_time.astimezone(LOCATION_TZ)
+    current_time_only = current_time_local.time()
     current_minutes = current_time_only.hour * 60 + current_time_only.minute
     
     for obs_time in observation_times:

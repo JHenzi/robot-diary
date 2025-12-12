@@ -12,6 +12,9 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 # Weather API Configuration
 PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
 
+# Angelcam API Configuration
+ANGEL_CAM_APIKEY = os.getenv('ANGEL_CAM_APIKEY')
+
 # Service Configuration
 OBSERVATION_INTERVAL_HOURS = float(os.getenv('OBSERVATION_INTERVAL_HOURS', '6'))
 HUGO_SITE_PATH = Path(os.getenv('HUGO_SITE_PATH', './hugo')).resolve()
@@ -52,13 +55,19 @@ ROBOT_TYPE = 'Maintenance Unit'
 ROBOT_DESIGNATION = 'B3N-T5-MNT (Maintenance Unit)'
 
 # Location Configuration
-LOCATION_CITY = "Troy"
-LOCATION_STATE = "Ohio"
-LOCATION_FULL = "Troy, Ohio"
+LOCATION_CITY = "New Orleans"
+LOCATION_STATE = "Louisiana"
+LOCATION_FULL = "New Orleans, Louisiana"
 
-# Weather coordinates for Troy, Ohio
-TROY_LATITUDE = 40.0395
-TROY_LONGITUDE = -84.2033
+# Weather coordinates for New Orleans, Louisiana
+LOCATION_LATITUDE = 29.9511
+LOCATION_LONGITUDE = -90.0715
+
+# YouTube Live Stream Configuration
+YOUTUBE_STREAM_URL = os.getenv('YOUTUBE_STREAM_URL', 'https://www.youtube.com/watch?v=qHW8srS0ylo')
+
+# Timezone for New Orleans (Central Time)
+LOCATION_TIMEZONE = 'America/Chicago'
 
 # Validation
 if not GROQ_API_KEY:

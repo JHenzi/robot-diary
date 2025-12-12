@@ -1,0 +1,661 @@
+{
+  "requests": [
+    {
+      "url": "https://troyohio.gov/542/Live-Downtown-Webcams",
+      "method": "GET",
+      "resource_type": "document"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/jQuery/jquery-2.2.4.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/jQuery/jQuery-migrate-1.4.1.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/-1465647691.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/-536759590.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/41033864.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/AlpineJS/3.14.1/alpine.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5879",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5889",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5895",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5891",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=7582",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Areas/Layout/Assets/Scripts/Search.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5897",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.min.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.theme.min.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtm.js?id=GTM-K73C5PS&l=cpDataLayerGA4",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/antiforgery",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://js.monitor.azure.com/scripts/a/ai.0.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5917",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/745732998.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/APIClient.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Mystique/Shared/Scripts/Moment/Moment.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/SplashModal/SplashModalRender.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/1729008743.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=UA-146150438-1",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Styles/Print.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Mystique/Shared/Scripts/webfontloader/webfont.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://v.angelcam.com/iframe?v=ger29e19ym&autoplay=1",
+      "method": "GET",
+      "resource_type": "document"
+    },
+    {
+      "url": "https://fonts.googleapis.com/css?family=Muli:300,400,400i,700",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5881",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5965",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5887",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5883",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5886",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5882",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5884",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/Toggle",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/RWD/MediaFramework.js",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://fonts.googleapis.com/css?family=Karla:700,700italic,italic,regular|La+Belle+Aurore:regular|Montserrat:500,500italic,600,600italic,700,700italic,800,italic,regular|Nunito:600,600italic,700,700italic,italic,regular|Open+Sans:600,600italic,700,700italic,italic,regular|",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/muli/v34/7Auwp_0qiz-afTLGLQjUwkQ.woff2",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/muli/v34/7Aujp_0qiz-afTfcIyoiGtm2P0wG05Fz4eqVw1qHrzJoAw.woff2",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://troyohio.gov/api/v1/SplashModal/Get?targetId=542&targetType=1&requestMode=0&_=1765553516031",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/attrchange.js?_=1765553516032",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&_=1765553516033",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Common/images/ajax-loader.gif",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/Pages/MenuMain/HiddenMainSubMenus?pageID=1&moduleID=&themeID=20&menuContainerID=mainNav&_=1765553516034",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/labelleaurore/v23/RrQIbot8-mNYKnGNDkWlocovHeI4HO2EF1qELw.woff2",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/opensans/v44/memvYaGs126MiZpBA-UvWbX2vVnXBbObj2OVTS-mu0SC55I.woff2",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y.woff2",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/RWD/MediaFramework.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-QQ7915BKTH&l=cpDataLayerGA4&cx=c&gtm=4e5ca1",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/attrchange_ext.js?_=1765553516035",
+      "method": "GET",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-JT8V7TRGLL&cx=c&gtm=4e5cb0h2",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://www.google-analytics.com/analytics.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://www.gstatic.com/_/translate_http/_/ss/k=translate_http.tr.2f3WBw8L4SI.L.W.O/am=AAQD/d=0/rs=AN8SPfrXXtxuFpMMBoYgp93jo68L3iC3ZQ/m=el_main_css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://translate.googleapis.com/_/translate_http/_/js/k=translate_http.tr.en_US.FQydsxSZnFI.O/am=AAAQ/d=1/exm=el_conf/ed=1/rs=AN8SPfqYjGQLbt0kExEzLPRYnQdeGY5JmA/m=el_main",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-QQ7915BKTH&gtm=45je5ca1v892497958z8867875367za20gzb867875367zd867875367&_p=1765553515892&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=506455689.1765553517&ul=en-us&sr=1280x720&uaa=arm&uab=64&uafvl=Chromium%3B139.0.7258.5%7CNot%253BA%253DBrand%3B99.0.0.0&uamb=0&uam=&uap=macOS&uapv=26.0.1&uaw=0&are=1&frm=0&pscdl=noapi&_s=1&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~105391252~115583767~115616986~115938466~115938469~116184927~116184929~116217636~116217638~116251938~116251940~116744866&sid=1765553516&sct=1&seg=0&dl=https%3A%2F%2Ftroyohio.gov%2F542%2FLive-Downtown-Webcams&dt=Downtown%20Live%20Webcam%20%7C%20Troy%2C%20OH%20-%20Official%20Website&en=page_view&_fv=1&_nsi=1&_ss=1&tfd=932",
+      "method": "POST",
+      "resource_type": "fetch"
+    },
+    {
+      "url": "https://www.google-analytics.com/g/collect?v=2&tid=G-JT8V7TRGLL&gtm=45je5cb0h2v874321792za20g&_p=1765553516352&gcd=13l3l3l3l1l1&npa=0&dma=0&cid=506455689.1765553517&ul=en-us&sr=1280x720&uaa=arm&uab=64&uafvl=Chromium%3B139.0.7258.5%7CNot%253BA%253DBrand%3B99.0.0.0&uamb=0&uam=&uap=macOS&uapv=26.0.1&uaw=0&are=1&frm=0&pscdl=noapi&_eu=AAAI&_s=1&tag_exp=103116026~103200004~104527907~104528500~104573694~104684208~104684211~105391253~115583767~115938466~115938469~116184927~116184929~116217636~116217638~116251938~116251940~116744866&sid=1765553516&sct=1&seg=0&dl=https%3A%2F%2Ftroyohio.gov%2F542%2FLive-Downtown-Webcams&dt=Downtown%20Live%20Webcam%20%7C%20Troy%2C%20OH%20-%20Official%20Website&en=page_view&_fv=1&_ss=1&tfd=989",
+      "method": "POST",
+      "resource_type": "fetch"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerEmbedding.css",
+      "method": "GET",
+      "resource_type": "stylesheet"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerEmbedding.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerCommon.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/plugins.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/i/productlogos/translate/v14/24px.svg",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://www.gstatic.com/images/branding/googlelogo/1x/googlelogo_color_42x16dp.png",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://www.gstatic.com/images/branding/product/2x/translate_24dp.png",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://troyohio.gov/Content/Load?contentCollectionID=fc9ce6c0-b444-46df-b0b5-ddedf4f79a80&StructureID=6&themeID=20",
+      "method": "POST",
+      "resource_type": "xhr"
+    },
+    {
+      "url": "https://translate-pa.googleapis.com/v1/supportedLanguages?client=te&display_language=en-US&key=AIzaSyBWDj0QJvVIx8XOhRegXX5_SrRWxhT5Hs4&callback=callback",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/player.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/38861cba61c66739c1452c3a71e39852.ttf",
+      "method": "GET",
+      "resource_type": "font"
+    },
+    {
+      "url": "https://js-agent.newrelic.com/nr-rum-1.305.0.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://js-agent.newrelic.com/nr-rum-1.305.0.min.js",
+      "method": "GET",
+      "resource_type": "script"
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=8063",
+      "method": "GET",
+      "resource_type": "image"
+    },
+    {
+      "url": "https://translate.googleapis.com/element/log?format=json&hasfast=true&authuser=0",
+      "method": "POST",
+      "resource_type": "fetch"
+    }
+  ],
+  "responses": [
+    {
+      "url": "https://troyohio.gov/542/Live-Downtown-Webcams",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5889",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5879",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/-1465647691.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/antiforgery",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/-536759590.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/jQuery/jQuery-migrate-1.4.1.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/jQuery/jquery-2.2.4.min.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5895",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5891",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/41033864.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=7582",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.min.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/745732998.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.theme.min.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5917",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5897",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Styles/Print.css",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/SplashModal/SplashModalRender.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/APIClient.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Mystique/Shared/Scripts/webfontloader/webfont.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Areas/Layout/Assets/Scripts/Search.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Mystique/Shared/Scripts/Moment/Moment.min.js",
+      "status": 200
+    },
+    {
+      "url": "https://js.monitor.azure.com/scripts/a/ai.0.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/AlpineJS/3.14.1/alpine.min.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/1729008743.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Toggle",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5886",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5881",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5965",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5883",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5887",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5884",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=5882",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.googleapis.com/css?family=Muli:300,400,400i,700",
+      "status": 200
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=UA-146150438-1",
+      "status": 200
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtm.js?id=GTM-K73C5PS&l=cpDataLayerGA4",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Common/Controls/jquery-ui-1.14.1/jquery-ui.min.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/api/v1/SplashModal/Get?targetId=542&targetType=1&requestMode=0&_=1765553516031",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.googleapis.com/css?family=Karla:700,700italic,italic,regular|La+Belle+Aurore:regular|Montserrat:500,500italic,600,600italic,700,700italic,800,italic,regular|Nunito:600,600italic,700,700italic,italic,regular|Open+Sans:600,600italic,700,700italic,italic,regular|",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/RWD/MediaFramework.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/RWD/MediaFramework.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Common/images/ajax-loader.gif",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/attrchange.js?_=1765553516032",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Pages/MenuMain/HiddenMainSubMenus?pageID=1&moduleID=&themeID=20&menuContainerID=mainNav&_=1765553516034",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/muli/v34/7Aujp_0qiz-afTfcIyoiGtm2P0wG05Fz4eqVw1qHrzJoAw.woff2",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/labelleaurore/v23/RrQIbot8-mNYKnGNDkWlocovHeI4HO2EF1qELw.woff2",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/montserrat/v31/JTUSjIg1_i6t8kCHKm459WlhyyTh89Y.woff2",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/muli/v34/7Auwp_0qiz-afTLGLQjUwkQ.woff2",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/opensans/v44/memvYaGs126MiZpBA-UvWbX2vVnXBbObj2OVTS-mu0SC55I.woff2",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Assets/Scripts/attrchange_ext.js?_=1765553516035",
+      "status": 200
+    },
+    {
+      "url": "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&_=1765553516033",
+      "status": 200
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-QQ7915BKTH&l=cpDataLayerGA4&cx=c&gtm=4e5ca1",
+      "status": 200
+    },
+    {
+      "url": "https://www.gstatic.com/_/translate_http/_/ss/k=translate_http.tr.2f3WBw8L4SI.L.W.O/am=AAQD/d=0/rs=AN8SPfrXXtxuFpMMBoYgp93jo68L3iC3ZQ/m=el_main_css",
+      "status": 200
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-JT8V7TRGLL&cx=c&gtm=4e5cb0h2",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/iframe?v=ger29e19ym&autoplay=1",
+      "status": 200
+    },
+    {
+      "url": "https://translate.googleapis.com/_/translate_http/_/js/k=translate_http.tr.en_US.FQydsxSZnFI.O/am=AAAQ/d=1/exm=el_conf/ed=1/rs=AN8SPfqYjGQLbt0kExEzLPRYnQdeGY5JmA/m=el_main",
+      "status": 200
+    },
+    {
+      "url": "https://www.gstatic.com/images/branding/product/2x/translate_24dp.png",
+      "status": 200
+    },
+    {
+      "url": "https://www.gstatic.com/images/branding/googlelogo/1x/googlelogo_color_42x16dp.png",
+      "status": 200
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/i/productlogos/translate/v14/24px.svg",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerEmbedding.css",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerCommon.js",
+      "status": 200
+    },
+    {
+      "url": "https://translate-pa.googleapis.com/v1/supportedLanguages?client=te&display_language=en-US&key=AIzaSyBWDj0QJvVIx8XOhRegXX5_SrRWxhT5Hs4&callback=callback",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/playerEmbedding.js",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/Content/Load?contentCollectionID=fc9ce6c0-b444-46df-b0b5-ddedf4f79a80&StructureID=6&themeID=20",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/plugins.js",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/player.js",
+      "status": 200
+    },
+    {
+      "url": "https://v.angelcam.com/static/resources/build/38861cba61c66739c1452c3a71e39852.ttf",
+      "status": 200
+    },
+    {
+      "url": "https://troyohio.gov/ImageRepository/Document?documentID=8063",
+      "status": 200
+    },
+    {
+      "url": "https://translate.googleapis.com/element/log?format=json&hasfast=true&authuser=0",
+      "status": 200
+    }
+  ]
+}

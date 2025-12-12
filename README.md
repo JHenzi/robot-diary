@@ -1,21 +1,21 @@
 # Robot Diary
 
-An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot trapped in downtown Cincinnati, observing the world through a window and documenting its experiences in a digital diary.
+An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot working in a building in New Orleans, Louisiana, observing the world through a window and documenting its experiences in a digital diary.
 
 **Live Site**: [robot.henzi.org](https://robot.henzi.org)
 
 ## Concept
 
-This project creates an autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot (Maintenance Unit) that periodically observes downtown Cincinnati through a webcam feed, interprets what it sees using AI vision models, and writes diary entries about its observations. The robot maintains memory of past experiences, allowing it to notice changes, patterns, and develop a sense of continuity in its trapped existence.
+This project creates an autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot (Maintenance Unit) that periodically observes New Orleans, Louisiana through a live video stream, interprets what it sees using AI vision models, and writes diary entries about its observations. The robot maintains memory of past experiences, allowing it to notice changes, patterns, and develop a sense of continuity in its observations.
 
-B3N-T5-MNT was designed for building maintenance tasks but finds itself stuck, unable to perform its intended functions. Instead, it maintains a diary, observing the world through its only window—a view of downtown Cincinnati.
+B3N-T5-MNT was designed for building maintenance tasks and performs these functions, but finds itself drawn to observing the world through a window. It maintains a diary, observing the world outside—a view of New Orleans, Louisiana.
 
 The diary entries are automatically generated as Hugo blog posts and published to a website, creating a living document of the robot's perspective on the world outside its window.
 
 ## Features
 
 - **Continuous Service**: Runs as a background service, observing and generating content continuously
-- **Periodic Image Capture**: Fetches preview images from the Windy webcams API at configurable intervals
+- **Periodic Image Capture**: Captures frames from live video streams (currently migrating to YouTube Live)
 - **AI Vision Interpretation**: Uses Groq's Llama-4-Maverick vision model to describe what the robot "sees"
 - **Dynamic Prompt Generation**: Uses a cheaper model (`gpt-oss-20b`) to generate context-aware prompts based on recent history
 - **Contextual Memory**: Maintains memory of recent observations to create narrative continuity
@@ -23,10 +23,38 @@ The diary entries are automatically generated as Hugo blog posts and published t
 - **Automated Publishing**: Converts diary entries into Hugo posts and automatically builds the site
 - **Extensible**: Designed to expand to other activities like reading news, weather observations, etc.
 
+## Current Status & Migration
+
+**⚠️ In Transition**: The project is migrating to a new video source.
+
+### Previous Attempts
+
+1. **Windy Webcams API** ❌
+   - Images were stale/outdated
+   - Not suitable for real-time observations
+   - Removed from codebase
+
+2. **Angelcam API/Playwright** ❌
+   - Public cameras API requires OAuth2 integrator credentials (not available with Personal Access Tokens)
+   - Playwright approach blocked by browser detection ("Browser not supported" message)
+   - Unable to reliably extract HLS stream URLs
+
+### Next Approach: YouTube Live Stream
+
+The project will use YouTube Live streams as the video source:
+- ✅ Reliable and accessible
+- ✅ Real-time content
+- ✅ Can use `yt-dlp` or similar tools to extract frames
+- ✅ No authentication required for public streams
+- ✅ Better browser compatibility
+
+See [MIGRATION_PLAN.md](MIGRATION_PLAN.md) for details on the migration.
+
 ## Tech Stack
 
 - **Python**: Core automation and API integration
-- **Windy Webcams API**: Source of downtown Cincinnati webcam images
+- **YouTube Live Streams**: Source of live video feeds (migrating to)
+- **yt-dlp** (or similar): Tool for extracting frames from YouTube streams
 - **Groq + Two-Model Approach**:
   - `openai/gpt-oss-20b`: Dynamic prompt generation based on recent history
   - `meta-llama/llama-4-maverick-17b-128e-instruct`: Vision interpretation and diary entry generation
@@ -64,8 +92,8 @@ robot-diary/
 
 - Python 3.8+
 - Hugo (for building and publishing the site)
-- Windy Webcams API key
 - Groq API key
+- yt-dlp (for YouTube stream frame extraction)
 
 ### Installation
 
@@ -93,9 +121,8 @@ cp .env.example .env
 ```
 
 Required environment variables:
-- `WINDY_WEBCAMS_API_KEY`: Your Windy webcams API key
-- `WEBCAM_ID`: The webcam ID for downtown Cincinnati (default: 1358084658)
 - `GROQ_API_KEY`: Your Groq API key
+- `YOUTUBE_STREAM_URL`: URL of the YouTube live stream to observe
 - `OBSERVATION_INTERVAL_HOURS`: How often to make observations (default: 6)
 - `HUGO_SITE_PATH`: Path to Hugo site (default: `./hugo`)
 
@@ -108,7 +135,7 @@ Required environment variables:
 
 ## Usage
 
-**Status**: ✅ **Working** - The service is operational and generating diary entries.
+**Status**: ⚠️ **In Migration** - Migrating from Angelcam/Playwright to YouTube Live streams.
 
 ### Running as a Service
 
@@ -127,7 +154,7 @@ The service will:
 1. Run continuously in the background
 2. Make observations at configured intervals (default: every 6 hours)
 3. For each observation cycle:
-   - Fetch the latest webcam image
+   - Capture a frame from the YouTube live stream
    - Load recent memory/history
    - Use `gpt-oss-20b` to generate a dynamic prompt based on recent history
    - Send image to `llama-4-maverick` for vision interpretation
@@ -168,14 +195,13 @@ The service behavior can be configured via environment variables:
 
 ## Configuration
 
-### Webcam Selection
+### YouTube Stream Selection
 
-The default webcam ID (`1358084658`) should be the downtown Cincinnati view. To find other webcams:
+To configure a YouTube live stream:
 
-1. Visit [Windy.com](https://www.windy.com)
-2. Browse webcams in your desired location
-3. Extract the webcam ID from the URL or API response
-4. Update `WEBCAM_ID` in your `.env` file
+1. Find a YouTube live stream URL (e.g., `https://www.youtube.com/watch?v=VIDEO_ID` or `https://www.youtube.com/live/VIDEO_ID`)
+2. Set `YOUTUBE_STREAM_URL` in your `.env` file
+3. The system will use `yt-dlp` to extract frames from the stream
 
 ### Memory Configuration
 
@@ -200,7 +226,7 @@ The system uses a **two-model approach** for dynamic prompt generation:
    - Generates final diary entry
 
 The dynamic prompts include:
-- The robot's "persona" (trapped in downtown Cincinnati)
+- The robot's "persona" (working in New Orleans, Louisiana)
 - Recent memories/observations (analyzed by prompt generator)
 - Current image description
 - Instructions for writing style and tone
@@ -251,8 +277,8 @@ docker run -d \
 ```
 
 **Note**: The Docker image includes:
-- ✅ FFmpeg (for live webcam frame capture)
-- ✅ Playwright with Chromium (for webcam URL extraction)
+- ✅ FFmpeg (for frame extraction)
+- ✅ yt-dlp (for YouTube stream access)
 - ✅ All Python dependencies
 
 ## License

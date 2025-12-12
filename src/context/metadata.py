@@ -5,8 +5,9 @@ from typing import Dict
 
 from ..config import ROBOT_NAME
 
-# Troy, Ohio timezone (Eastern Time)
-TROY_TZ = pytz.timezone('America/New_York')
+# New Orleans, Louisiana timezone (Central Time)
+from ..config import LOCATION_TIMEZONE
+LOCATION_TZ = pytz.timezone(LOCATION_TIMEZONE)
 
 
 def get_season(month: int) -> str:
@@ -68,8 +69,8 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
     Returns:
         Dictionary with context metadata
     """
-    # Get current time in Troy, Ohio timezone
-    now = datetime.now(TROY_TZ)
+    # Get current time in location timezone
+    now = datetime.now(LOCATION_TZ)
     
     # Day of week names
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -97,8 +98,8 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
         'is_weekday': now.weekday() < 5,  # True/False
         
         # Timezone
-        'timezone': 'EST' if now.astimezone(TROY_TZ).dst() == timedelta(0) else 'EDT',
-        'timezone_name': 'America/New_York',
+        'timezone': 'CST' if now.astimezone(LOCATION_TZ).dst() == timedelta(0) else 'CDT',
+        'timezone_name': LOCATION_TIMEZONE,
         
         # Robot info
         'robot_name': ROBOT_NAME,

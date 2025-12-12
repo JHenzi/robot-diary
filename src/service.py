@@ -2,8 +2,8 @@
 """
 Robot Diary Service
 
-A long-running service that periodically observes Troy, Ohio
-through a live webcam feed and generates diary entries.
+A long-running service that periodically observes New Orleans, Louisiana
+through a live YouTube stream and generates diary entries.
 """
 import time
 import signal
@@ -51,8 +51,9 @@ trigger_observation = False
 last_observation_time = None  # Track when we last ran an observation
 last_observation_scheduled_time = None  # Track which scheduled time we last ran
 
-# Troy, Ohio timezone (Eastern Time)
-TROY_TZ = pytz.timezone('America/New_York')
+# Location timezone (from config)
+from . import config as app_config
+LOCATION_TZ = pytz.timezone(app_config.LOCATION_TIMEZONE)
 
 
 def signal_handler(signum, frame):
@@ -182,7 +183,7 @@ def main():
         logger.info(get_observation_schedule_summary(observation_times))
         
         # Calculate next observation time
-        now = datetime.now(TROY_TZ)
+        now = datetime.now(LOCATION_TZ)
         next_time = get_next_observation_time(now, observation_times)
         logger.info(f"Next scheduled observation: {next_time.strftime('%A, %B %d at %I:%M %p %Z')}")
         logger.info("Service running. Waiting for scheduled observation time or manual triggers...")
@@ -223,7 +224,7 @@ def main():
             
             # Check for scheduled observation
             if USE_SCHEDULED_OBSERVATIONS and observation_times:
-                now = datetime.now(TROY_TZ)
+                now = datetime.now(LOCATION_TZ)
                 
                 # Find which scheduled time we're closest to (if any)
                 current_time_only = now.time()

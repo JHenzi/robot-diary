@@ -1,0 +1,59 @@
+{{- /* Open Graph / Facebook / LinkedIn */ -}}
+<meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+<meta property="og:title" content="{{ if .IsPage }}{{ .Title }} | {{ end }}{{ site.Title }}">
+<meta property="og:description" content="{{- with .Description }}{{ . }}{{- else }}{{- if or .IsPage .IsSection}}{{ .Summary | default (printf "%s - %s" .Title site.Title) }}{{- else }}{{- with site.Params.description }}{{ . }}{{- end }}{{- end }}{{- end -}}">
+<meta property="og:url" content="{{ .Permalink }}">
+<meta property="og:site_name" content="{{ site.Title }}">
+<meta property="og:locale" content="en_US">
+{{- if .IsPage }}
+  {{- if .Params.cover.image }}
+<meta property="og:image" content="{{ .Params.cover.image | absURL }}">
+  {{- else if .Params.images }}
+<meta property="og:image" content="{{ index .Params.images 0 | absURL }}">
+  {{- else }}
+    {{- $images := findRE `!\[.*?\]\(([^)]+)\)` .Content }}
+    {{- if $images }}
+      {{- $firstImage := index $images 0 }}
+      {{- $imagePath := replaceRE `!\[.*?\]\(([^)]+)\)` "$1" $firstImage }}
+<meta property="og:image" content="{{ $imagePath | absURL }}">
+    {{- else if site.Params.cover.image }}
+<meta property="og:image" content="{{ site.Params.cover.image | absURL }}">
+    {{- end }}
+  {{- end }}
+{{- else if site.Params.cover.image }}
+<meta property="og:image" content="{{ site.Params.cover.image | absURL }}">
+{{- end }}
+{{- if .IsPage }}
+<meta property="article:published_time" content="{{ .Date.Format "2006-01-02T15:04:05Z07:00" | safeHTML }}">
+<meta property="article:modified_time" content="{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" | safeHTML }}">
+{{- if .Params.tags }}{{ range .Params.tags }}<meta property="article:tag" content="{{ . }}">{{ end }}{{ end }}
+{{- end }}
+
+{{- /* Twitter Card */ -}}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ if .IsPage }}{{ .Title }} | {{ end }}{{ site.Title }}">
+<meta name="twitter:description" content="{{- with .Description }}{{ . }}{{- else }}{{- if or .IsPage .IsSection}}{{ .Summary | default (printf "%s - %s" .Title site.Title) }}{{- else }}{{- with site.Params.description }}{{ . }}{{- end }}{{- end }}{{- end -}}">
+<meta name="twitter:site" content="@henzifoundation">
+{{- if .IsPage }}
+  {{- if .Params.cover.image }}
+<meta name="twitter:image" content="{{ .Params.cover.image | absURL }}">
+  {{- else if .Params.images }}
+<meta name="twitter:image" content="{{ index .Params.images 0 | absURL }}">
+  {{- else }}
+    {{- $images := findRE `!\[.*?\]\(([^)]+)\)` .Content }}
+    {{- if $images }}
+      {{- $firstImage := index $images 0 }}
+      {{- $imagePath := replaceRE `!\[.*?\]\(([^)]+)\)` "$1" $firstImage }}
+<meta name="twitter:image" content="{{ $imagePath | absURL }}">
+    {{- else if site.Params.cover.image }}
+<meta name="twitter:image" content="{{ site.Params.cover.image | absURL }}">
+    {{- end }}
+  {{- end }}
+{{- else if site.Params.cover.image }}
+<meta name="twitter:image" content="{{ site.Params.cover.image | absURL }}">
+{{- end }}
+
+{{- /* Additional SEO */ -}}
+<meta name="theme-color" content="#1e1e2e">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+

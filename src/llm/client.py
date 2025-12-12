@@ -59,7 +59,7 @@ class GroqClient:
         
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
-B3N-T5-MNT is a maintenance robot working in a building in Troy, Ohio. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections.
+B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections.
 
 CRITICAL RULE: The robot is looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
 
@@ -145,19 +145,20 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             timezone = context_metadata.get('timezone', 'EST')
         else:
             # Fallback: calculate from current time
-            cincinnati_tz = pytz.timezone('America/New_York')
-            now = datetime.now(cincinnati_tz)
+            from ..config import LOCATION_TIMEZONE
+            location_tz = pytz.timezone(LOCATION_TIMEZONE)
+            now = datetime.now(location_tz)
             current_date = now.strftime('%B %d, %Y')  # "December 11, 2025"
             day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
             current_time = now.strftime('%I:%M %p')
-            timezone = 'EST' if now.astimezone(cincinnati_tz).dst() == timedelta(0) else 'EDT'
+            timezone = 'CST' if now.astimezone(location_tz).dst() == timedelta(0) else 'CDT'
         
         # Create the full prompt with image
         full_prompt = f"""{optimized_prompt}
 
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
 
-Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in Troy, Ohio, observing the world through the window. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing the outside world. IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
+Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana, observing the world through the window. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing the outside world. IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
 
 CRITICAL RULES:
 1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
