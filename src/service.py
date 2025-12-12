@@ -29,6 +29,7 @@ from .llm import GroqClient, generate_dynamic_prompt, create_diary_entry
 from .memory import MemoryManager
 from .hugo import HugoGenerator
 from .weather import PirateWeatherClient
+from .news import get_random_headlines
 from .context import get_context_metadata
 
 # Configure logging
@@ -103,8 +104,8 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         memory_count = memory_manager.get_total_count()
         logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
-        # Step 2.5: Fetch weather and context metadata
-        logger.info("Step 2.5: Fetching weather and context metadata...")
+        # Step 2.5: Fetch weather, news, and context metadata
+        logger.info("Step 2.5: Fetching weather, news, and context metadata...")
         weather_data = {}
         if PIRATE_WEATHER_KEY:
             try:
@@ -113,7 +114,20 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
             except Exception as e:
                 logger.warning(f"Failed to fetch weather: {e}")
         
+        # Fetch news headlines (40% chance to include in prompt)
+        import random
+        news_headlines = []
+        if random.random() < 0.40:  # 40% chance
+            try:
+                news_headlines = get_random_headlines(count=2)
+                if news_headlines:
+                    logger.info(f"Fetched news headlines: {news_headlines}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch news: {e}")
+        
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
+        # Add news headlines to context metadata
+        context_metadata['news_headlines'] = news_headlines
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")

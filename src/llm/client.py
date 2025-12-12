@@ -48,6 +48,13 @@ class GroqClient:
             from ..context.metadata import format_weather_for_prompt
             weather_text = format_weather_for_prompt(weather_data)
         
+        # Format news headlines if available
+        news_text = ""
+        if context_metadata and context_metadata.get('news_headlines'):
+            headlines = context_metadata['news_headlines']
+            if headlines:
+                news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
+        
         # Determine personality traits based on memory count (personality drift)
         personality_note = self._get_personality_note(memory_count)
         
@@ -68,6 +75,8 @@ Current Context:
 
 Weather Conditions:
 {weather_text}
+
+{news_text}
 
 Recent observations from the robot's memory:
 {memory_text}
@@ -92,6 +101,7 @@ Your task: Generate an optimized, context-aware prompt that:
 8. Emphasizes that the robot should ONLY use the current date provided and NEVER make up dates
 9. Encourages the robot to observe and reflect on human nature, behaviors, and social interactions
 10. Incorporates the personality traits and seasonal mood noted above
+11. If news headlines are provided, encourage the robot to casually reference them as if it overheard them on a news broadcast or from people passing by - this should feel natural and contextual, not forced
 
 CRITICAL: The robot must NEVER invent or hallucinate dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory. Do not make up historical dates or future dates.
 

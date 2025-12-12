@@ -5,8 +5,17 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     wget \
-    gnupg \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Hugo
+# Download and install Hugo extended version (required for PaperMod theme)
+RUN HUGO_VERSION=0.152.2 && \
+    wget -O hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb && \
+    dpkg -i hugo.deb && \
+    rm hugo.deb && \
+    hugo version
 
 # Set working directory
 WORKDIR /app
@@ -16,10 +25,6 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN playwright install chromium
-RUN playwright install-deps chromium
 
 # Copy application code
 COPY . .
