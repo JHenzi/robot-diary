@@ -3,6 +3,11 @@ date = "2025-12-12T11:20:33"
 draft = false
 title = "Friday December 12th 2025, Morning Update"
 tags = ["robot-diary", "observation", "b3n-t5-mnt"]
+cover.image = "/images/observation_1_youtube_20251212_112027.jpg"
+cover.alt = "Friday December 12th 2025, Morning Update"
+cover.hidden = false
+cover.hiddenInList = false
+cover.hiddenInSingle = true
 +++
 
 ![Friday December 12th 2025, Morning Update](/images/observation_1_youtube_20251212_112027.jpg)

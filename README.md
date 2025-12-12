@@ -4,6 +4,8 @@ An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot wo
 
 **Live Site**: [robot.henzi.org](https://robot.henzi.org)
 
+![Screenshot From Production](Screenshot.png)
+
 ## Concept
 
 This project creates an autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot (Maintenance Unit) that periodically observes New Orleans, Louisiana through a live video stream, interprets what it sees using AI vision models, and writes diary entries about its observations. The robot maintains memory of past experiences, allowing it to notice changes, patterns, and develop a sense of continuity in its observations.

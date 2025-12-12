@@ -65,3 +65,10 @@
 <link rel="alternate" type="application/rss+xml" title="{{ $.Site.Title }} RSS Feed" href="{{ .Permalink }}">
 {{- end }}
 
+{{- /* Custom CSS */ -}}
+{{- $customCSS := resources.Get "css/custom.css" }}
+{{- if $customCSS }}
+{{- $customCSS = $customCSS | minify | fingerprint }}
+<link rel="stylesheet" href="{{ $customCSS.RelPermalink }}" integrity="{{ $customCSS.Data.Integrity }}">
+{{- end }}
+

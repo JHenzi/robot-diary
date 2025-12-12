@@ -22,8 +22,6 @@ theme = 'PaperMod'
   
   # Social links (optional)
   ShowReadingTime = true
-  ShowPostNavLinks = true
-  ShowBreadCrumbs = true
   ShowCodeCopyButtons = true
   
   # Theme appearance
@@ -34,11 +32,12 @@ theme = 'PaperMod'
   ShowRssButtonInSectionTermList = true
   ShowToc = true
   TocOpen = false
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
   
-  # Images
-  # cover.image = '/images/observation_1_webcam_20251211_225104_6bedbbac.jpg'
-  # cover.hidden = false
-  # cover.hiddenInList = false
+  # Cover image settings
+  cover.linkFullImages = false
+  cover.responsiveImages = true
 
 [menu]
   [[menu.main]]

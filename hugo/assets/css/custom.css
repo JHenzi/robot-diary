@@ -1,0 +1,65 @@
+/* Custom styling for Robot Diary */
+
+/* Improve post entry cards */
+.post-entry {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.post-entry:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Better cover image styling */
+.entry-cover {
+    overflow: hidden;
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+}
+
+.entry-cover img {
+    transition: transform 0.3s ease;
+    object-fit: cover;
+    max-height: 300px;
+}
+
+.post-entry:hover .entry-cover img {
+    transform: scale(1.05);
+}
+
+/* Improve typography */
+.entry-content {
+    line-height: 1.7;
+}
+
+.entry-header h2 {
+    margin-bottom: 0.5rem;
+}
+
+/* Better spacing for post listings */
+.post-entry {
+    margin-bottom: calc(var(--gap) * 1.5);
+}
+
+/* Improve first entry (featured post) */
+.first-entry {
+    background: linear-gradient(135deg, var(--entry) 0%, var(--theme) 100%);
+    padding: calc(var(--gap) * 2);
+    border: 2px solid var(--border);
+}
+
+.first-entry .entry-cover img {
+    max-height: 400px;
+}
+
+/* Better tag styling */
+.entry-footer {
+    margin-top: 0.75rem;
+}
+
+/* Improve readability */
+.entry-content p {
+    margin-bottom: 0.5rem;
+}
+

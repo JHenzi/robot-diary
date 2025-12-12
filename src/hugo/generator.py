@@ -89,12 +89,20 @@ class HugoGenerator:
         if is_news_based:
             tags.append("news-transmission")
         
+        # Add cover image to front matter if we have an image
+        # Cover shows in list view (for previews) but hidden in single post view (to avoid duplication with inline image)
+        cover_image_param = ""
+        if not is_news_based and image_path and image_path.exists():
+            # Image filename for cover (relative to /images/)
+            image_filename = f"observation_{observation_id}_{image_path.name}"
+            cover_image_param = f'cover.image = "/images/{image_filename}"\ncover.alt = "{post_title}"\ncover.hidden = false\ncover.hiddenInList = false\ncover.hiddenInSingle = true\n'
+        
         front_matter = f"""+++
 date = {datetime.now().strftime('"%Y-%m-%dT%H:%M:%S%z"')}
 draft = false
 title = "{post_title}"
 tags = {tags}
-+++
+{cover_image_param}+++
 
 """
         
