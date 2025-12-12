@@ -38,6 +38,16 @@ theme = 'PaperMod'
   # Cover image settings
   cover.linkFullImages = false
   cover.responsiveImages = true
+  
+  # Favicon and asset configuration
+  [params.assets]
+  favicon = "/favicon.ico"
+  favicon16x16 = "/favicon-96x96.png"  # Using 96x96 as 16x16 fallback
+  favicon32x32 = "/favicon-96x96.png"  # Using 96x96 as 32x32 fallback
+  apple_touch_icon = "/apple-touch-icon.png"
+  safari_pinned_tab = "/favicon.svg"
+  theme_color = "#1e1e2e"
+  msapplication_TileColor = "#1e1e2e"
 
 [menu]
   [[menu.main]]

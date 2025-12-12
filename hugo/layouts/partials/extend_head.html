@@ -53,9 +53,11 @@
 <meta name="twitter:image" content="{{ site.Params.cover.image | absURL }}">
 {{- end }}
 
-{{- /* Additional SEO */ -}}
-<meta name="theme-color" content="#1e1e2e">
-<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+{{- /* Additional SEO - Note: Theme handles favicons via params.assets */ -}}
+{{- /* Modern SVG favicon for browsers that support it */ -}}
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+{{- /* Web App Manifest for PWA support */ -}}
+<link rel="manifest" href="/site.webmanifest">
 
 {{- /* RSS Feed Auto-Discovery */ -}}
 {{- with .OutputFormats.Get "RSS" }}
