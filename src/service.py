@@ -240,6 +240,17 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         logger.info("✅ News-based observation cycle completed successfully")
         logger.info("=" * 60)
         
+        # Save the date of this news observation (so we don't trigger again immediately)
+        # This needs to be done here so it works even when called from fallback or manual triggers
+        try:
+            import json
+            last_news_file = MEMORY_DIR / '.last_news_observation.json'
+            with open(last_news_file, 'w') as f:
+                json.dump({'date': datetime.now().isoformat()}, f)
+            logger.debug("Saved last news observation date")
+        except Exception as e:
+            logger.warning(f"Failed to save last news observation date: {e}")
+        
     except Exception as e:
         logger.error(f"❌ Error in news-based observation cycle: {e}", exc_info=True)
         raise

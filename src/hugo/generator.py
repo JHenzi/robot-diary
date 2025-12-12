@@ -184,7 +184,19 @@ tags = {tags}
                 if DEPLOY_SSH_KEY:
                     # Use fixed container path (key is mounted from .env)
                     ssh_key_path = '/app/.ssh/deploy_key'
-                    cmd.extend(['-e', f'ssh -i {ssh_key_path}'])
+                    
+                    # Fix permissions (SSH requires 600 for private keys)
+                    try:
+                        import os
+                        os.chmod(ssh_key_path, 0o600)
+                    except Exception as e:
+                        logger.warning(f"Could not set key permissions: {e}")
+                    
+                    # SSH options for non-interactive deployment:
+                    # - StrictHostKeyChecking=accept-new: Accept new host keys automatically (but still validate)
+                    # - UserKnownHostsFile: Save to known_hosts for future connections
+                    ssh_opts = f"-i {ssh_key_path} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/app/.ssh/known_hosts"
+                    cmd.extend(['-e', f'ssh {ssh_opts}'])
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/")
@@ -208,7 +220,16 @@ tags = {tags}
                 if DEPLOY_SSH_KEY:
                     # Use fixed container path (key is mounted from .env)
                     ssh_key_path = '/app/.ssh/deploy_key'
-                    cmd.extend(['-i', ssh_key_path])
+                    
+                    # Fix permissions (SSH requires 600 for private keys)
+                    try:
+                        import os
+                        os.chmod(ssh_key_path, 0o600)
+                    except Exception as e:
+                        logger.warning(f"Could not set key permissions: {e}")
+                    
+                    # SSH options for non-interactive deployment
+                    cmd.extend(['-i', ssh_key_path, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=/app/.ssh/known_hosts'])
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/*")
