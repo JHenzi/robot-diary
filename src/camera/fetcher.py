@@ -88,18 +88,47 @@ async def _get_hls_url():
             logger.info(f"Navigating directly to Angelcam iframe: {ANGELCAM_IFRAME_URL}")
             await page.goto(ANGELCAM_IFRAME_URL, wait_until='domcontentloaded')
             
-            # Wait for video player to initialize and make the HLS request
-            logger.info("Waiting for video player to load and request HLS stream...")
-            await page.wait_for_timeout(3000)
+            # Wait for video player to initialize
+            logger.info("Waiting for video player to initialize...")
+            try:
+                # Wait for video element to be visible
+                await page.wait_for_selector('video', timeout=10000, state='visible')
+                logger.info("✅ Video element found")
+            except Exception as e:
+                logger.warning(f"Video element not found or timeout: {e}")
+                # Continue anyway - might still work
             
-            # Check if we captured it during initial load
+            # Check if we already captured it during initial load
             if hls_url:
                 logger.info("✅ HLS URL captured during initial load")
                 return hls_url
             
+            # Click on the video to trigger playback (required for autoplay in many browsers)
+            logger.info("Clicking video element to trigger playback...")
+            try:
+                # Try clicking the video element directly
+                await page.click('video', timeout=5000)
+                logger.info("✅ Clicked video element")
+            except Exception as e:
+                logger.warning(f"Could not click video element: {e}")
+                # Try clicking a play button if it exists
+                try:
+                    await page.click('button[aria-label="Play"], button[aria-label*="play" i], .play-button, [class*="play"]', timeout=3000)
+                    logger.info("✅ Clicked play button")
+                except:
+                    logger.warning("Could not find play button, continuing anyway...")
+            
+            # Wait a moment for the click to register and stream to start
+            await page.wait_for_timeout(2000)
+            
+            # Check if we captured it after click
+            if hls_url:
+                logger.info("✅ HLS URL captured after click")
+                return hls_url
+            
             # Wait for network to be idle
             try:
-                await page.wait_for_load_state('networkidle', timeout=20000)
+                await page.wait_for_load_state('networkidle', timeout=15000)
             except:
                 logger.warning("Network idle timeout, continuing...")
             
@@ -117,11 +146,16 @@ async def _get_hls_url():
                 await page.wait_for_timeout(10000)
                 
                 if not hls_url:
-                    # Log frame info for debugging
-                    frames = page.frames
-                    logger.info(f"Total frames: {len(frames)}")
-                    for i, frame in enumerate(frames):
-                        logger.info(f"  Frame {i}: {frame.url[:100] if frame.url else 'no url'}")
+                    # Log page info for debugging
+                    logger.warning("HLS request not found. Checking page state...")
+                    video_elements = await page.query_selector_all('video')
+                    logger.info(f"Found {len(video_elements)} video elements")
+                    for i, video in enumerate(video_elements):
+                        try:
+                            is_playing = await video.evaluate('el => !el.paused')
+                            logger.info(f"  Video {i}: playing={is_playing}")
+                        except:
+                            pass
                     
                     raise TimeoutError("HLS stream request not detected within timeout period")
             
