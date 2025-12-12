@@ -11,8 +11,9 @@ from ..config import IMAGES_DIR
 
 logger = logging.getLogger(__name__)
 
-# Troy, Ohio webcam URL
+# Troy, Ohio webcam URLs
 WEBCAM_URL = "https://troyohio.gov/542/Live-Downtown-Webcams"
+ANGELCAM_IFRAME_URL = "https://v.angelcam.com/iframe?v=ger29e19ym&autoplay=1"
 M3U8_IDENTIFIER = "playlist.m3u8"
 
 # Cache metadata file to track latest image
@@ -61,16 +62,72 @@ async def _get_hls_url():
         page = await browser.new_page()
         
         try:
-            logger.info(f"Navigating to webcam page: {WEBCAM_URL}")
-            await page.goto(WEBCAM_URL)
+            # Use route interception to capture ALL requests
+            hls_url = None
+            request_event = asyncio.Event()
             
-            # Wait for the specific request to the Angelcam stream
-            logger.info("Waiting for HLS stream request...")
-            hls_request = await page.wait_for_request(
-                lambda request: M3U8_IDENTIFIER in request.url,
-                timeout=30000  # 30 seconds timeout
-            )
-            hls_url = hls_request.url
+            async def handle_route(route):
+                """Intercept all requests to find the HLS URL."""
+                nonlocal hls_url
+                request = route.request
+                url = request.url
+                
+                # Check if this is the HLS request
+                if M3U8_IDENTIFIER in url and not hls_url:
+                    hls_url = url
+                    logger.info(f"✅ Captured HLS URL via route: {url[:80]}...")
+                    request_event.set()
+                
+                # Continue with the request
+                await route.continue_()
+            
+            # Set up route interception BEFORE navigation
+            await page.route('**/*', handle_route)
+            
+            # Navigate directly to the Angelcam iframe URL (more reliable)
+            logger.info(f"Navigating directly to Angelcam iframe: {ANGELCAM_IFRAME_URL}")
+            await page.goto(ANGELCAM_IFRAME_URL, wait_until='domcontentloaded')
+            
+            # Wait for video player to initialize and make the HLS request
+            logger.info("Waiting for video player to load and request HLS stream...")
+            await page.wait_for_timeout(3000)
+            
+            # Check if we captured it during initial load
+            if hls_url:
+                logger.info("✅ HLS URL captured during initial load")
+                return hls_url
+            
+            # Wait for network to be idle
+            try:
+                await page.wait_for_load_state('networkidle', timeout=20000)
+            except:
+                logger.warning("Network idle timeout, continuing...")
+            
+            if hls_url:
+                logger.info("✅ HLS URL captured after network idle")
+                return hls_url
+            
+            # Wait for the HLS request with timeout
+            logger.info("Waiting for HLS stream request (up to 30 seconds)...")
+            try:
+                await asyncio.wait_for(request_event.wait(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # Give it one more chance
+                logger.info("Waiting additional 10 seconds...")
+                await page.wait_for_timeout(10000)
+                
+                if not hls_url:
+                    # Log frame info for debugging
+                    frames = page.frames
+                    logger.info(f"Total frames: {len(frames)}")
+                    for i, frame in enumerate(frames):
+                        logger.info(f"  Frame {i}: {frame.url[:100] if frame.url else 'no url'}")
+                    
+                    raise TimeoutError("HLS stream request not detected within timeout period")
+            
+            if not hls_url:
+                raise ValueError("HLS URL was not captured")
+            
             logger.info(f"✅ Retrieved HLS URL: {hls_url[:80]}...")
             return hls_url
             
@@ -194,4 +251,3 @@ def get_latest_cached_image() -> Path | None:
         return image_path
     
     return None
-

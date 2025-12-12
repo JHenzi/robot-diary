@@ -15,7 +15,7 @@ theme = 'PaperMod'
   
   # Home page info
   homeInfoParams.Title = 'B3N-T5-MNT'
-  homeInfoParams.Content = 'This is the diary of B3N-T5-MNT, a maintenance robot working in a building in Troy, Ohio. B3N-T5-MNT performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining this diary of its observations, thoughts, and reflections as it watches the city change through the seasons. Designation: Maintenance Unit.'
+  homeInfoParams.Content = "This is the diary of B3N-T5-MNT, a maintenance robot working in a building in Troy, Ohio. B3N-T5-MNT performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining this diary of its observations, thoughts, and reflections as it watches the city change through the seasons. Designation: Maintenance Unit."
   
   # Social links (optional)
   ShowReadingTime = true

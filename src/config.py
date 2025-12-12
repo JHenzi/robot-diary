@@ -57,7 +57,7 @@ LOCATION_STATE = "Ohio"
 LOCATION_FULL = "Troy, Ohio"
 
 # Weather coordinates for Troy, Ohio
-TROY_LATITUDE = 40.0398
+TROY_LATITUDE = 40.0395
 TROY_LONGITUDE = -84.2033
 
 # Validation

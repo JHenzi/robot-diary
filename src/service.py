@@ -216,7 +216,7 @@ def main():
                 trigger_observation = False
                 try:
                     run_observation_cycle()
-                    last_observation_time = datetime.now(CINCINNATI_TZ)  # Update last observation time
+                    last_observation_time = datetime.now(TROY_TZ)  # Update last observation time
                 except Exception as e:
                     logger.error(f"Manual observation failed: {e}", exc_info=True)
                 continue
@@ -261,7 +261,7 @@ def main():
                     logger.info(f"⏰ Scheduled observation time reached ({matched_scheduled_time.strftime('%I:%M %p')})!")
                     try:
                         run_observation_cycle()
-                        last_observation_time = datetime.now(CINCINNATI_TZ)  # Update last observation time
+                        last_observation_time = datetime.now(TROY_TZ)  # Update last observation time
                         last_observation_scheduled_time = matched_scheduled_time  # Track which scheduled time we ran
                         logger.info(f"✅ Observation completed. Next scheduled observation: {next_time.strftime('%A, %B %d at %I:%M %p %Z')}")
                     except Exception as e:

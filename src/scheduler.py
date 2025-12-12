@@ -47,9 +47,9 @@ def get_next_observation_time(current_time: datetime, observation_times: List[ti
     Returns:
         Next observation datetime
     """
-    current_time_cincy = current_time.astimezone(CINCINNATI_TZ)
-    current_date = current_time_cincy.date()
-    current_time_only = current_time_cincy.time()
+    current_time_troy = current_time.astimezone(TROY_TZ)
+    current_date = current_time_troy.date()
+    current_time_only = current_time_troy.time()
     
     # Check if any observation time is later today
     for obs_time in observation_times:
@@ -62,7 +62,7 @@ def get_next_observation_time(current_time: datetime, observation_times: List[ti
     # Next observation is tomorrow (first time)
     next_date = current_date + timedelta(days=1)
     first_obs_time = observation_times[0]
-    return CINCINNATI_TZ.localize(
+    return TROY_TZ.localize(
         datetime.combine(next_date, first_obs_time)
     )
 
