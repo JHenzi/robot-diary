@@ -17,46 +17,43 @@ The diary entries are automatically generated as Hugo blog posts and published t
 ## Features
 
 - **Continuous Service**: Runs as a background service, observing and generating content continuously
-- **Periodic Image Capture**: Captures frames from live video streams (currently migrating to YouTube Live)
+- **Periodic Image Capture**: Captures frames from live YouTube video streams
 - **AI Vision Interpretation**: Uses Groq's Llama-4-Maverick vision model to describe what the robot "sees"
+- **News Fallback**: Automatically falls back to news-based observations when image capture fails, using headlines from [Pulse API](https://pulse.henzi.org)
 - **Dynamic Prompt Generation**: Uses a cheaper model (`gpt-oss-20b`) to generate context-aware prompts based on recent history
 - **Contextual Memory**: Maintains memory of recent observations to create narrative continuity
 - **Dynamic Storytelling**: Generates unique diary entries based on current observations and past memories
+- **Weather Integration**: Incorporates current weather data for richer contextual prompts
 - **Automated Publishing**: Converts diary entries into Hugo posts and automatically builds the site
-- **Extensible**: Designed to expand to other activities like reading news, weather observations, etc.
+- **Preview Images**: Posts automatically include cover images for beautiful previews in listings
 
-## Current Status & Migration
+## Current Status
 
-**⚠️ In Transition**: The project is migrating to a new video source.
+**✅ Live and Operational**: The project is fully operational and generating diary entries.
 
-### Previous Attempts
+### Image Source: YouTube Live Streams
 
-1. **Windy Webcams API** ❌
-   - Images were stale/outdated
-   - Not suitable for real-time observations
-   - Removed from codebase
-
-2. **Angelcam API/Playwright** ❌
-   - Public cameras API requires OAuth2 integrator credentials (not available with Personal Access Tokens)
-   - Playwright approach blocked by browser detection ("Browser not supported" message)
-   - Unable to reliably extract HLS stream URLs
-
-### Next Approach: YouTube Live Stream
-
-The project will use YouTube Live streams as the video source:
+The system uses YouTube Live streams as the primary video source:
 - ✅ Reliable and accessible
 - ✅ Real-time content
-- ✅ Can use `yt-dlp` or similar tools to extract frames
+- ✅ Uses `yt-dlp` to extract frames from streams
 - ✅ No authentication required for public streams
-- ✅ Better browser compatibility
 
-See [MIGRATION_PLAN.md](MIGRATION_PLAN.md) for details on the migration.
+### News Fallback System
+
+When image capture fails, the system automatically falls back to news-based observations:
+- Fetches random news clusters from [Pulse API](https://pulse.henzi.org)
+- Selects 3 headlines from a random topic cluster
+- Generates text-only diary entries reflecting on the news from the robot's perspective
+- Ensures continuous content generation even when video streams are unavailable
+- Randomly triggers news-based observations every few days for variety
 
 ## Tech Stack
 
 - **Python**: Core automation and API integration
-- **YouTube Live Streams**: Source of live video feeds (migrating to)
-- **yt-dlp** (or similar): Tool for extracting frames from YouTube streams
+- **YouTube Live Streams**: Primary source of live video feeds via `yt-dlp`
+- **Pulse API** ([pulse.henzi.org](https://pulse.henzi.org)): News headlines for fallback observations
+- **Pirate Weather API**: Current weather data for contextual prompts
 - **Groq + Two-Model Approach**:
   - `openai/gpt-oss-20b`: Dynamic prompt generation based on recent history
   - `meta-llama/llama-4-maverick-17b-128e-instruct`: Vision interpretation and diary entry generation
@@ -125,8 +122,13 @@ cp .env.example .env
 Required environment variables:
 - `GROQ_API_KEY`: Your Groq API key
 - `YOUTUBE_STREAM_URL`: URL of the YouTube live stream to observe
-- `OBSERVATION_INTERVAL_HOURS`: How often to make observations (default: 6)
+- `LOCATION_TIMEZONE`: Timezone for scheduling (default: `America/Chicago`)
+
+Optional environment variables:
+- `PIRATE_WEATHER_KEY`: Weather API key for contextual prompts
+- `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
 - `HUGO_SITE_PATH`: Path to Hugo site (default: `./hugo`)
+- `DEPLOY_ENABLED`: Enable automatic site deployment (default: `false`)
 
 5. Configure Hugo site:
 ```bash
@@ -137,7 +139,7 @@ Required environment variables:
 
 ## Usage
 
-**Status**: ⚠️ **In Migration** - Migrating from Angelcam/Playwright to YouTube Live streams.
+**Status**: ✅ **Live** - Fully operational and generating diary entries.
 
 ### Running as a Service
 
@@ -154,15 +156,19 @@ python src/service.py
 
 The service will:
 1. Run continuously in the background
-2. Make observations at configured intervals (default: every 6 hours)
+2. Make observations at randomized scheduled times (morning: 7:30-9:30 AM, evening: 4-6 PM weekdays / 6 PM-1 AM weekends)
 3. For each observation cycle:
-   - Capture a frame from the YouTube live stream
+   - Attempt to capture a frame from the YouTube live stream
+   - If image capture fails, automatically fall back to news-based observation using [Pulse API](https://pulse.henzi.org)
    - Load recent memory/history
-   - Use `gpt-oss-20b` to generate a dynamic prompt based on recent history
-   - Send image to `llama-4-maverick` for vision interpretation
+   - Fetch current weather data (if configured)
+   - Use `gpt-oss-20b` to generate a dynamic prompt based on recent history, weather, and context
+   - For image-based observations: Send image to `llama-4-maverick` for vision interpretation
+   - For news-based observations: Generate text-only entry reflecting on news headlines
    - Generate diary entry using the optimized prompt
-   - Create Hugo post in `hugo/content/posts/`
+   - Create Hugo post in `hugo/content/posts/` with cover image (for image-based posts)
    - Automatically build Hugo site
+   - Deploy site (if configured)
    - Update memory with the new observation
 
 ### Running as a System Service
@@ -188,29 +194,44 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
+### Manual Observation Trigger
+
+You can manually trigger an observation:
+
+```bash
+# Regular observation (with image)
+python observe_now.py
+
+# Force fresh image capture
+python observe_now.py --force-refresh
+
+# News-based observation (text-only, no image)
+python observe_now.py --news-only
+```
+
 ### Configuration
 
 The service behavior can be configured via environment variables:
-- `OBSERVATION_INTERVAL_HOURS`: How often to make observations (default: 6)
+- `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe
+- `GROQ_API_KEY`: Your Groq API key
+- `PIRATE_WEATHER_KEY`: (Optional) Weather API key for contextual prompts
+- `LOCATION_TIMEZONE`: Timezone for scheduling (default: `America/Chicago`)
+- `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
 - `HUGO_SITE_PATH`: Path to Hugo site directory (default: `./hugo`)
-- `HUGO_BUILD_ON_UPDATE`: Whether to auto-build Hugo (default: `true`)
+- `DEPLOY_ENABLED`: Enable automatic site deployment (default: `false`)
 
-## Configuration
+### News Fallback Configuration
 
-### YouTube Stream Selection
+The system automatically uses [Pulse API](https://pulse.henzi.org) for news-based observations:
+- No API key required (public API)
+- Automatically fetches random news clusters
+- Selects 3 headlines from random topics
+- Generates thoughtful reflections from the robot's perspective
 
-To configure a YouTube live stream:
-
-1. Find a YouTube live stream URL (e.g., `https://www.youtube.com/watch?v=VIDEO_ID` or `https://www.youtube.com/live/VIDEO_ID`)
-2. Set `YOUTUBE_STREAM_URL` in your `.env` file
-3. The system will use `yt-dlp` to extract frames from the stream
-
-### Memory Configuration
-
-The memory system stores recent observations to provide context for new diary entries. Configure:
-- Memory retention period
-- Number of recent observations to include
-- Memory storage format (JSON, database, etc.)
+News-based observations occur:
+- Automatically when image capture fails
+- Randomly every few days (10% chance per scheduled observation, or if 3+ days since last news observation)
+- Manually via `--news-only` flag
 
 ### LLM Prompting
 
@@ -289,9 +310,10 @@ docker run -d \
 
 ## Acknowledgments
 
-- Troy, Ohio for the live downtown webcam feed
-- Groq for fast, cost-effective LLM inference
-- Meta's Llama-4-Maverick model for vision and language capabilities
-- Hugo for static site generation
-- Playwright for browser automation
+- **New Orleans, Louisiana** for the live video feed
+- **Groq** for fast, cost-effective LLM inference
+- **Meta's Llama-4-Maverick** model for vision and language capabilities
+- **[Pulse API](https://pulse.henzi.org)** for news headlines and fallback observations
+- **Hugo** for static site generation
+- **PaperMod** Hugo theme for beautiful post previews
 
