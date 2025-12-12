@@ -2,6 +2,8 @@
 import base64
 from pathlib import Path
 import logging
+from datetime import datetime, timedelta
+import pytz
 from groq import Groq
 
 from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL
@@ -71,6 +73,9 @@ Your task: Generate an optimized, context-aware prompt that:
 5. Guides the robot to write in a thoughtful, reflective style
 6. Helps the robot notice changes or patterns from previous observations
 7. Encourages the robot to correlate what it sees through the window with the weather conditions
+8. Emphasizes that the robot should ONLY use the current date provided and NEVER make up dates
+
+CRITICAL: The robot must NEVER invent or hallucinate dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory. Do not make up historical dates or future dates.
 
 Generate ONLY the optimized prompt text, ready to be used with the vision model. Do not include any explanation or meta-commentary."""
 
@@ -95,13 +100,14 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             logger.warning("Falling back to base prompt template")
             return base_prompt_template
     
-    def create_diary_entry(self, image_path: Path, optimized_prompt: str) -> str:
+    def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None) -> str:
         """
         Create a diary entry using vision model.
         
         Args:
             image_path: Path to the image file
             optimized_prompt: The optimized prompt from generate_prompt
+            context_metadata: Dictionary with date/time and other context (optional)
             
         Returns:
             Diary entry text
@@ -113,14 +119,20 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
         # Get current date context for explicit inclusion
-        from datetime import datetime
-        import pytz
-        cincinnati_tz = pytz.timezone('America/New_York')
-        now = datetime.now(cincinnati_tz)
-        current_date = now.strftime('%B %d, %Y')  # "December 11, 2025"
-        day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
-        current_time = now.strftime('%I:%M %p')
-        timezone = 'EST' if now.astimezone(cincinnati_tz).dst() == timedelta(0) else 'EDT'
+        if context_metadata:
+            # Use provided context metadata
+            current_date = context_metadata.get('date', '')  # "December 11, 2025"
+            day_of_week = context_metadata.get('day_of_week', '')
+            current_time = context_metadata.get('time', '')
+            timezone = context_metadata.get('timezone', 'EST')
+        else:
+            # Fallback: calculate from current time
+            cincinnati_tz = pytz.timezone('America/New_York')
+            now = datetime.now(cincinnati_tz)
+            current_date = now.strftime('%B %d, %Y')  # "December 11, 2025"
+            day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
+            current_time = now.strftime('%I:%M %p')
+            timezone = 'EST' if now.astimezone(cincinnati_tz).dst() == timedelta(0) else 'EDT'
         
         # Create the full prompt with image
         full_prompt = f"""{optimized_prompt}

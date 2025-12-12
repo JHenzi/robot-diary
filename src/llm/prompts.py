@@ -29,7 +29,7 @@ def generate_dynamic_prompt(recent_memory: List[Dict], client,
                                  context_metadata, weather_data)
 
 
-def create_diary_entry(image_path, optimized_prompt: str, client) -> str:
+def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None) -> str:
     """
     Create a diary entry from an image using the optimized prompt.
     
@@ -37,9 +37,10 @@ def create_diary_entry(image_path, optimized_prompt: str, client) -> str:
         image_path: Path to the image
         optimized_prompt: Optimized prompt from generate_dynamic_prompt
         client: GroqClient instance
+        context_metadata: Dictionary with date/time and other context (optional)
         
     Returns:
         Diary entry text
     """
-    return client.create_diary_entry(image_path, optimized_prompt)
+    return client.create_diary_entry(image_path, optimized_prompt, context_metadata)
 

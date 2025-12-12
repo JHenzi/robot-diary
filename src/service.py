@@ -125,7 +125,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
         # Step 4: Create diary entry
         logger.info("Step 4: Creating diary entry...")
-        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client)
+        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Save to memory
