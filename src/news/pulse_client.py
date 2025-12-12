@@ -50,9 +50,46 @@ def get_random_cluster() -> Optional[Dict]:
     return cluster
 
 
+def get_cluster_articles(cluster_id: str, limit: int = 3) -> List[Dict]:
+    """
+    Fetch articles for a specific cluster with full metadata.
+    
+    Args:
+        cluster_id: Cluster ID (e.g., 'c-1', 'c-22')
+        limit: Number of articles to fetch
+        
+    Returns:
+        List of article dictionaries with title, published_at, source, sentiment_label, etc.
+    """
+    try:
+        url = f"{PULSE_API_BASE}/clusters/{cluster_id}/articles"
+        params = {'limit': limit}
+        
+        logger.info(f"Fetching articles from cluster {cluster_id}...")
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        articles = data.get('articles', [])
+        
+        if articles:
+            logger.info(f"✅ Fetched {len(articles)} articles from {cluster_id}")
+        else:
+            logger.warning(f"No articles found in cluster {cluster_id}")
+        
+        return articles
+        
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Failed to fetch articles from {cluster_id}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching articles from {cluster_id}: {e}")
+        return []
+
+
 def get_cluster_headlines(cluster_id: str, limit: int = 3) -> List[str]:
     """
-    Fetch headlines for a specific cluster.
+    Fetch headlines for a specific cluster (backward compatibility).
     
     Args:
         cluster_id: Cluster ID (e.g., 'c-1', 'c-22')
@@ -61,36 +98,13 @@ def get_cluster_headlines(cluster_id: str, limit: int = 3) -> List[str]:
     Returns:
         List of headline titles
     """
-    try:
-        url = f"{PULSE_API_BASE}/clusters/{cluster_id}/articles"
-        params = {'limit': limit}
-        
-        logger.info(f"Fetching headlines from cluster {cluster_id}...")
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        articles = data.get('articles', [])
-        headlines = [article.get('title', '') for article in articles if article.get('title')]
-        
-        if headlines:
-            logger.info(f"✅ Fetched {len(headlines)} headlines from {cluster_id}")
-        else:
-            logger.warning(f"No headlines found in cluster {cluster_id}")
-        
-        return headlines
-        
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"Failed to fetch headlines from {cluster_id}: {e}")
-        return []
-    except Exception as e:
-        logger.error(f"Error fetching headlines from {cluster_id}: {e}")
-        return []
+    articles = get_cluster_articles(cluster_id, limit)
+    return [article.get('title', '') for article in articles if article.get('title')]
 
 
 def get_random_headlines(count: int = 2) -> List[str]:
     """
-    Fetch random headlines from Pulse API.
+    Fetch random headlines from Pulse API (backward compatibility).
     
     Randomly selects a cluster and fetches headlines.
     
@@ -109,6 +123,29 @@ def get_random_headlines(count: int = 2) -> List[str]:
         return []
     
     return get_cluster_headlines(cluster_id, limit=count)
+
+
+def get_random_articles(count: int = 2) -> List[Dict]:
+    """
+    Fetch random articles from Pulse API with full metadata.
+    
+    Randomly selects a cluster and fetches articles.
+    
+    Args:
+        count: Number of articles to fetch (default: 2)
+        
+    Returns:
+        List of article dictionaries with full metadata, or empty list if fetch fails
+    """
+    cluster = get_random_cluster()
+    if not cluster:
+        return []
+    
+    cluster_id = cluster.get('cluster_id')
+    if not cluster_id:
+        return []
+    
+    return get_cluster_articles(cluster_id, limit=count)
 
 
 class PulseClient:

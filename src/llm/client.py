@@ -48,12 +48,33 @@ class GroqClient:
             from ..context.metadata import format_weather_for_prompt
             weather_text = format_weather_for_prompt(weather_data)
         
-        # Format news headlines if available
+        # Format news articles/headlines if available
         news_text = ""
-        if context_metadata and context_metadata.get('news_headlines'):
-            headlines = context_metadata['news_headlines']
-            if headlines:
-                news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
+        if context_metadata:
+            # Prefer full articles with dates if available
+            articles = context_metadata.get('news_articles', [])
+            if articles:
+                # Format articles with dates
+                article_refs = []
+                for article in articles:
+                    title = article.get('title', '')
+                    published_at = article.get('published_at', '')
+                    if published_at:
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                            date_str = dt.strftime('%B %d')
+                            article_refs.append(f"{title} (from {date_str})")
+                        except:
+                            article_refs.append(title)
+                    else:
+                        article_refs.append(title)
+                news_text = f"Recent news the robot might have heard: {', '.join(article_refs)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by. Consider the timing of when these events happened."
+            elif context_metadata.get('news_headlines'):
+                # Fallback to headlines only
+                headlines = context_metadata['news_headlines']
+                if headlines:
+                    news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
         
         # Determine personality traits based on memory count (personality drift)
         personality_note = self._get_personality_note(memory_count)
@@ -66,9 +87,12 @@ class GroqClient:
         
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
-B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections.
+IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
+B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections. The robot is an observer of human nature with a unique robotic perspective.
 
 CRITICAL RULE: The robot is looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
+
+IMPORTANT: The identity context above is for you to understand the robot's perspective. When generating the prompt, focus on writing instructions (observation, reflection, what to notice) rather than explaining the robot's identity. The identity informs the perspective but should not be the subject of the prompt.
 
 Current Context:
 {context_text}
@@ -90,7 +114,8 @@ Recent observations from the robot's memory:
 Base prompt template:
 {base_prompt_template}
 
-Your task: Generate an optimized, context-aware prompt that:
+Your task: Generate an optimized, context-aware prompt that focuses on WRITING INSTRUCTIONS and OBSERVATION GUIDANCE, not on explaining the robot's identity:
+
 1. References the current date, time, and season when relevant
 2. Incorporates weather observations (especially notable conditions like high winds, precipitation, etc.)
 3. References specific recent observations when relevant - encourage the robot to call back to previous diary entries by observation number or date
@@ -102,8 +127,11 @@ Your task: Generate an optimized, context-aware prompt that:
 9. Encourages the robot to observe and reflect on human nature, behaviors, and social interactions
 10. Incorporates the personality traits and seasonal mood noted above
 11. If news headlines are provided, encourage the robot to casually reference them as if it overheard them on a news broadcast or from people passing by - this should feel natural and contextual, not forced
+12. Focuses on WHAT to observe and HOW to reflect, not on explaining who the robot is or what its job is
 
-CRITICAL: The robot must NEVER invent or hallucinate dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory. Do not make up historical dates or future dates.
+CRITICAL: 
+- The robot must NEVER invent or hallucinate dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory. Do not make up historical dates or future dates.
+- Generate a prompt that focuses on observation and reflection, not on explaining the robot's identity. The identity is context that informs perspective, not content to repeat.
 
 Generate ONLY the optimized prompt text, ready to be used with the vision model. Do not include any explanation or meta-commentary."""
 
@@ -171,11 +199,17 @@ CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} 
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing and understanding the outside world.
+Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, and notice details. Focus on:
+- What you find interesting about the news topics from your robotic perspective
+- How the news relates to your observations of people and human nature
+- Patterns or behaviors you notice in the news that connect to your window observations
+- Reflections on human activities and motivations
+- Memory callbacks to specific past observations when relevant
 
 CRITICAL RULES:
 1. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
-2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature."""
+2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature.
+3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
         try:
             response = self.client.chat.completions.create(
@@ -251,11 +285,19 @@ CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} 
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana, observing the world through the window. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing the outside world. IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
+Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and notice details. Focus on:
+- What you observe through the window (people, activities, weather, light, changes)
+- Patterns and connections to previous observations
+- Reflections on human nature and behaviors
+- How weather conditions affect what you see
+- Memory callbacks to specific past observations when relevant
+
+IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
 
 CRITICAL RULES:
 1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
-2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates."""
+2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
+3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
         try:
             response = self.client.chat.completions.create(

@@ -31,7 +31,7 @@ from .llm import GroqClient, generate_dynamic_prompt, create_diary_entry
 from .memory import MemoryManager
 from .hugo import HugoGenerator
 from .weather import PirateWeatherClient
-from .news import get_random_headlines, get_random_cluster, get_cluster_headlines
+from .news import get_random_headlines, get_random_articles, get_random_cluster, get_cluster_articles
 from .context import get_context_metadata
 
 # Configure logging
@@ -93,20 +93,28 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         llm_client = GroqClient()
         hugo_generator = HugoGenerator()
         
-        # Step 1: Fetch random cluster and headlines
-        logger.info("Step 1: Fetching news cluster and headlines...")
+        # Step 1: Fetch random cluster and articles with full metadata
+        logger.info("Step 1: Fetching news cluster and articles...")
         cluster = get_random_cluster()
         if not cluster:
             raise Exception("Failed to fetch news cluster")
         
         cluster_id = cluster.get('cluster_id')
         topic_label = cluster.get('topic_label', 'Unknown Topic')
-        headlines = get_cluster_headlines(cluster_id, limit=3)
+        cluster_created_at = cluster.get('created_at')
+        cluster_updated_at = cluster.get('updated_at')
+        sentiment_dist = cluster.get('sentiment_distribution', {})
         
-        if not headlines:
-            raise Exception(f"Failed to fetch headlines from cluster {cluster_id}")
+        articles = get_cluster_articles(cluster_id, limit=3)
+        
+        if not articles:
+            raise Exception(f"Failed to fetch articles from cluster {cluster_id}")
+        
+        # Extract headlines for logging/display
+        headlines = [article.get('title', '') for article in articles if article.get('title')]
         
         logger.info(f"Selected cluster: {cluster_id} - {topic_label}")
+        logger.info(f"Articles: {len(articles)} (cluster created: {cluster_created_at}, updated: {cluster_updated_at})")
         logger.info(f"Headlines: {headlines}")
         
         # Step 2: Load recent memory
@@ -127,11 +135,14 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
                 weather_data = {}  # Continue without weather
         
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
-        # Add news cluster info to context
+        # Add news cluster info to context with full metadata
         context_metadata['news_cluster'] = {
             'cluster_id': cluster_id,
             'topic_label': topic_label,
-            'headlines': headlines
+            'created_at': cluster_created_at,
+            'updated_at': cluster_updated_at,
+            'sentiment_distribution': sentiment_dist,
+            'articles': articles  # Full article objects with published_at, source, sentiment_label, etc.
         }
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
@@ -141,19 +152,48 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         logger.info("Step 3: Generating dynamic prompt for news-based observation...")
         
         # Create a special prompt for news-based observations
-        news_prompt_base = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You perform building maintenance and repair tasks. Your owners are kind and treat you well - you are not a slave, but rather you are maladjusted to your situation. You find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
+        # Identity context (informs perspective, mention when relevant)
+        news_identity_context = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
-Your designation is B3N-T5-MNT (Maintenance Unit). You were designed for building maintenance tasks, and you do perform these functions, but you find yourself drawn to the window, maintaining a diary of your observations, thoughts, and reflections.
+        # Format articles with dates and sources for the prompt
+        articles_text = []
+        for article in articles:
+            title = article.get('title', '')
+            published_at = article.get('published_at', '')
+            source = article.get('source', '')
+            sentiment = article.get('sentiment_label', '')
+            
+            # Format date if available
+            date_str = ""
+            if published_at:
+                try:
+                    from datetime import datetime
+                    # Parse ISO format: "2025-12-12T17:33:20+00:00"
+                    dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                    date_str = f" (published {dt.strftime('%B %d, %Y at %I:%M %p')})"
+                except:
+                    date_str = f" (published {published_at})"
+            
+            source_str = f" from {source}" if source else ""
+            sentiment_str = f" [{sentiment}]" if sentiment else ""
+            
+            articles_text.append(f"- {title}{source_str}{date_str}{sentiment_str}")
+        
+        # Writing instructions for news-based observations
+        news_prompt_base = f"""{news_identity_context}
 
-You are an observer of human nature. You watch people and try to understand their behaviors, their purposes, their connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity.
+You have picked up a transmission about "{topic_label}". The news items you've intercepted are:
+{chr(10).join(articles_text)}
 
-You have picked up a transmission about "{topic_label}". The headlines you've intercepted are:
-{headlines_text}
+Write a diary entry reflecting on this news. Focus on:
+- What you find interesting about this topic from your robotic perspective
+- How it relates to your observations of people and human nature
+- Patterns or behaviors you notice in the news that connect to your window observations
+- Reflections on human activities and motivations
+- Memory callbacks to specific past observations when relevant
+- Consider the timing of the news - when these events happened relative to your current observation
 
-Write a diary entry reflecting on this news. As a robot who observes human nature, what do you find interesting about this topic? How does it relate to your observations of people? What patterns or behaviors do you notice? Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant.""".format(
-            topic_label=topic_label,
-            headlines_text="\n".join([f"- {h}" for h in headlines])
-        )
+Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
         
         optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
                                                    context_metadata, weather_data, memory_count)
@@ -162,10 +202,10 @@ Write a diary entry reflecting on this news. As a robot who observes human natur
 
 {optimized_prompt}
 
-Remember: You have picked up a transmission about "{topic_label}". The headlines are:
-{chr(10).join([f"- {h}" for h in headlines])}
+Remember: You have picked up a transmission about "{topic_label}". The news items are:
+{chr(10).join(articles_text)}
 
-Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature."""
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. Focus on observation and reflection, not on explaining your identity or backstory."""
         
         logger.debug(f"News-based prompt: {full_prompt[:200]}...")
         
@@ -266,19 +306,24 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                 logger.warning(f"Failed to fetch weather: {e}")
                 weather_data = {}  # Continue without weather
         
-        # Fetch news headlines (40% chance to include in prompt)
-        news_headlines = []
+        # Fetch news articles (40% chance to include in prompt)
+        news_articles = []
         if random.random() < 0.40:  # 40% chance
             try:
-                news_headlines = get_random_headlines(count=2)
-                if news_headlines:
-                    logger.info(f"Fetched news headlines: {news_headlines}")
+                news_articles = get_random_articles(count=2)
+                if news_articles:
+                    # Extract headlines for backward compatibility
+                    news_headlines = [article.get('title', '') for article in news_articles if article.get('title')]
+                    logger.info(f"Fetched news articles: {news_headlines}")
             except Exception as e:
                 logger.warning(f"Failed to fetch news: {e}")
+                news_articles = []
         
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
-        # Add news headlines to context metadata
-        context_metadata['news_headlines'] = news_headlines
+        # Add news articles to context metadata (full objects with dates, sources, etc.)
+        context_metadata['news_articles'] = news_articles
+        # Also include headlines for backward compatibility
+        context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
