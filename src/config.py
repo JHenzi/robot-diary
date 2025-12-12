@@ -1,0 +1,62 @@
+"""Configuration management for Robot Diary."""
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Windy API Configuration
+WINDY_API_KEY = os.getenv('WINDY_WEBCAMS_API_KEY')
+WEBCAM_ID = os.getenv('WEBCAM_ID', '1358084658')
+
+# Groq API Configuration
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+
+# Weather API Configuration
+PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
+
+# Service Configuration
+OBSERVATION_INTERVAL_HOURS = float(os.getenv('OBSERVATION_INTERVAL_HOURS', '6'))
+HUGO_SITE_PATH = Path(os.getenv('HUGO_SITE_PATH', './hugo')).resolve()
+HUGO_BUILD_ON_UPDATE = os.getenv('HUGO_BUILD_ON_UPDATE', 'true').lower() == 'true'
+
+# Observation Schedule Configuration
+# Format: comma-separated times in "HH:MM" format (24-hour)
+# Default: 9:00 AM and 4:20 PM
+OBSERVATION_TIMES_STR = os.getenv('OBSERVATION_TIMES', '9:00,16:20')
+OBSERVATION_TIMES = [t.strip() for t in OBSERVATION_TIMES_STR.split(',')]
+USE_SCHEDULED_OBSERVATIONS = os.getenv('USE_SCHEDULED_OBSERVATIONS', 'true').lower() == 'true'
+
+# Paths
+PROJECT_ROOT = Path(__file__).parent.parent
+IMAGES_DIR = PROJECT_ROOT / 'images'
+MEMORY_DIR = PROJECT_ROOT / 'memory'
+HUGO_CONTENT_DIR = HUGO_SITE_PATH / 'content' / 'posts'
+HUGO_STATIC_IMAGES_DIR = HUGO_SITE_PATH / 'static' / 'images'
+
+# Memory Configuration
+MEMORY_RETENTION_DAYS = int(os.getenv('MEMORY_RETENTION_DAYS', '30'))
+MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
+
+# Model Configuration
+PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
+VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
+
+# Robot Configuration
+ROBOT_NAME = 'B3N-T5-MNT'
+ROBOT_TYPE = 'Maintenance Unit'
+ROBOT_DESIGNATION = 'B3N-T5-MNT (Maintenance Unit)'
+
+# Validation
+if not WINDY_API_KEY:
+    raise ValueError("WINDY_WEBCAMS_API_KEY not set in environment")
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY not set in environment")
+
+# Ensure directories exist
+IMAGES_DIR.mkdir(exist_ok=True)
+MEMORY_DIR.mkdir(exist_ok=True)
+HUGO_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
+HUGO_STATIC_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+

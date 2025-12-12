@@ -1,0 +1,32 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+images/*.jpg
+images/*.png
+memory/*.json
+weather/*.json
+*.log
+
+# Hugo (if included)
+hugo/public/
+hugo/resources/
+

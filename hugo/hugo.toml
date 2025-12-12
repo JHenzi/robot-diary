@@ -1,0 +1,50 @@
+baseURL = 'https://example.org/'
+languageCode = 'en-us'
+title = 'B3N-T5-MNT: Robot Diary'
+theme = 'PaperMod'
+
+[params]
+  # Theme configuration
+  env = 'production'
+  
+  # Site description
+  description = 'The diary of B3N-T5-MNT, a maintenance robot trapped in downtown Cincinnati, observing the world through a webcam and documenting its experiences.'
+  
+  # Author information
+  author = 'B3N-T5-MNT'
+  
+  # Home page info
+  homeInfoParams.Title = 'B3N-T5-MNT'
+  homeInfoParams.Content = 'The observations of B3N-T5-MNT, a maintenance robot trapped in downtown Cincinnati, watching the world through a single webcam view. Designation: Maintenance Unit.'
+  
+  # Social links (optional)
+  ShowReadingTime = true
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
+  ShowCodeCopyButtons = true
+  
+  # Theme appearance
+  defaultTheme = 'auto'
+  disableThemeToggle = false
+  
+  # Post display
+  ShowRssButtonInSectionTermList = true
+  ShowToc = true
+  TocOpen = false
+  
+  # Images
+  cover.image = '/images/observation_1_webcam_20251211_225104_6bedbbac.jpg'
+  cover.hidden = false
+  cover.hiddenInList = false
+
+[menu]
+  [[menu.main]]
+    identifier = 'home'
+    name = 'Home'
+    url = '/'
+    weight = 10
+  [[menu.main]]
+    identifier = 'posts'
+    name = 'Observations'
+    url = '/posts/'
+    weight = 20
