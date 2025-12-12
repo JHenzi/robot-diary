@@ -38,9 +38,16 @@ if __name__ == '__main__':
         action='store_true',
         help='Force download of a fresh image, even if cached'
     )
+    parser.add_argument(
+        '--news-only',
+        action='store_true',
+        help='Create a news-based observation (text-only, no image)'
+    )
     args = parser.parse_args()
     
-    if args.force_refresh:
+    if args.news_only:
+        print("📡 Triggering NEWS-BASED observation (text-only, no image)...")
+    elif args.force_refresh:
         print("🔍 Triggering manual observation with FORCE REFRESH (will fetch new image)...")
     else:
         print("🔍 Triggering manual observation...")
@@ -53,7 +60,11 @@ if __name__ == '__main__':
         time_of_day = get_time_of_day(current_hour)
         observation_type = "morning" if time_of_day == "morning" else "evening"
         
-        run_observation_cycle(force_image_refresh=args.force_refresh, observation_type=observation_type)
+        run_observation_cycle(
+            force_image_refresh=args.force_refresh, 
+            observation_type=observation_type,
+            news_only=args.news_only
+        )
         print("✅ Observation completed successfully!")
     except Exception as e:
         print(f"❌ Observation failed: {e}")

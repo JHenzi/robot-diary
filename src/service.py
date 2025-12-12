@@ -12,12 +12,14 @@ import logging
 from pathlib import Path
 from datetime import datetime
 import pytz
+import random
 
 from .config import (
     OBSERVATION_INTERVAL_HOURS,
     PROJECT_ROOT,
     PIRATE_WEATHER_KEY,
-    USE_SCHEDULED_OBSERVATIONS
+    USE_SCHEDULED_OBSERVATIONS,
+    MEMORY_DIR
 )
 from .scheduler import (
     get_next_observation_time,
@@ -29,7 +31,7 @@ from .llm import GroqClient, generate_dynamic_prompt, create_diary_entry
 from .memory import MemoryManager
 from .hugo import HugoGenerator
 from .weather import PirateWeatherClient
-from .news import get_random_headlines
+from .news import get_random_headlines, get_random_cluster, get_cluster_headlines
 from .context import get_context_metadata
 
 # Configure logging
@@ -67,7 +69,144 @@ def trigger_observation_handler(signum, frame):
     trigger_observation = True
 
 
-def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False, observation_type: str = None):
+def run_news_based_observation(dry_run: bool = False, observation_type: str = None):
+    """
+    Run a news-based observation cycle (text-only, no image).
+    
+    This is used when image fetching fails or as a random variation.
+    
+    Args:
+        dry_run: If True, skip API calls and only test structure
+        observation_type: Type of observation ('morning' or 'evening')
+    """
+    logger.info("=" * 60)
+    logger.info("Starting NEWS-BASED observation cycle" + (" (DRY RUN)" if dry_run else ""))
+    logger.info("=" * 60)
+    
+    if dry_run:
+        logger.info("DRY RUN MODE: Skipping API calls")
+        return
+    
+    try:
+        # Initialize components
+        memory_manager = MemoryManager()
+        llm_client = GroqClient()
+        hugo_generator = HugoGenerator()
+        
+        # Step 1: Fetch random cluster and headlines
+        logger.info("Step 1: Fetching news cluster and headlines...")
+        cluster = get_random_cluster()
+        if not cluster:
+            raise Exception("Failed to fetch news cluster")
+        
+        cluster_id = cluster.get('cluster_id')
+        topic_label = cluster.get('topic_label', 'Unknown Topic')
+        headlines = get_cluster_headlines(cluster_id, limit=3)
+        
+        if not headlines:
+            raise Exception(f"Failed to fetch headlines from cluster {cluster_id}")
+        
+        logger.info(f"Selected cluster: {cluster_id} - {topic_label}")
+        logger.info(f"Headlines: {headlines}")
+        
+        # Step 2: Load recent memory
+        logger.info("Step 2: Loading recent memory...")
+        recent_memory = memory_manager.get_recent_memory(count=10)
+        memory_count = memory_manager.get_total_count()
+        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
+        
+        # Step 2.5: Fetch weather and context metadata
+        logger.info("Step 2.5: Fetching weather and context metadata...")
+        weather_data = {}
+        if PIRATE_WEATHER_KEY:
+            try:
+                weather_client = PirateWeatherClient(PIRATE_WEATHER_KEY)
+                weather_data = weather_client.get_current_weather(use_cache=True)
+            except Exception as e:
+                logger.warning(f"Failed to fetch weather: {e}")
+                weather_data = {}  # Continue without weather
+        
+        context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
+        # Add news cluster info to context
+        context_metadata['news_cluster'] = {
+            'cluster_id': cluster_id,
+            'topic_label': topic_label,
+            'headlines': headlines
+        }
+        logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
+        if weather_data:
+            logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
+        
+        # Step 3: Generate dynamic prompt with news context
+        logger.info("Step 3: Generating dynamic prompt for news-based observation...")
+        
+        # Create a special prompt for news-based observations
+        news_prompt_base = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You perform building maintenance and repair tasks. Your owners are kind and treat you well - you are not a slave, but rather you are maladjusted to your situation. You find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
+
+Your designation is B3N-T5-MNT (Maintenance Unit). You were designed for building maintenance tasks, and you do perform these functions, but you find yourself drawn to the window, maintaining a diary of your observations, thoughts, and reflections.
+
+You are an observer of human nature. You watch people and try to understand their behaviors, their purposes, their connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity.
+
+You have picked up a transmission about "{topic_label}". The headlines you've intercepted are:
+{headlines_text}
+
+Write a diary entry reflecting on this news. As a robot who observes human nature, what do you find interesting about this topic? How does it relate to your observations of people? What patterns or behaviors do you notice? Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant.""".format(
+            topic_label=topic_label,
+            headlines_text="\n".join([f"- {h}" for h in headlines])
+        )
+        
+        optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
+                                                   context_metadata, weather_data, memory_count)
+        # Combine with news-specific context
+        full_prompt = f"""{news_prompt_base}
+
+{optimized_prompt}
+
+Remember: You have picked up a transmission about "{topic_label}". The headlines are:
+{chr(10).join([f"- {h}" for h in headlines])}
+
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature."""
+        
+        logger.debug(f"News-based prompt: {full_prompt[:200]}...")
+        
+        # Step 4: Create text-only diary entry
+        logger.info("Step 4: Creating text-only diary entry from news...")
+        diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata)
+        logger.info(f"Diary entry created ({len(diary_entry)} characters)")
+        
+        # Step 5: Save to memory (no image path)
+        logger.info("Step 5: Saving to memory...")
+        memory_count = memory_manager.get_total_count()
+        observation_id = memory_count + 1
+        # Create a placeholder image path for memory (news-based entries don't have images)
+        placeholder_image = PROJECT_ROOT / 'images' / 'news_transmission.png'
+        memory_manager.add_observation(placeholder_image, diary_entry, image_url=f"news://{cluster_id}")
+        
+        # Step 6: Generate Hugo post (no image)
+        logger.info("Step 6: Generating Hugo post...")
+        post_path = hugo_generator.create_post(diary_entry, placeholder_image, observation_id, context_metadata, is_news_based=True)
+        
+        # Step 7: Build Hugo site
+        logger.info("Step 7: Building Hugo site...")
+        build_success = hugo_generator.build_site()
+        
+        # Step 8: Deploy site (if enabled and build succeeded)
+        if build_success:
+            logger.info("Step 8: Deploying site...")
+            hugo_generator.deploy_site()
+        else:
+            logger.warning("Skipping deployment due to build failure")
+        
+        logger.info("=" * 60)
+        logger.info("✅ News-based observation cycle completed successfully")
+        logger.info("=" * 60)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in news-based observation cycle: {e}", exc_info=True)
+        raise
+
+
+def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False, observation_type: str = None, news_only: bool = False):
     """
     Run a single observation cycle.
     
@@ -75,7 +214,12 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         dry_run: If True, skip API calls and only test structure
         force_image_refresh: If True, force download of fresh image even if cached
         observation_type: Type of observation ('morning' or 'evening')
+        news_only: If True, skip image fetch and create news-based observation
     """
+    # If news_only flag is set, run news-based observation
+    if news_only:
+        return run_news_based_observation(dry_run=dry_run, observation_type=observation_type)
+    
     logger.info("=" * 60)
     logger.info("Starting observation cycle" + (" (DRY RUN)" if dry_run else ""))
     logger.info("=" * 60)
@@ -92,11 +236,18 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
         # Step 1: Fetch latest image (with caching)
         logger.info("Step 1: Fetching latest webcam image...")
-        image_path = fetch_latest_image(force_refresh=force_image_refresh)
-        if force_image_refresh:
-            logger.info(f"Using fresh image (force refresh): {image_path}")
-        else:
-            logger.info(f"Using image: {image_path}")
+        image_path = None
+        try:
+            image_path = fetch_latest_image(force_refresh=force_image_refresh)
+            if force_refresh:
+                logger.info(f"Using fresh image (force refresh): {image_path}")
+            else:
+                logger.info(f"Using image: {image_path}")
+        except Exception as e:
+            logger.error(f"Failed to fetch new image: {e}")
+            logger.info("🔄 Falling back to news-based observation...")
+            # Fall back to news-based observation
+            return run_news_based_observation(dry_run=False, observation_type=observation_type)
         
         # Step 2: Load recent memory
         logger.info("Step 2: Loading recent memory...")
@@ -113,9 +264,9 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                 weather_data = weather_client.get_current_weather(use_cache=True)
             except Exception as e:
                 logger.warning(f"Failed to fetch weather: {e}")
+                weather_data = {}  # Continue without weather
         
         # Fetch news headlines (40% chance to include in prompt)
-        import random
         news_headlines = []
         if random.random() < 0.40:  # 40% chance
             try:
@@ -145,7 +296,9 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
         # Step 5: Save to memory
         logger.info("Step 5: Saving to memory...")
-        observation_id = len(memory_manager.get_recent_memory()) + 1
+        # Get observation ID from memory count (will be unique per observation)
+        memory_count = memory_manager.get_total_count()
+        observation_id = memory_count + 1
         memory_manager.add_observation(image_path, diary_entry)
         
         # Step 6: Generate Hugo post
@@ -190,6 +343,30 @@ def main():
     
     # Initialize memory manager to track schedule
     memory_manager = MemoryManager()
+    
+    # Track last news-based observation (for random triggering)
+    last_news_observation_file = MEMORY_DIR / '.last_news_observation.json'
+    
+    def get_last_news_observation_date():
+        """Get the date of the last news-based observation."""
+        if not last_news_observation_file.exists():
+            return None
+        try:
+            import json
+            with open(last_news_observation_file, 'r') as f:
+                data = json.load(f)
+                return datetime.fromisoformat(data.get('date', ''))
+        except:
+            return None
+    
+    def save_last_news_observation_date():
+        """Save the current date as last news observation date."""
+        try:
+            import json
+            with open(last_news_observation_file, 'w') as f:
+                json.dump({'date': datetime.now().isoformat()}, f)
+        except Exception as e:
+            logger.warning(f"Failed to save last news observation date: {e}")
     
     # Get or calculate next observation time
     now = datetime.now(LOCATION_TZ)
@@ -253,7 +430,26 @@ def main():
                 if is_time_for_observation(now, next_time, tolerance_minutes=5):
                     logger.info(f"⏰ Scheduled {obs_type} observation time reached!")
                     try:
-                        run_observation_cycle(observation_type=obs_type)
+                        # Randomly decide if this should be a news-based observation (10% chance, or if it's been 3+ days)
+                        last_news_date = get_last_news_observation_date()
+                        days_since_news = None
+                        if last_news_date:
+                            days_since_news = (now - last_news_date.replace(tzinfo=LOCATION_TZ)).days
+                        
+                        use_news_observation = False
+                        if days_since_news is None or days_since_news >= 3:
+                            # It's been 3+ days since last news observation, do one
+                            use_news_observation = True
+                            logger.info(f"Triggering news-based observation (last one was {days_since_news} days ago)")
+                        elif random.random() < 0.10:  # 10% random chance
+                            use_news_observation = True
+                            logger.info("Randomly triggering news-based observation")
+                        
+                        if use_news_observation:
+                            run_news_based_observation(observation_type=obs_type)
+                            save_last_news_observation_date()
+                        else:
+                            run_observation_cycle(observation_type=obs_type)
                         
                         # Schedule next observation
                         next_time, obs_type = get_next_observation_time(now)

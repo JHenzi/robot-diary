@@ -73,9 +73,37 @@ LOCATION_TIMEZONE = 'America/Chicago'
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY not set in environment")
 
+if len(GROQ_API_KEY) < 10:
+    raise ValueError("GROQ_API_KEY appears to be invalid (too short)")
+
+# Validate YouTube URL format
+if YOUTUBE_STREAM_URL and not ('youtube.com' in YOUTUBE_STREAM_URL or 'youtu.be' in YOUTUBE_STREAM_URL):
+    raise ValueError(f"YOUTUBE_STREAM_URL appears invalid: {YOUTUBE_STREAM_URL}")
+
+# Validate timezone
+try:
+    import pytz
+    pytz.timezone(LOCATION_TIMEZONE)
+except Exception as e:
+    raise ValueError(f"Invalid timezone: {LOCATION_TIMEZONE} - {e}")
+
+# Validate Hugo site exists
+if not HUGO_SITE_PATH.exists():
+    raise ValueError(f"HUGO_SITE_PATH does not exist: {HUGO_SITE_PATH}")
+if not (HUGO_SITE_PATH / 'hugo.toml').exists() and not (HUGO_SITE_PATH / 'config.toml').exists():
+    raise ValueError(f"HUGO_SITE_PATH does not appear to be a valid Hugo site: {HUGO_SITE_PATH}")
+
+# Validate deployment config if enabled
+if DEPLOY_ENABLED:
+    if not DEPLOY_DESTINATION:
+        raise ValueError("DEPLOY_ENABLED=true but DEPLOY_DESTINATION is not set")
+    if DEPLOY_METHOD not in ['rsync', 'scp']:
+        raise ValueError(f"Invalid DEPLOY_METHOD: {DEPLOY_METHOD}. Must be 'rsync' or 'scp'")
+
 # Ensure directories exist
 IMAGES_DIR.mkdir(exist_ok=True)
 MEMORY_DIR.mkdir(exist_ok=True)
+(PROJECT_ROOT / 'weather').mkdir(exist_ok=True)
 HUGO_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
 HUGO_STATIC_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 

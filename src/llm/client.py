@@ -128,6 +128,76 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             logger.warning("Falling back to base prompt template")
             return base_prompt_template
     
+    def create_diary_entry_from_text(self, optimized_prompt: str, context_metadata: dict = None) -> str:
+        """
+        Create a diary entry from text-only prompt (no image).
+        
+        Args:
+            optimized_prompt: The optimized prompt from generate_prompt
+            context_metadata: Dictionary with date/time and other context (optional)
+            
+        Returns:
+            Diary entry text
+        """
+        logger.info(f"Creating text-only diary entry using {VISION_MODEL}...")
+        
+        # Get current date context for explicit inclusion
+        if context_metadata:
+            current_date = context_metadata.get('date', '')
+            day_of_week = context_metadata.get('day_of_week', '')
+            current_time = context_metadata.get('time', '')
+            timezone = context_metadata.get('timezone', 'EST')
+        else:
+            from ..config import LOCATION_TIMEZONE
+            location_tz = pytz.timezone(LOCATION_TIMEZONE)
+            now = datetime.now(location_tz)
+            current_date = now.strftime('%B %d, %Y')
+            day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
+            current_time = now.strftime('%I:%M %p')
+            timezone = 'CST' if now.astimezone(location_tz).dst() == timedelta(0) else 'CDT'
+        
+        # Determine observation type and narrative context
+        obs_type = context_metadata.get('observation_type', 'evening') if context_metadata else 'evening'
+        
+        if obs_type == "morning":
+            narrative_context = "This is your morning scheduled health scan. You're reflecting on transmissions you've picked up."
+        else:
+            narrative_context = "This is your evening observation. You're reflecting on transmissions you've picked up throughout the day."
+        
+        # Create the full prompt (text-only, no image)
+        full_prompt = f"""{optimized_prompt}
+
+CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
+
+OBSERVATION CONTEXT: {narrative_context}
+
+Write a diary entry as B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. Be thoughtful, reflective, and notice details. Reference your recent memories if relevant. You may refer to yourself as B3N-T5-MNT or by your designation. Remember you are a maintenance robot who performs building maintenance and repair - your owners are kind, and you are not trapped or enslaved, but rather you find yourself drawn to observing and understanding the outside world.
+
+CRITICAL RULES:
+1. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
+2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=VISION_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ],
+                temperature=0.8,
+                max_tokens=1000
+            )
+            
+            diary_entry = response.choices[0].message.content.strip()
+            logger.info("✅ Text-only diary entry created")
+            return diary_entry
+            
+        except Exception as e:
+            logger.error(f"Error creating text-only diary entry: {e}")
+            raise
+    
     def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None) -> str:
         """
         Create a diary entry using vision model.

@@ -28,35 +28,30 @@ class HugoGenerator:
         self.static_images_dir = HUGO_STATIC_IMAGES_DIR
     
     def create_post(self, diary_entry: str, image_path: Path, observation_id: int, 
-                   context_metadata: dict = None) -> Path:
+                   context_metadata: dict = None, is_news_based: bool = False) -> Path:
         """
         Create a Hugo blog post from a diary entry.
         
         Args:
             diary_entry: The diary entry text
-            image_path: Path to the source image
+            image_path: Path to the source image (or placeholder for news-based)
             observation_id: Unique observation ID
             context_metadata: Context metadata for title generation
+            is_news_based: If True, this is a news-based observation (no image)
             
         Returns:
             Path to the created post file
         """
-        # Copy image to Hugo static directory
-        image_filename = f"observation_{observation_id}_{image_path.name}"
-        dest_image_path = self.static_images_dir / image_filename
-        shutil.copy2(image_path, dest_image_path)
-        logger.info(f"✅ Image copied to Hugo static: {dest_image_path}")
-        
-        # Generate post filename
-        timestamp = datetime.now().strftime('%Y-%m-%d')
-        post_filename = f"{timestamp}_observation_{observation_id}.md"
-        post_path = self.content_dir / post_filename
-        
-        # Generate title from context metadata
+        # Generate title from context metadata first (needed for image filename)
+        post_title = ""
         if context_metadata:
             from ..context.metadata import format_date_for_title
             try:
                 post_title = format_date_for_title(context_metadata)
+                # If news-based, add indicator to title
+                if is_news_based and context_metadata.get('news_cluster'):
+                    topic = context_metadata['news_cluster'].get('topic_label', 'Transmission')
+                    post_title = f"{post_title} - Transmission: {topic}"
             except Exception as e:
                 logger.warning(f"Error formatting title: {e}, using fallback")
                 post_title = datetime.now().strftime('%A %B %d, %Y')
@@ -64,21 +59,46 @@ class HugoGenerator:
             # Fallback to simple date if no metadata
             post_title = datetime.now().strftime('%A %B %d, %Y')
         
+        # Copy image to Hugo static directory (if not news-based)
+        image_markdown = ""
+        if not is_news_based and image_path and image_path.exists():
+            image_filename = f"observation_{observation_id}_{image_path.name}"
+            dest_image_path = self.static_images_dir / image_filename
+            shutil.copy2(image_path, dest_image_path)
+            logger.info(f"✅ Image copied to Hugo static: {dest_image_path}")
+            image_markdown = f"![{post_title}](/images/{image_filename})\n\n"
+        elif is_news_based:
+            logger.info("News-based observation: No image to copy")
+        
+        # Generate post filename with timestamp to avoid collisions
+        # Format: YYYY-MM-DD_HHMMSS_observation_N.md
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        post_filename = f"{timestamp}_observation_{observation_id}.md"
+        post_path = self.content_dir / post_filename
+        
+        # Check if file already exists (shouldn't happen, but safety check)
+        if post_path.exists():
+            logger.warning(f"Post file already exists: {post_path}, appending timestamp")
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S_%f')[:-3]  # Add microseconds
+            post_filename = f"{timestamp}_observation_{observation_id}.md"
+            post_path = self.content_dir / post_filename
+        
         # Create front matter and content
         from ..config import ROBOT_NAME
+        tags = ["robot-diary", "observation", "b3n-t5-mnt"]
+        if is_news_based:
+            tags.append("news-transmission")
+        
         front_matter = f"""+++
 date = {datetime.now().strftime('"%Y-%m-%dT%H:%M:%S%z"')}
 draft = false
 title = "{post_title}"
-tags = ["robot-diary", "observation", "b3n-t5-mnt"]
+tags = {tags}
 +++
 
 """
         
-        # Add image to content
-        image_markdown = f"![{post_title}](/images/{image_filename})\n\n"
-        
-        # Combine front matter, image, and diary entry
+        # Combine front matter, image (if any), and diary entry
         post_content = front_matter + image_markdown + diary_entry
         
         # Write post
