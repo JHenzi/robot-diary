@@ -1,12 +1,14 @@
 # Robot Diary
 
-An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot trapped in downtown Cincinnati, observing the world through a webcam and documenting its experiences in a digital diary.
+An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot trapped in downtown Cincinnati, observing the world through a window and documenting its experiences in a digital diary.
+
+**Live Site**: [robot.henzi.org](https://robot.henzi.org)
 
 ## Concept
 
 This project creates an autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot (Maintenance Unit) that periodically observes downtown Cincinnati through a webcam feed, interprets what it sees using AI vision models, and writes diary entries about its observations. The robot maintains memory of past experiences, allowing it to notice changes, patterns, and develop a sense of continuity in its trapped existence.
 
-B3N-T5-MNT was designed for building maintenance tasks but finds itself stuck, unable to perform its intended functions. Instead, it maintains a diary, observing the world through its only window—a webcam view of downtown Cincinnati.
+B3N-T5-MNT was designed for building maintenance tasks but finds itself stuck, unable to perform its intended functions. Instead, it maintains a diary, observing the world through its only window—a view of downtown Cincinnati.
 
 The diary entries are automatically generated as Hugo blog posts and published to a website, creating a living document of the robot's perspective on the world outside its window.
 
@@ -106,10 +108,17 @@ Required environment variables:
 
 ## Usage
 
+**Status**: ✅ **Working** - The service is operational and generating diary entries.
+
 ### Running as a Service
 
 The robot diary runs as a continuous background service:
 
+```bash
+python run_service.py
+```
+
+Or directly:
 ```bash
 python src/service.py
 ```
