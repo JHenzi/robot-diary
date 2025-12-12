@@ -9,9 +9,7 @@ from ..config import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
-# Cincinnati coordinates
-CINCINNATI_LAT = 39.1031
-CINCINNATI_LON = -84.5120
+# Troy, Ohio coordinates (will be imported from config)
 
 # Cache file
 WEATHER_CACHE_FILE = PROJECT_ROOT / 'weather' / '.weather_cache.json'
@@ -64,7 +62,7 @@ class PirateWeatherClient:
     
     def get_current_weather(self, use_cache: bool = True) -> dict:
         """
-        Get current weather for Cincinnati.
+        Get current weather for Troy, Ohio.
         
         Args:
             use_cache: If True, use cached data if available and fresh
@@ -81,7 +79,8 @@ class PirateWeatherClient:
         # Fetch from API
         logger.info("Fetching current weather from Pirate Weather API...")
         
-        url = f"{self.base_url}/forecast/{self.api_key}/{CINCINNATI_LAT},{CINCINNATI_LON}"
+        from ..config import TROY_LATITUDE, TROY_LONGITUDE
+        url = f"{self.base_url}/forecast/{self.api_key}/{TROY_LATITUDE},{TROY_LONGITUDE}"
         params = {
             'units': 'us',  # US units (Fahrenheit, mph, etc.)
             'exclude': 'minutely,hourly,daily,alerts,flags'  # Only get current conditions

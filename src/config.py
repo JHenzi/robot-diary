@@ -6,10 +6,6 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Windy API Configuration
-WINDY_API_KEY = os.getenv('WINDY_WEBCAMS_API_KEY')
-WEBCAM_ID = os.getenv('WEBCAM_ID', '1358084658')
-
 # Groq API Configuration
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
@@ -55,9 +51,16 @@ ROBOT_NAME = 'B3N-T5-MNT'
 ROBOT_TYPE = 'Maintenance Unit'
 ROBOT_DESIGNATION = 'B3N-T5-MNT (Maintenance Unit)'
 
+# Location Configuration
+LOCATION_CITY = "Troy"
+LOCATION_STATE = "Ohio"
+LOCATION_FULL = "Troy, Ohio"
+
+# Weather coordinates for Troy, Ohio
+TROY_LATITUDE = 40.0398
+TROY_LONGITUDE = -84.2033
+
 # Validation
-if not WINDY_API_KEY:
-    raise ValueError("WINDY_WEBCAMS_API_KEY not set in environment")
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY not set in environment")
 

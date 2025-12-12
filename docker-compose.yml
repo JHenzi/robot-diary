@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  robot-diary:
+    build: .
+    container_name: robot-diary
+    restart: unless-stopped
+    volumes:
+      # Persist data
+      - ./images:/app/images
+      - ./memory:/app/memory
+      - ./weather:/app/weather
+      - ./hugo:/app/hugo
+      - ./robot_diary.log:/app/robot_diary.log
+      # Mount .env file
+      - ./.env:/app/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment if you need to expose Hugo dev server
+    # ports:
+    #   - "1313:1313"
+

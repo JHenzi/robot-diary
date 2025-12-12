@@ -220,14 +220,50 @@ This project explores themes of:
 - **Automated art**: Using automation to create ongoing, evolving artistic works
 - **Perspective**: The unique viewpoint of a "trapped" observer with limited information
 
+## Docker Deployment
+
+The project includes Docker support for containerized deployment:
+
+### Building the Image
+
+```bash
+docker build -t robot-diary .
+```
+
+### Running with Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+### Running Manually
+
+```bash
+docker run -d \
+  --name robot-diary \
+  --restart unless-stopped \
+  -v $(pwd)/images:/app/images \
+  -v $(pwd)/memory:/app/memory \
+  -v $(pwd)/weather:/app/weather \
+  -v $(pwd)/hugo:/app/hugo \
+  -v $(pwd)/.env:/app/.env:ro \
+  robot-diary
+```
+
+**Note**: The Docker image includes:
+- ✅ FFmpeg (for live webcam frame capture)
+- ✅ Playwright with Chromium (for webcam URL extraction)
+- ✅ All Python dependencies
+
 ## License
 
 [GPL](LICENSE)
 
 ## Acknowledgments
 
-- Windy.com for webcam API access
+- Troy, Ohio for the live downtown webcam feed
 - Groq for fast, cost-effective LLM inference
 - Meta's Llama-4-Maverick model for vision and language capabilities
 - Hugo for static site generation
+- Playwright for browser automation
 

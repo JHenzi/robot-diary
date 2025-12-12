@@ -5,8 +5,8 @@ from typing import Dict
 
 from ..config import ROBOT_NAME
 
-# Cincinnati timezone
-CINCINNATI_TZ = pytz.timezone('America/New_York')
+# Troy, Ohio timezone (Eastern Time)
+TROY_TZ = pytz.timezone('America/New_York')
 
 
 def get_season(month: int) -> str:
@@ -68,8 +68,8 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
     Returns:
         Dictionary with context metadata
     """
-    # Get current time in Cincinnati timezone
-    now = datetime.now(CINCINNATI_TZ)
+    # Get current time in Troy, Ohio timezone
+    now = datetime.now(TROY_TZ)
     
     # Day of week names
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -97,7 +97,7 @@ def get_context_metadata(weather_data: Dict = None) -> Dict:
         'is_weekday': now.weekday() < 5,  # True/False
         
         # Timezone
-        'timezone': 'EST' if now.astimezone(CINCINNATI_TZ).dst() == timedelta(0) else 'EDT',
+        'timezone': 'EST' if now.astimezone(TROY_TZ).dst() == timedelta(0) else 'EDT',
         'timezone_name': 'America/New_York',
         
         # Robot info

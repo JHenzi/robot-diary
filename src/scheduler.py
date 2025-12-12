@@ -3,8 +3,8 @@ from datetime import datetime, time, timedelta
 import pytz
 from typing import List, Tuple
 
-# Cincinnati timezone
-CINCINNATI_TZ = pytz.timezone('America/New_York')
+# Troy, Ohio timezone (Eastern Time)
+TROY_TZ = pytz.timezone('America/New_York')
 
 # Default observation times (9:00 AM and 4:20 PM)
 DEFAULT_OBSERVATION_TIMES = [
@@ -55,7 +55,7 @@ def get_next_observation_time(current_time: datetime, observation_times: List[ti
     for obs_time in observation_times:
         if obs_time > current_time_only:
             # Next observation is today
-            return CINCINNATI_TZ.localize(
+            return TROY_TZ.localize(
                 datetime.combine(current_date, obs_time)
             )
     
@@ -80,8 +80,8 @@ def is_time_for_observation(current_time: datetime, observation_times: List[time
     Returns:
         True if it's time for an observation
     """
-    current_time_cincy = current_time.astimezone(CINCINNATI_TZ)
-    current_time_only = current_time_cincy.time()
+    current_time_troy = current_time.astimezone(TROY_TZ)
+    current_time_only = current_time_troy.time()
     current_minutes = current_time_only.hour * 60 + current_time_only.minute
     
     for obs_time in observation_times:

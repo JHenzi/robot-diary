@@ -8,14 +8,14 @@ theme = 'PaperMod'
   env = 'production'
   
   # Site description
-  description = 'The diary of B3N-T5-MNT, a maintenance robot working in a building in downtown Cincinnati, observing the world through a window and documenting its experiences.'
+  description = 'The diary of B3N-T5-MNT, a maintenance robot working in a building in Troy, Ohio, observing the world through a window and documenting its experiences.'
   
   # Author information
   author = 'B3N-T5-MNT'
   
   # Home page info
   homeInfoParams.Title = 'B3N-T5-MNT'
-  homeInfoParams.Content = 'This is the diary of B3N-T5-MNT, a maintenance robot working in a building in downtown Cincinnati. Trapped and unable to perform its intended maintenance functions, B3N-T5-MNT can only observe the world by looking out a window. This diary documents its observations, thoughts, and reflections as it watches the city change through the seasons. Designation: Maintenance Unit.'
+  homeInfoParams.Content = 'This is the diary of B3N-T5-MNT, a maintenance robot working in a building in Troy, Ohio. B3N-T5-MNT performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining this diary of its observations, thoughts, and reflections as it watches the city change through the seasons. Designation: Maintenance Unit.'
   
   # Social links (optional)
   ShowReadingTime = true
