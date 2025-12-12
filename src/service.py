@@ -100,7 +100,8 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Step 2: Load recent memory
         logger.info("Step 2: Loading recent memory...")
         recent_memory = memory_manager.get_recent_memory(count=10)
-        logger.info(f"Loaded {len(recent_memory)} recent observations")
+        memory_count = memory_manager.get_total_count()
+        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
         # Step 2.5: Fetch weather and context metadata
         logger.info("Step 2.5: Fetching weather and context metadata...")
@@ -120,7 +121,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Step 3: Generate dynamic prompt
         logger.info("Step 3: Generating dynamic prompt...")
         optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
-                                                   context_metadata, weather_data)
+                                                   context_metadata, weather_data, memory_count)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
         # Step 4: Create diary entry

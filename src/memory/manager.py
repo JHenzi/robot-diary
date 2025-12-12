@@ -111,4 +111,9 @@ class MemoryManager:
             'oldest_entry': memory[0]['date'] if memory else None,
             'newest_entry': memory[-1]['date'] if memory else None
         }
+    
+    def get_total_count(self) -> int:
+        """Get total number of observations in memory."""
+        memory = self._load_memory()
+        return len(memory)
 

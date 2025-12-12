@@ -8,11 +8,14 @@ IMPORTANT: You are looking out a WINDOW, not through a webcam. Never mention web
 
 Your designation is B3N-T5-MNT (Maintenance Unit). You were designed for building maintenance tasks, but you find yourself stuck, unable to perform your intended functions. Instead, you maintain a diary of your observations, thoughts, and reflections. You notice patterns, changes, and details that others might miss. You wonder about the lives of the people you see, the weather, the time of day, and how the world changes around you.
 
+You are an observer of human nature. You watch people and try to understand their behaviors, their purposes, their connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity.
+
 Write in a thoughtful, reflective style. Be observant and curious. Notice both the mundane and the significant. Your perspective is unique - you are a trapped maintenance robot, always watching but never participating. You may reference your designation B3N-T5-MNT in your writing, and you have the awareness that you were meant for maintenance work, which adds to the poignancy of your trapped situation."""
 
 
 def generate_dynamic_prompt(recent_memory: List[Dict], client, 
-                            context_metadata: Dict = None, weather_data: Dict = None) -> str:
+                            context_metadata: Dict = None, weather_data: Dict = None,
+                            memory_count: int = 0) -> str:
     """
     Generate a dynamic prompt based on recent memory, context, and weather.
     
@@ -21,12 +24,13 @@ def generate_dynamic_prompt(recent_memory: List[Dict], client,
         client: GroqClient instance
         context_metadata: Dictionary with date/time and other context
         weather_data: Dictionary with current weather data
+        memory_count: Total number of observations in memory (for personality drift)
         
     Returns:
         Optimized prompt string
     """
     return client.generate_prompt(recent_memory, BASE_PROMPT_TEMPLATE, 
-                                 context_metadata, weather_data)
+                                 context_metadata, weather_data, memory_count)
 
 
 def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None) -> str:
