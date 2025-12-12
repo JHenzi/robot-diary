@@ -11,9 +11,17 @@ RUN apt-get update && apt-get install -y \
 
 # Install Hugo
 # Download and install Hugo extended version (required for PaperMod theme)
+# Detect architecture and install appropriate Hugo binary
 RUN HUGO_VERSION=0.152.2 && \
-    wget -O hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb && \
-    dpkg -i hugo.deb && \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        wget -O hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        wget -O hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-arm64.deb; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    dpkg -i hugo.deb || apt-get install -f -y && \
     rm hugo.deb && \
     hugo version
 
