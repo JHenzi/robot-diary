@@ -32,4 +32,5 @@ hugo/resources/
 
 # Archive files (may contain example API keys/secrets)
 archive/angelcam-approach/AngelCamOpenAPISpec.json
+AngelCamOpenAPISpec.json
 
