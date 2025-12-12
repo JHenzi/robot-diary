@@ -222,7 +222,7 @@ This project explores themes of:
 
 ## License
 
-[Your License Here]
+[GPL](LICENSE)
 
 ## Acknowledgments
 
