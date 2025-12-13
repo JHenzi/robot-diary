@@ -77,19 +77,73 @@ class GroqClient:
         
         # Determine personality traits based on memory count (personality drift)
         personality_note = self._get_personality_note(memory_count)
+        # Extract and log personality note
+        personality_text = personality_note.replace('PERSONALITY: ', '').strip()
+        logger.info(f"🤖 Personality note: {personality_text}")
         
         # Determine seasonal mood/reflection
         seasonal_note = self._get_seasonal_note(context_metadata)
+        if seasonal_note:
+            seasonal_text = seasonal_note.replace('SEASONAL CONTEXT: ', '').strip()
+            logger.info(f"🍂 Seasonal note: {seasonal_text}")
+        else:
+            logger.info("🍂 No seasonal note (context metadata missing)")
         
         # Determine if we should include special reflection types (random chance)
         reflection_instructions = self._get_reflection_instructions()
+        if reflection_instructions:
+            logger.info(f"💭 Reflection instructions: {reflection_instructions}")
+        else:
+            logger.info("💭 No special reflection instructions selected")
         
         # Add variety instructions
         style_variation = self._get_style_variation()
+        # Extract and log the selected styles
+        style_lines = [line.strip('- ').strip() for line in style_variation.split('\n')[1:] if line.strip()]
+        logger.info(f"🎨 Selected style variations: {', '.join(style_lines)}")
+        
         perspective_shift = self._get_perspective_shift()
+        # Extract and log the selected perspective
+        perspective_text = perspective_shift.replace('PERSPECTIVE: ', '').strip()
+        logger.info(f"👁️  Selected perspective: {perspective_text}")
+        
         focus_instruction = self._get_focus_instruction(context_metadata)
+        # Extract and log the selected focus
+        focus_text = focus_instruction.replace('FOCUS: ', '').strip()
+        logger.info(f"🎯 Selected focus: {focus_text}")
+        
         creative_challenge = self._get_creative_challenge()
+        if creative_challenge:
+            # Extract and log the creative challenge
+            challenge_text = creative_challenge.replace('CREATIVE CHALLENGE: ', '').strip()
+            logger.info(f"✨ Selected creative challenge: {challenge_text}")
+        else:
+            logger.info("✨ No creative challenge selected this time")
+        
         anti_repetition = self._get_anti_repetition_instruction(recent_memory)
+        anti_rep_text = ""
+        if anti_repetition:
+            # Extract and log the anti-repetition instruction
+            anti_rep_text = anti_repetition.replace('INNOVATION OPPORTUNITY: ', '').strip()
+            logger.info(f"🔄 Anti-repetition instruction: {anti_rep_text}")
+        
+        # Log a summary of all prompt selections
+        logger.info("=" * 60)
+        logger.info("📝 PROMPT SELECTIONS SUMMARY:")
+        logger.info(f"   🤖 Personality: {personality_text[:80]}{'...' if len(personality_text) > 80 else ''}")
+        if seasonal_note:
+            logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
+        if reflection_instructions:
+            reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
+            logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
+        logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
+        logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
+        logger.info(f"   🎯 Focus: {focus_text[:80]}{'...' if len(focus_text) > 80 else ''}")
+        if creative_challenge:
+            logger.info(f"   ✨ Challenge: {challenge_text[:80]}{'...' if len(challenge_text) > 80 else ''}")
+        if anti_rep_text:
+            logger.info(f"   🔄 Innovation: {anti_rep_text[:80]}{'...' if len(anti_rep_text) > 80 else ''}")
+        logger.info("=" * 60)
         
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
