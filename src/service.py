@@ -223,7 +223,16 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         
         # Step 6: Generate Hugo post (no image)
         logger.info("Step 6: Generating Hugo post...")
-        post_path = hugo_generator.create_post(diary_entry, placeholder_image, observation_id, context_metadata, is_news_based=True)
+        
+        # Calculate next scheduled observation and append to diary entry
+        from .scheduler import get_next_observation_time, get_observation_schedule_summary
+        now = datetime.now(LOCATION_TZ)
+        next_time, next_obs_type = get_next_observation_time(now)
+        next_schedule = get_observation_schedule_summary(next_time, next_obs_type)
+        timezone = context_metadata.get('timezone', 'CST') if context_metadata else 'CST'
+        diary_entry_with_schedule = diary_entry + f"\n\n---\n\n*Next scheduled observation: {next_schedule} ({timezone})*"
+        
+        post_path = hugo_generator.create_post(diary_entry_with_schedule, placeholder_image, observation_id, context_metadata, is_news_based=True)
         
         # Step 7: Build Hugo site
         logger.info("Step 7: Building Hugo site...")
@@ -358,7 +367,16 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
         # Step 6: Generate Hugo post
         logger.info("Step 6: Generating Hugo post...")
-        post_path = hugo_generator.create_post(diary_entry, image_path, observation_id, context_metadata)
+        
+        # Calculate next scheduled observation and append to diary entry
+        from .scheduler import get_next_observation_time, get_observation_schedule_summary
+        now = datetime.now(LOCATION_TZ)
+        next_time, next_obs_type = get_next_observation_time(now)
+        next_schedule = get_observation_schedule_summary(next_time, next_obs_type)
+        timezone = context_metadata.get('timezone', 'CST') if context_metadata else 'CST'
+        diary_entry_with_schedule = diary_entry + f"\n\n---\n\n*Next scheduled observation: {next_schedule} ({timezone})*"
+        
+        post_path = hugo_generator.create_post(diary_entry_with_schedule, image_path, observation_id, context_metadata)
         
         # Step 7: Build Hugo site
         logger.info("Step 7: Building Hugo site...")
