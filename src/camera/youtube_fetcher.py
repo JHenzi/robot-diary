@@ -3,6 +3,7 @@ import subprocess
 import hashlib
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 import json
 import logging
 
@@ -182,7 +183,7 @@ def fetch_latest_image(force_refresh: bool = False) -> Path:
     return image_path
 
 
-def get_latest_cached_image() -> Path | None:
+def get_latest_cached_image() -> Optional[Path]:
     """
     Get the latest cached image if available.
     

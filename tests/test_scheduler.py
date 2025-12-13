@@ -63,16 +63,17 @@ class TestScheduler:
     def test_is_time_for_observation(self):
         """Test observation time checking."""
         from src.config import LOCATION_TIMEZONE
+        from datetime import timedelta
         tz = pytz.timezone(LOCATION_TIMEZONE)
         
         now = datetime.now(tz)
-        scheduled = now.replace(minute=now.minute + 2)  # 2 minutes in future
+        scheduled = now + timedelta(minutes=2)  # 2 minutes in future
         
         # Should be within tolerance (default 5 minutes)
         assert is_time_for_observation(now, scheduled, tolerance_minutes=5) is True
         
         # Should not be within tolerance if too far
-        scheduled_far = now.replace(minute=now.minute + 10)
+        scheduled_far = now + timedelta(minutes=10)
         assert is_time_for_observation(now, scheduled_far, tolerance_minutes=5) is False
     
     def test_get_observation_schedule_summary(self):

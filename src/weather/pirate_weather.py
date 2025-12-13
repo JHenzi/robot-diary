@@ -3,6 +3,7 @@ import requests
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Optional, Dict
 import logging
 
 from ..config import PROJECT_ROOT
@@ -24,7 +25,7 @@ class PirateWeatherClient:
         self.base_url = "https://api.pirateweather.net"
         WEATHER_CACHE_FILE.parent.mkdir(exist_ok=True)
     
-    def _load_cache(self) -> dict | None:
+    def _load_cache(self) -> Optional[Dict]:
         """Load cached weather data."""
         if not WEATHER_CACHE_FILE.exists():
             return None

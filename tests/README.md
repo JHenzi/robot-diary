@@ -4,6 +4,7 @@ This directory contains test classes for the Robot Diary project. All tests are 
 
 ## Test Structure
 
+### Core Functionality Tests
 - `test_config.py` - Configuration loading and validation
 - `test_scheduler.py` - Scheduler logic and time calculations
 - `test_context_metadata.py` - Context metadata generation and formatting
@@ -11,6 +12,18 @@ This directory contains test classes for the Robot Diary project. All tests are 
 - `test_prompts.py` - Prompt template validation
 - `test_llm_client_formatting.py` - LLM client formatting methods (no API calls)
 - `test_hugo_generator.py` - Hugo post generation and file operations
+
+### Edge Cases and Error Handling
+- `test_weather_client.py` - Weather client caching, formatting, error handling (mocked)
+- `test_news_client.py` - News client functions with mocked requests
+- `test_memory_manager_edge_cases.py` - Memory manager edge cases and error conditions
+- `test_scheduler_edge_cases.py` - Scheduler boundary conditions
+- `test_context_metadata_edge_cases.py` - Context metadata edge cases
+- `test_hugo_generator_edge_cases.py` - Hugo generator edge cases
+
+### Documentation
+- `COVERAGE_STRATEGY.md` - Comprehensive coverage strategy and goals
+- `CONVENTIONS.md` - Testing conventions and patterns
 
 ## Running Tests
 
@@ -35,8 +48,25 @@ pytest tests/test_config.py -v
 ### Run with Coverage
 
 ```bash
+# Terminal report
 pytest tests/ --cov=src --cov-report=term-missing
+
+# HTML report (opens in browser)
+pytest tests/ --cov=src --cov-report=html
+open htmlcov/index.html
+
+# XML report (for CI)
+pytest tests/ --cov=src --cov-report=xml
 ```
+
+### Coverage Goals
+
+- **Target**: 80%+ overall coverage
+- **Core Logic**: 90%+ coverage
+- **Error Handling**: 70%+ coverage
+- **Edge Cases**: 75%+ coverage
+
+See `COVERAGE_STRATEGY.md` for detailed coverage strategy.
 
 ## Test Philosophy
 
