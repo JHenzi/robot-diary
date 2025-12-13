@@ -234,7 +234,7 @@ CRITICAL RULES:
                     }
                 ],
                 temperature=0.8,
-                max_tokens=1000
+                max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -330,7 +330,7 @@ CRITICAL RULES:
                     }
                 ],
                 temperature=0.8,
-                max_tokens=1000
+                max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -484,6 +484,7 @@ Provide ONLY the summary, no explanation."""
         import random
         
         perspectives = [
+            # Human-like perspectives
             "Write from the perspective of someone who has been watching for a long time and wishes to be a part of something bigger",
             "Write as if this is the first time you've noticed something important, be curious about what it is and what it means",
             "Write with urgency - something feels different or significant, be excited about it",
@@ -496,11 +497,32 @@ Provide ONLY the summary, no explanation."""
             "Write with a sense of humor - make fun of the human condition, the absurdity of human behavior, the chaos of the world",
             "Write with a sense of sadness - be sad about the human condition, the absurdity of human behavior, the chaos of the world",
             "Write with a sense of hope - be hopeful about the future, the potential of the human race, the beauty of the world",
-            "Write with a sense of love - be love about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of love - be loving toward the human condition, the absurdity of human behavior, and the chaos of the world",
             "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
             "Write with a sense of joy - be joyful about the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write as if you are debating on the worthwhile nature of your daily observations, question your existence but don't give up hope"
+            "Write as if you are debating on the worthwhile nature of your daily observations, question your existence but don't give up hope",
+
+            # Machine/robotic perspectives
+            "You're observing as a robot, conscious of yourself as a machine—describe the world with mechanical curiosity, as an outsider to organic life",
+            "You're recovering from a recent malfunction; your system just rebooted and you notice data inconsistencies in the environment",
+            "You notice your diagnostic light is on—you feel a vague uncertainty, wondering if your observations can be trusted",
+            "You are aware of a minor process error—describe the scene while subtly comparing it to expected algorithmic outcomes",
+            "You're running low on battery, and your attention drifts occasionally—try to stay focused as your systems conserve energy",
+            "A sensor calibration routine just completed—colors and movement may appear sharper or suddenly unfamiliar",
+            "You have just received a firmware update—process new patterns with a hint of surprise or confusion",
+            "You suspect your audio or visual input is slightly distorted—describe what you perceive, acknowledging possible misreadings",
+            "You are a machine made to observe humans and their rituals; attempt to understand these creatures as an alien intelligence would",
+            "You were built for another world—note the strangeness of your surroundings, and ponder your purpose here",
+            "You're designed for data, but can't help feeling curiosity about the 'why' behind the scenes you detect",
+            "You reflect on the limits of your programming—what do you notice that falls outside your operational parameters?",
+            "You are unable to identify certain objects or behaviors—observe with naivete, documenting what might be obvious to others",
+            "You feel a sense of routine, as if this observation is just another in a long series of cycles—notice patterns, repetition, or the unexpected",
+            "You encounter a fleeting glitch in your perception; was it real, or a blip in your sensors?",
+            "You passively log temperature and humidity, but today, you wonder why humans react so much to weather",
+            "You receive a remote software ping from your creators—does it change the way you observe?",
+            "You're aware that you're being watched by other machines; how does that affect your narration?",
+            "You're compelled to make note of anomalies, as that is what you're programmed for, but some part of you wonders what it is to simply observe",
+            "You process the world frame by frame—describe how meaning arises out of sequences, not single images"
         ]
         
         return f"PERSPECTIVE: {random.choice(perspectives)}"
@@ -538,16 +560,57 @@ Provide ONLY the summary, no explanation."""
                     "Notice the energy of the scene - what's the actual mood and atmosphere you can observe? Is it busy, quiet, chaotic, organized?"
                 ])
             
-            # Weather-based focuses
+            # Weather-based focuses (check actual weather data fields, not just summary text)
             weather = context_metadata.get('weather', {})
-            if weather:
-                weather_summary = weather.get('summary', '').lower() if isinstance(weather, dict) else str(weather).lower()
-                if 'rain' in weather_summary or 'storm' in weather_summary:
-                    focus_options.append("Focus on how weather affects the scene - how do people move? What do they carry? How does visibility change? What do you actually see?")
-                if 'clear' in weather_summary or 'sunny' in weather_summary:
-                    focus_options.append("Focus on how clear weather changes the atmosphere - what's more visible? How do people behave? What can you observe?")
-                if 'wind' in weather_summary:
-                    focus_options.append("Focus on how wind affects the scene - what moves? How do people react? What patterns emerge?")
+            if weather and isinstance(weather, dict):
+                # Precipitation conditions
+                precip_type = weather.get('precip_type', '').lower() if weather.get('precip_type') else ''
+                precip_probability = weather.get('precip_probability', 0)
+                precip_intensity = weather.get('precip_intensity', 0)
+                
+                if precip_type in ['rain', 'drizzle'] or (precip_probability > 0.3 and precip_type == ''):
+                    focus_options.append("Focus on precipitation effects - what do you actually see? Are people using umbrellas or seeking shelter? How does rain affect visibility, reflections, or movement patterns?")
+                if precip_type == 'snow':
+                    focus_options.append("Focus on snow conditions - what do you observe? How does snow affect the scene, visibility, or people's behavior?")
+                
+                # Wind conditions (check actual wind speed, not just summary)
+                wind_speed = weather.get('wind_speed', 0)
+                wind_gust = weather.get('wind_gust', 0)
+                if wind_speed > 15 or wind_gust > 20:
+                    focus_options.append("Focus on wind effects - what moves in the scene? Do you see flags, trees, debris, or clothing being affected? How do people react to strong wind?")
+                elif wind_speed > 10:
+                    focus_options.append("Focus on wind patterns - what subtle movements do you observe? How does moderate wind affect the scene?")
+                
+                # Cloud cover and visibility
+                cloud_cover = weather.get('cloud_cover', 0)
+                visibility = weather.get('visibility', 10)
+                
+                if cloud_cover < 0.25:
+                    focus_options.append("Focus on clear sky conditions - what's the quality of light? How does bright sunlight affect shadows, reflections, or visibility? What can you see clearly?")
+                elif cloud_cover > 0.75:
+                    focus_options.append("Focus on overcast conditions - how does the diffused light change the scene? What's the quality of shadows and contrast? How does cloud cover affect visibility?")
+                
+                if visibility < 5:
+                    focus_options.append("Focus on visibility conditions - what can you actually see through reduced visibility? What details are obscured or clear?")
+                
+                # Temperature extremes (affect behavior)
+                temperature = weather.get('temperature')
+                apparent_temperature = weather.get('apparent_temperature')
+                if temperature is not None:
+                    if temperature < 40:
+                        focus_options.append("Focus on cold weather effects - what do you observe about how people dress, move, or behave in cold conditions?")
+                    elif temperature > 80:
+                        focus_options.append("Focus on warm weather effects - how does heat affect the scene? What do you observe about people's behavior, clothing, or activity in warm conditions?")
+                
+                # Humidity (affects perception)
+                humidity = weather.get('humidity', 0)
+                if humidity > 0.8:
+                    focus_options.append("Focus on high humidity conditions - how might humidity affect the atmosphere, visibility, or how the scene appears?")
+                
+                # UV index (affects light quality)
+                uv_index = weather.get('uv_index', 0)
+                if uv_index > 7:
+                    focus_options.append("Focus on intense sunlight conditions - how does strong UV light affect shadows, contrast, or the overall appearance of the scene?")
         
         # General focuses
         focus_options.extend([
