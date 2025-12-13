@@ -22,10 +22,18 @@ The diary entries are automatically generated as Hugo blog posts and published t
 - **News Fallback**: Automatically falls back to news-based observations when image capture fails, using headlines from [Pulse API](https://pulse.henzi.org)
 - **Dynamic Prompt Generation**: Uses a cheaper model (`gpt-oss-20b`) to generate context-aware prompts based on recent history
 - **Contextual Memory**: Maintains memory of recent observations to create narrative continuity
+- **LLM-Based Memory Summarization**: Uses intelligent AI summarization to preserve key context from past observations without exhausting token limits
 - **Dynamic Storytelling**: Generates unique diary entries based on current observations and past memories
+- **Prompt Variety System**: Advanced prompting system that ensures each entry feels different through:
+  - Style variation (narrative, philosophical, analytical, poetic, humorous, etc.)
+  - Perspective shifts (urgency, nostalgia, curiosity, wonder, etc.)
+  - Context-aware focus instructions (time-based, weather-based, observational)
+  - Anti-repetition detection to avoid formulaic entries
 - **Weather Integration**: Incorporates current weather data for richer contextual prompts
+- **News Integration**: Randomly includes current news headlines (40% chance) for contextual awareness
 - **Automated Publishing**: Converts diary entries into Hugo posts and automatically builds the site
 - **Preview Images**: Posts automatically include cover images for beautiful previews in listings
+- **Next Observation Schedule**: Each post includes when the next scheduled observation will occur (with timezone)
 
 ## Current Status
 
@@ -54,9 +62,10 @@ When image capture fails, the system automatically falls back to news-based obse
 - **YouTube Live Streams**: Primary source of live video feeds via `yt-dlp`
 - **Pulse API** ([pulse.henzi.org](https://pulse.henzi.org)): News headlines for fallback observations
 - **Pirate Weather API**: Current weather data for contextual prompts
-- **Groq + Two-Model Approach**:
+- **Groq + Multi-Model Approach**:
   - `openai/gpt-oss-20b`: Dynamic prompt generation based on recent history
   - `meta-llama/llama-4-maverick-17b-128e-instruct`: Vision interpretation and diary entry generation
+  - `llama-3.1-8b-instant`: Memory summarization (cost-efficient distillation of past observations)
 - **Hugo**: Static site generator for the diary blog (located in `hugo/` folder)
 - **Memory System**: Context storage for maintaining narrative continuity
 - **Service Architecture**: Long-running background service with automatic Hugo builds
@@ -160,16 +169,25 @@ The service will:
 3. For each observation cycle:
    - Attempt to capture a frame from the YouTube live stream
    - If image capture fails, automatically fall back to news-based observation using [Pulse API](https://pulse.henzi.org)
-   - Load recent memory/history
+   - Load recent memory/history (using intelligent LLM-generated summaries)
    - Fetch current weather data (if configured)
-   - Use `gpt-oss-20b` to generate a dynamic prompt based on recent history, weather, and context
+   - Fetch random news headlines (40% chance) for contextual awareness
+   - Use `gpt-oss-20b` to generate a dynamic prompt with:
+     - Recent memory summaries
+     - Style variation instructions (randomly selected)
+     - Perspective shift instructions
+     - Context-aware focus instructions
+     - Anti-repetition warnings
    - For image-based observations: Send image to `llama-4-maverick` for vision interpretation
    - For news-based observations: Generate text-only entry reflecting on news headlines
    - Generate diary entry using the optimized prompt
+   - Calculate next scheduled observation time
+   - Append next scheduled time to diary entry (with timezone)
+   - Generate LLM summary of the entry for future memory retrieval
    - Create Hugo post in `hugo/content/posts/` with cover image (for image-based posts)
    - Automatically build Hugo site
    - Deploy site (if configured)
-   - Update memory with the new observation
+   - Update memory with the new observation (including LLM summary)
 
 ### Running as a System Service
 
@@ -199,15 +217,17 @@ WantedBy=multi-user.target
 You can manually trigger an observation:
 
 ```bash
-# Regular observation (with image)
+# Regular observation (always fetches fresh image by default)
 python observe_now.py
 
-# Force fresh image capture
-python observe_now.py --force-refresh
+# Use cached image if available (skip fresh fetch)
+python observe_now.py --use-cache
 
 # News-based observation (text-only, no image)
 python observe_now.py --news-only
 ```
+
+**Note**: Manual observations default to fetching fresh images. Use `--use-cache` if you want to use a cached image instead.
 
 ### Configuration
 
@@ -235,27 +255,52 @@ News-based observations occur:
 
 ### LLM Prompting
 
-The system uses a **two-model approach** for dynamic prompt generation:
+The system uses a **multi-model approach** for dynamic, varied content generation:
 
-1. **Prompt Generation** (using `openai/gpt-oss-20b`):
-   - Analyzes recent memory/history
+1. **Memory Summarization** (using `llama-3.1-8b-instant`):
+   - When each observation is saved, an AI model generates an intelligent summary
+   - Preserves key context (visual details, events, emotional tone, references) in 200-400 characters
+   - Enables better narrative continuity without exhausting token limits
+   - Cost-efficient distillation that captures what's important for future callbacks
+
+2. **Prompt Generation** (using `openai/gpt-oss-20b`):
+   - Analyzes recent memory/history (using LLM-generated summaries)
    - Considers narrative continuity
    - Generates optimized prompts tailored to current context
+   - Includes variety instructions to ensure each entry feels unique
    - Cost-effective for prompt iteration
 
-2. **Final Generation** (using `meta-llama/llama-4-maverick-17b-128e-instruct`):
-   - Receives optimized prompt from step 1
-   - Processes image for vision interpretation
-   - Generates final diary entry
+3. **Final Generation** (using `meta-llama/llama-4-maverick-17b-128e-instruct`):
+   - Receives optimized prompt from step 2
+   - Processes image for vision interpretation (for image-based observations)
+   - Generates final diary entry with natural variety
+
+#### Prompt Variety System
+
+To ensure each entry feels different and avoids repetition, the system includes:
+
+- **Style Variation**: Randomly selects 2 from 10+ writing styles (narrative, philosophical, analytical, poetic, humorous, speculative, etc.)
+- **Perspective Shifts**: Varies the robot's perspective (urgency, nostalgia, curiosity, wonder, detachment, etc.)
+- **Focus Instructions**: Context-aware focus areas based on time of day, weather, and scene characteristics
+- **Anti-Repetition**: Detects and warns against repeating recent opening patterns or structures
+- **Explicit Variety Instructions**: Prompts explicitly instruct the model to vary style, focus, tone, and structure
 
 The dynamic prompts include:
-- The robot's "persona" (working in New Orleans, Louisiana)
-- Recent memories/observations (analyzed by prompt generator)
-- Current image description
-- Instructions for writing style and tone
-- Context-aware narrative elements
+- The robot's "persona" (working in New Orleans, Louisiana, observing Bourbon Street)
+- Recent memories/observations (using intelligent LLM summaries)
+- Current image description (for image-based observations)
+- Style and perspective variation instructions
+- Context-aware narrative elements (weather, time, season)
+- News headlines (40% chance) for contextual awareness
 
-Customize prompt templates in `src/llm/prompts.py`.
+#### Memory System
+
+- **Full Content**: Complete diary entries stored for reference
+- **LLM Summaries**: Intelligent summaries (200-400 chars) that preserve key context
+- **Fallback Summaries**: Simple truncation if LLM summarization fails
+- **Smart Retrieval**: Uses LLM summaries in prompts for better context with fewer tokens
+
+Customize prompt templates in `src/llm/prompts.py` and style options in `src/llm/client.py`.
 
 ## Development
 
@@ -302,17 +347,66 @@ docker run -d \
 **Note**: The Docker image includes:
 - ✅ FFmpeg (for frame extraction)
 - ✅ yt-dlp (for YouTube stream access)
+- ✅ Hugo Extended (for site generation)
+- ✅ rsync & openssh-client (for deployment)
 - ✅ All Python dependencies
+
+### Container Rebuilds
+
+When rebuilding a running container:
+- **No data loss**: All persistent data is in mounted volumes (images, memory, weather, hugo, logs)
+- **Schedule preserved**: Next observation time is saved in `memory/schedule.json`
+- **No duplicate observations**: Service checks schedule before creating new observations
+- **Safe to rebuild**: Service will resume from saved schedule
+
+**Recommended rebuild procedure**:
+```bash
+# Rebuild image (container keeps running)
+docker-compose build
+
+# Restart container to use new image
+docker-compose restart robot-diary
+# OR
+docker-compose up -d  # Recreates container with new image
+```
 
 ## License
 
 [GPL](LICENSE)
+
+## Recent Enhancements
+
+### Prompt Variety System (2025-12-13)
+- **Style Variation**: Each entry randomly incorporates 2 different writing styles from 10+ options
+- **Perspective Shifts**: Varies the robot's perspective (urgency, nostalgia, curiosity, wonder, etc.)
+- **Focus Instructions**: Context-aware focus areas based on time, weather, and scene
+- **Anti-Repetition**: Detects and prevents repetitive opening patterns
+- **Result**: Each entry feels unique and avoids formulaic repetition
+
+### LLM-Based Memory Summarization (2025-12-13)
+- **Intelligent Summaries**: Uses `llama-3.1-8b-instant` to generate context-preserving summaries (200-400 chars)
+- **Better Context**: Preserves key details, events, emotional tone, and references better than truncation
+- **Token Efficient**: Summaries use 200-400 chars vs full content (often 2000+ chars)
+- **Cost Effective**: Uses cheap model, only runs once per observation
+- **Better Callbacks**: Robot can reference specific details from past observations
+
+### Next Scheduled Observation Display (2025-12-13)
+- Each post now includes when the next scheduled observation will occur
+- Includes timezone information (CST/CDT) so readers know what timezone the bot operates in
+- Format: `*Next scheduled observation: Next morning observation scheduled for 08:54 AM on Saturday, December 13 (CST)*`
+
+### Enhanced News Integration (2025-12-12)
+- News headlines included in 40% of regular observations (not just fallback)
+- Full article metadata (dates, sources, sentiment) passed to LLM
+- Robot can casually reference news as if overheard on broadcasts
+- Better contextual awareness of world events
 
 ## Acknowledgments
 
 - **New Orleans, Louisiana** for the live video feed
 - **Groq** for fast, cost-effective LLM inference
 - **Meta's Llama-4-Maverick** model for vision and language capabilities
+- **Meta's Llama-3.1-8b-instant** for efficient memory summarization
 - **[Pulse API](https://pulse.henzi.org)** for news headlines and fallback observations
 - **Hugo** for static site generation
 - **PaperMod** Hugo theme for beautiful post previews
