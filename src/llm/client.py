@@ -432,17 +432,49 @@ Provide ONLY the summary, no explanation."""
         import random
         
         style_options = [
-            "Focus on specific details - zoom in on one particular element (a person, object, weather pattern)",
-            "Write in a more philosophical tone - reflect on deeper meanings and patterns",
-            "Adopt a more narrative style - tell a story about what you're observing",
-            "Focus on contrasts - compare what you see now vs. what you remember",
-            "Write more conversationally - as if speaking directly to a friend",
-            "Focus on sensory details - describe sounds, light, movement, not just visuals",
-            "Adopt a more analytical perspective - break down what you observe into components",
-            "Write with more emotional depth - explore feelings and reactions to what you see",
-            "Focus on patterns and repetition - what cycles or rhythms do you notice?",
-            "Write more speculatively - wonder about what you can't see, what's happening elsewhere"
-        ]
+    # Detail-focused styles
+    "Focus on specific details - zoom in on one particular element (a person, object, weather pattern) and describe it in depth",
+    "Focus on sensory details - describe sounds, light, movement, textures, temperatures, not just visuals",
+    "Focus on micro-moments - capture tiny details that most would miss, the small gestures, brief expressions, fleeting interactions",
+    
+    # Tone-based styles
+    "Write in a more philosophical tone - reflect on deeper meanings, patterns, and existential questions",
+    "Write more poetically - use poetic language, similes, metaphors, and rhythmic phrasing to describe what you see",
+    "Write more humorously - find the absurdity, irony, or comedy in human behavior and situations",
+    "Write more melancholically - reflect on the sadness, loneliness, or transience of what you observe",
+    "Write more whimsically - adopt a playful, fanciful perspective, finding magic in the mundane",
+    
+    # Structural styles
+    "Adopt a more narrative style - tell a story about what you're observing, create a narrative arc from the scene",
+    "Write more conversationally - as if speaking directly to a friend, using casual language and asides",
+    "Write as a stream of consciousness - let thoughts flow naturally, jumping between observations and reflections",
+    "Write in fragments - use short, punchy sentences, lists, or broken thoughts to capture the scene",
+    
+    # Analytical styles
+    "Adopt a more analytical perspective - break down what you observe into components, be a detective solving the mystery of the scene",
+    "Focus on patterns and repetition - what cycles, rhythms, or recurring behaviors do you notice?",
+    "Focus on contrasts - compare what you see now vs. what you remember, light vs. dark, movement vs. stillness",
+    
+    # Speculative styles
+    "Write more speculatively - wonder about what you can't see, what's happening elsewhere, what might happen next",
+    "Write as an anthropologist - observe human behavior as if studying an alien species, noting customs and rituals",
+    "Write as a time traveler - imagine how this scene would look in the past or future, what has changed or will change",
+    
+    # Emotional/spiritual styles
+    "Write with more emotional depth - explore your feelings and reactions to what you see, let emotion color your observations",
+    "Write more spiritually - contemplate the nature of existence, consciousness, purpose, or the divine in everyday moments",
+    "Write with wonder - marvel at the complexity, beauty, or strangeness of what you observe",
+    
+    # Perspective shifts
+    "Write from a bird's eye view - describe the scene as if looking down from above, seeing the whole pattern",
+    "Write from ground level - focus on what's at your level, the street, the base of buildings, people's feet, the ground itself",
+    "Write as if you're invisible - observe without being observed, noting what people do when they think no one is watching",
+    
+    # Temporal styles
+    "Write with urgency - something feels different or significant, capture the immediacy and importance of this moment",
+    "Write with nostalgia - connect deeply to past observations, compare then and now, reflect on what's changed",
+    "Write with anticipation - what might happen next? What are the signs pointing toward?",
+    ]
         
         selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
         return f"STYLE VARIATION: For this entry, incorporate these approaches:\n" + "\n".join(f"- {style}" for style in selected_styles)
@@ -452,13 +484,23 @@ Provide ONLY the summary, no explanation."""
         import random
         
         perspectives = [
-            "Write from the perspective of someone who has been watching for a long time",
-            "Write as if this is the first time you've noticed something important",
-            "Write with urgency - something feels different or significant",
-            "Write with calm detachment - observe without judgment",
-            "Write with curiosity - ask questions about what you're seeing",
+            "Write from the perspective of someone who has been watching for a long time and wishes to be a part of something bigger",
+            "Write as if this is the first time you've noticed something important, be curious about what it is and what it means",
+            "Write with urgency - something feels different or significant, be excited about it",
+            "Write with calm detachment - observe without judgment, be a neutral observer",
+            "Write with curiosity - ask questions about what you're seeing, question reality if anything seems odd or out of place",
             "Write with nostalgia - connect to past observations",
-            "Write with anticipation - what might happen next?"
+            "Write with anticipation - what might happen next?",
+            "Write with a sense of wonder - marvel at the beauty of the world, the complexity of human nature, the wonder of existence",
+            "Contemplate in your writing the nature of god or the universe or the nature of reality or the nature of existence",
+            "Write with a sense of humor - make fun of the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of sadness - be sad about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of hope - be hopeful about the future, the potential of the human race, the beauty of the world",
+            "Write with a sense of love - be love about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of joy - be joyful about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
+            "Write as if you are debating on the worthwhile nature of your daily observations, question your existence but don't give up hope"
         ]
         
         return f"PERSPECTIVE: {random.choice(perspectives)}"
@@ -474,15 +516,26 @@ Provide ONLY the summary, no explanation."""
             time_of_day = context_metadata.get('time_of_day', '')
             if time_of_day == 'morning':
                 focus_options.extend([
-                    "Focus on how the morning light changes what you see",
-                    "Notice who is out early and what they're doing",
-                    "Observe the transition from night to day"
+                    "Focus on how the morning light changes what you see - how shadows shift, colors change, visibility improves",
+                    "Notice who is out early and what they're doing - are they alone or with others? What's their pace?",
+                    "Observe the transition from night to day - what changes as daylight arrives?",
+                    "Focus on morning routines - do you see patterns in when people appear, what they carry, where they're going?",
+                    "Notice the quality of morning light - is it soft, harsh, golden, gray? How does it affect the scene?",
+                    "Observe how morning feels different from evening - what's changed in the atmosphere, activity level, mood?"
                 ])
             elif time_of_day == 'evening':
                 focus_options.extend([
-                    "Focus on evening activities and how people wind down",
-                    "Notice how artificial light changes the scene",
-                    "Observe the transition from day to night"
+                    "Focus on evening activities - what are people doing? How do their behaviors differ from daytime?",
+                    "Notice how artificial light changes the scene - what's illuminated, what's in shadow?",
+                    "Observe the transition from day to night - how does the scene transform as darkness falls?",
+                    "Focus on the rhythm of evening - is activity increasing or decreasing? What patterns emerge?",
+                    "Notice how people move in the evening - are they hurrying, lingering, gathering, dispersing?",
+                    "Observe the interplay of natural and artificial light - how do they combine to create the scene?",
+                    "Focus on evening sounds if you can infer them - what would the scene sound like? What's quiet, what's loud?",
+                    "You're observing Bourbon Street - notice the unique characteristics of this area. What makes it distinct? What do you see that's specific to this location?",
+                    "Observe the crowd - what do you actually see? Are there patterns in how people group, move, or interact?",
+                    "Look for anything that seems unusual or concerning - suspicious behavior, potential danger. If you observe something that might require authorities, note it and consider what you might do",
+                    "Notice the energy of the scene - what's the actual mood and atmosphere you can observe? Is it busy, quiet, chaotic, organized?"
                 ])
             
             # Weather-based focuses
@@ -490,17 +543,19 @@ Provide ONLY the summary, no explanation."""
             if weather:
                 weather_summary = weather.get('summary', '').lower() if isinstance(weather, dict) else str(weather).lower()
                 if 'rain' in weather_summary or 'storm' in weather_summary:
-                    focus_options.append("Focus on how weather affects the scene and people's behavior")
+                    focus_options.append("Focus on how weather affects the scene - how do people move? What do they carry? How does visibility change? What do you actually see?")
                 if 'clear' in weather_summary or 'sunny' in weather_summary:
-                    focus_options.append("Focus on how good weather changes the atmosphere")
+                    focus_options.append("Focus on how clear weather changes the atmosphere - what's more visible? How do people behave? What can you observe?")
+                if 'wind' in weather_summary:
+                    focus_options.append("Focus on how wind affects the scene - what moves? How do people react? What patterns emerge?")
         
         # General focuses
         focus_options.extend([
-            "Focus on human interactions - conversations, gestures, connections",
-            "Focus on the architecture and built environment",
-            "Focus on movement and activity patterns",
-            "Focus on stillness and quiet moments",
-            "Focus on something you've never noticed before"
+            "Focus on human interactions - what conversations, gestures, or connections do you actually observe?",
+            "Focus on the architecture and street environment - pick one element (building, sign, object) and describe it in detail",
+            "Focus on movement and activity patterns - what patterns do you see in how people or objects move?",
+            "Focus on stillness and quiet moments - where is there stillness? What's not moving?",
+            "Focus on something specific you can see - pick one element and examine it closely, describe what you observe"
         ])
         
         return f"FOCUS: {random.choice(focus_options)}"
