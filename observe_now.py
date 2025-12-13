@@ -34,9 +34,9 @@ logging.basicConfig(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manually trigger an observation cycle')
     parser.add_argument(
-        '--force-refresh',
+        '--use-cache',
         action='store_true',
-        help='Force download of a fresh image, even if cached'
+        help='Use cached image if available (default: always fetch fresh image for manual observations)'
     )
     parser.add_argument(
         '--news-only',
@@ -47,10 +47,10 @@ if __name__ == '__main__':
     
     if args.news_only:
         print("📡 Triggering NEWS-BASED observation (text-only, no image)...")
-    elif args.force_refresh:
-        print("🔍 Triggering manual observation with FORCE REFRESH (will fetch new image)...")
+    elif args.use_cache:
+        print("🔍 Triggering manual observation (using cached image if available)...")
     else:
-        print("🔍 Triggering manual observation...")
+        print("🔍 Triggering manual observation with FORCE REFRESH (will fetch new image)...")
     
     try:
         # Determine observation type from current time
@@ -60,8 +60,11 @@ if __name__ == '__main__':
         time_of_day = get_time_of_day(current_hour)
         observation_type = "morning" if time_of_day == "morning" else "evening"
         
+        # Force refresh by default, unless --use-cache is specified
+        force_refresh = not args.use_cache
+        
         run_observation_cycle(
-            force_image_refresh=args.force_refresh, 
+            force_image_refresh=force_refresh, 
             observation_type=observation_type,
             news_only=args.news_only
         )
