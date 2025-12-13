@@ -450,9 +450,22 @@ def main():
         try:
             from datetime import datetime as dt
             next_time = dt.fromisoformat(scheduled_info['datetime'])
-            next_time = LOCATION_TZ.localize(next_time.replace(tzinfo=None)) if next_time.tzinfo is None else next_time
+            # Ensure timezone-aware and convert to LOCATION_TZ for proper comparison
+            if next_time.tzinfo is None:
+                next_time = LOCATION_TZ.localize(next_time)
+            else:
+                # Convert to LOCATION_TZ if it's in a different timezone
+                next_time = next_time.astimezone(LOCATION_TZ)
             obs_type = scheduled_info.get('type', 'evening')
-            logger.info(f"Loaded scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
+            
+            # Check if scheduled time is in the past - if so, recalculate
+            if next_time < now:
+                logger.warning(f"Loaded scheduled time ({get_observation_schedule_summary(next_time, obs_type)}) is in the past. Recalculating...")
+                next_time, obs_type = get_next_observation_time(now)
+                memory_manager.save_next_scheduled_time(next_time, obs_type)
+                logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
+            else:
+                logger.info(f"Loaded scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
         except Exception as e:
             logger.warning(f"Error loading schedule: {e}, calculating new schedule")
             next_time, obs_type = get_next_observation_time(now)
