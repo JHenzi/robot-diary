@@ -349,6 +349,21 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         memory_count = memory_manager.get_total_count()
         logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
+        # Calculate days since first observation
+        days_since_first = 0
+        first_obs_date = memory_manager.get_first_observation_date()
+        if first_obs_date:
+            now = datetime.now(LOCATION_TZ)
+            # Ensure first_obs_date is timezone-aware
+            if first_obs_date.tzinfo is None:
+                first_obs_date = LOCATION_TZ.localize(first_obs_date)
+            else:
+                first_obs_date = first_obs_date.astimezone(LOCATION_TZ)
+            days_since_first = (now - first_obs_date).days
+            logger.info(f"Days since first observation: {days_since_first}")
+        else:
+            logger.info("No previous observations found - this is the first observation")
+        
         # Step 2.5: Fetch weather, news, and context metadata
         logger.info("Step 2.5: Fetching weather, news, and context metadata...")
         weather_data = {}
@@ -450,6 +465,177 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         
     except Exception as e:
         logger.error(f"❌ Error in observation cycle: {e}", exc_info=True)
+        raise
+
+
+def run_simulation_cycle(force_image_refresh: bool = False, observation_type: str = None):
+    """
+    Run a simulation observation cycle - generates diary entry and prompt but doesn't save to memory or Hugo.
+    
+    Outputs a markdown file with:
+    - The prompt/context at the top
+    - The diary entry
+    - The image link
+    
+    Args:
+        force_image_refresh: If True, force download of fresh image even if cached
+        observation_type: Type of observation ('morning' or 'evening')
+    """
+    logger.info("=" * 60)
+    logger.info("Starting SIMULATION observation cycle")
+    logger.info("=" * 60)
+    
+    try:
+        # Initialize components (no Hugo generator needed)
+        memory_manager = MemoryManager()
+        llm_client = GroqClient()
+        
+        # Step 1: Fetch latest image (with caching)
+        logger.info("Step 1: Fetching latest webcam image...")
+        image_path = None
+        try:
+            image_path = fetch_latest_image(force_refresh=force_image_refresh)
+            if force_image_refresh:
+                logger.info(f"Using fresh image (force refresh): {image_path}")
+            else:
+                logger.info(f"Using image: {image_path}")
+        except Exception as e:
+            logger.error(f"Failed to fetch new image: {e}")
+            raise Exception("Simulation requires an image - cannot proceed without one")
+        
+        # Step 2: Load recent memory
+        logger.info("Step 2: Loading recent memory...")
+        recent_memory = memory_manager.get_recent_memory(count=10)
+        memory_count = memory_manager.get_total_count()
+        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
+        
+        # Calculate days since first observation
+        days_since_first = 0
+        first_obs_date = memory_manager.get_first_observation_date()
+        if first_obs_date:
+            now = datetime.now(LOCATION_TZ)
+            # Ensure first_obs_date is timezone-aware
+            if first_obs_date.tzinfo is None:
+                first_obs_date = LOCATION_TZ.localize(first_obs_date)
+            else:
+                first_obs_date = first_obs_date.astimezone(LOCATION_TZ)
+            days_since_first = (now - first_obs_date).days
+            logger.info(f"Days since first observation: {days_since_first}")
+        else:
+            logger.info("No previous observations found - this is the first observation")
+        
+        # Step 2.5: Fetch weather, news, and context metadata
+        logger.info("Step 2.5: Fetching weather, news, and context metadata...")
+        weather_data = {}
+        if PIRATE_WEATHER_KEY:
+            try:
+                weather_client = PirateWeatherClient(PIRATE_WEATHER_KEY)
+                weather_data = weather_client.get_current_weather(use_cache=True)
+            except Exception as e:
+                logger.warning(f"Failed to fetch weather: {e}")
+                weather_data = {}  # Continue without weather
+        
+        # Fetch news articles (40% chance to include in prompt)
+        news_articles = []
+        if random.random() < 0.40:  # 40% chance
+            try:
+                news_articles = get_random_articles(count=2)
+                if news_articles:
+                    # Extract headlines for backward compatibility
+                    news_headlines = [article.get('title', '') for article in news_articles if article.get('title')]
+                    logger.info(f"Fetched news articles: {news_headlines}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch news: {e}")
+                news_articles = []
+        
+        context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
+        # Add news articles to context metadata (full objects with dates, sources, etc.)
+        context_metadata['news_articles'] = news_articles
+        # Also include headlines for backward compatibility
+        context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
+        logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
+        if weather_data:
+            logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
+        
+        # Step 3: Generate dynamic prompt
+        logger.info("Step 3: Generating dynamic prompt...")
+        optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
+                                                   context_metadata, weather_data, memory_count, days_since_first)
+        logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
+        
+        # Step 4: Create diary entry
+        logger.info("Step 4: Creating diary entry...")
+        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
+        logger.info(f"Diary entry created ({len(diary_entry)} characters)")
+        
+        # Step 5: Generate simulation markdown file
+        logger.info("Step 5: Generating simulation markdown file...")
+        
+        # Create simulations directory
+        simulations_dir = PROJECT_ROOT / 'simulations'
+        simulations_dir.mkdir(exist_ok=True)
+        
+        # Generate filename with timestamp
+        now = datetime.now(LOCATION_TZ)
+        timestamp = now.strftime('%Y-%m-%d_%H%M%S')
+        sim_filename = f"simulation_{timestamp}.md"
+        sim_path = simulations_dir / sim_filename
+        
+        # Format context metadata for display
+        context_display = []
+        context_display.append(f"**Date/Time:** {context_metadata.get('date', 'Unknown')} at {context_metadata.get('time', 'Unknown')}")
+        context_display.append(f"**Day:** {context_metadata.get('day_of_week', 'Unknown')}")
+        context_display.append(f"**Season:** {context_metadata.get('season', 'Unknown')}")
+        context_display.append(f"**Time of Day:** {context_metadata.get('time_of_day', 'Unknown')}")
+        context_display.append(f"**Observation Type:** {context_metadata.get('observation_type', 'Unknown')}")
+        
+        if weather_data:
+            temp = weather_data.get('temperature', '?')
+            summary = weather_data.get('summary', 'Unknown')
+            context_display.append(f"**Weather:** {summary}, {temp}°F")
+        
+        if news_articles:
+            context_display.append(f"**News Articles:** {len(news_articles)} articles included")
+        
+        context_display.append(f"**Memory Count:** {memory_count} total observations")
+        context_display.append(f"**Days Since First:** {days_since_first}")
+        
+        # Get relative image path for markdown
+        try:
+            image_rel_path = str(image_path.relative_to(PROJECT_ROOT))
+        except ValueError:
+            # Path is not relative to PROJECT_ROOT, use absolute path or just filename
+            image_rel_path = str(image_path.name)
+        
+        # Write markdown file
+        with open(sim_path, 'w', encoding='utf-8') as f:
+            f.write("# Simulation Observation\n\n")
+            f.write(f"**Generated:** {now.strftime('%Y-%m-%d %H:%M:%S %Z')}\n\n")
+            f.write("## Context\n\n")
+            f.write("\n".join(f"- {item}" for item in context_display))
+            f.write("\n\n")
+            f.write("---\n\n")
+            f.write("## Prompt Sent to LLM\n\n")
+            f.write("```\n")
+            f.write(optimized_prompt)
+            f.write("\n```\n\n")
+            f.write("---\n\n")
+            f.write("## Diary Entry\n\n")
+            f.write(diary_entry)
+            f.write("\n\n")
+            f.write("---\n\n")
+            f.write("## Image\n\n")
+            f.write(f"![Observation Image]({image_rel_path})\n\n")
+        
+        logger.info(f"✅ Simulation markdown saved to: {sim_path}")
+        logger.info("=" * 60)
+        logger.info("✅ Simulation cycle completed successfully")
+        logger.info("=" * 60)
+        
+        return str(sim_path)
+        
+    except Exception as e:
+        logger.error(f"❌ Error in simulation cycle: {e}", exc_info=True)
         raise
 
 

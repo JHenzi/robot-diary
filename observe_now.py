@@ -19,7 +19,7 @@ import pytz
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from src.service import run_observation_cycle
+from src.service import run_observation_cycle, run_simulation_cycle
 from src.config import LOCATION_TIMEZONE
 from src.context.metadata import get_time_of_day
 import logging
@@ -43,9 +43,16 @@ if __name__ == '__main__':
         action='store_true',
         help='Create a news-based observation (text-only, no image)'
     )
+    parser.add_argument(
+        '--simulate',
+        action='store_true',
+        help='Run in simulation mode - generates markdown with prompt/context but does not save to memory or Hugo'
+    )
     args = parser.parse_args()
     
-    if args.news_only:
+    if args.simulate:
+        print("🧪 Running SIMULATION mode (no memory/Hugo saving)...")
+    elif args.news_only:
         print("📡 Triggering NEWS-BASED observation (text-only, no image)...")
     elif args.use_cache:
         print("🔍 Triggering manual observation (using cached image if available)...")
@@ -63,12 +70,20 @@ if __name__ == '__main__':
         # Force refresh by default, unless --use-cache is specified
         force_refresh = not args.use_cache
         
-        run_observation_cycle(
-            force_image_refresh=force_refresh, 
-            observation_type=observation_type,
-            news_only=args.news_only
-        )
-        print("✅ Observation completed successfully!")
+        if args.simulate:
+            sim_path = run_simulation_cycle(
+                force_image_refresh=force_refresh,
+                observation_type=observation_type
+            )
+            print(f"✅ Simulation completed successfully!")
+            print(f"📄 Markdown saved to: {sim_path}")
+        else:
+            run_observation_cycle(
+                force_image_refresh=force_refresh, 
+                observation_type=observation_type,
+                news_only=args.news_only
+            )
+            print("✅ Observation completed successfully!")
     except Exception as e:
         print(f"❌ Observation failed: {e}")
         sys.exit(1)
