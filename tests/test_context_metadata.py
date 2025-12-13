@@ -48,6 +48,14 @@ class TestContextMetadata:
         assert 'is_weekend' in metadata
         assert 'robot_name' in metadata
         assert metadata['robot_name'] == "B3N-T5-MNT"
+        
+        # New optional fields (may or may not be present depending on libraries)
+        assert 'is_holiday' in metadata
+        assert 'day_of_year' in metadata
+        assert 'season_progress' in metadata
+        assert 'days_until_next_season' in metadata
+        assert 'is_equinox' in metadata
+        assert 'is_solstice' in metadata
     
     def test_get_context_metadata_with_weather(self):
         """Test context metadata with weather data."""
@@ -77,6 +85,44 @@ class TestContextMetadata:
         assert len(formatted) > 0
         assert metadata['day_of_week'] in formatted
         assert metadata['date'] in formatted
+    
+    def test_format_context_for_prompt_with_holiday(self):
+        """Test context formatting with holiday."""
+        # Create metadata with a holiday (e.g., Christmas)
+        metadata = get_context_metadata()
+        metadata['is_holiday'] = True
+        metadata['holidays'] = ['Christmas Day']
+        
+        formatted = format_context_for_prompt(metadata)
+        assert 'Christmas' in formatted
+    
+    def test_format_context_for_prompt_with_moon(self):
+        """Test context formatting with moon phase."""
+        metadata = get_context_metadata()
+        metadata['moon'] = {
+            'phase_name': 'full moon',
+            'is_key_event': True,
+            'moon_event': 'full moon'
+        }
+        
+        formatted = format_context_for_prompt(metadata)
+        # Should include moon info if it's a key event
+        assert isinstance(formatted, str)
+    
+    def test_format_context_for_prompt_missing_optional_data(self):
+        """Test that formatting works gracefully when optional data is missing."""
+        metadata = get_context_metadata()
+        # Remove optional fields
+        metadata.pop('moon', None)
+        metadata.pop('sun', None)
+        metadata['is_holiday'] = False
+        metadata.pop('holidays', None)
+        
+        formatted = format_context_for_prompt(metadata)
+        assert isinstance(formatted, str)
+        assert len(formatted) > 0
+        # Should still include basic context
+        assert metadata['day_of_week'] in formatted
     
     def test_format_weather_for_prompt(self):
         """Test weather formatting for prompts."""

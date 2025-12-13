@@ -131,9 +131,30 @@ class TestContextMetadataEdgeCases:
         
         required_fields = [
             'date', 'time', 'day_of_week', 'month', 'day', 'year',
-            'season', 'time_of_day', 'is_weekend', 'robot_name'
+            'season', 'time_of_day', 'is_weekend', 'robot_name',
+            'is_holiday', 'day_of_year', 'season_progress', 
+            'days_until_next_season', 'is_equinox', 'is_solstice'
         ]
         
         for field in required_fields:
             assert field in metadata, f"Missing field: {field}"
+    
+    def test_get_context_metadata_optional_fields_graceful(self):
+        """Test that optional fields (moon, sun, holidays) are handled gracefully."""
+        metadata = get_context_metadata()
+        
+        # These fields may or may not be present depending on library availability
+        # But the function should not crash
+        assert isinstance(metadata, dict)
+        
+        # is_holiday should always be present (boolean)
+        assert 'is_holiday' in metadata
+        assert isinstance(metadata['is_holiday'], bool)
+        
+        # moon and sun are optional - may or may not be present
+        # If present, they should be dicts
+        if 'moon' in metadata:
+            assert isinstance(metadata['moon'], dict)
+        if 'sun' in metadata:
+            assert isinstance(metadata['sun'], dict)
 

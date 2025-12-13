@@ -142,7 +142,7 @@ tags = {tags}
         
         try:
             result = subprocess.run(
-                ['hugo'],
+                ['hugo', '--cleanDestinationDir'],
                 cwd=HUGO_SITE_PATH,
                 capture_output=True,
                 text=True,

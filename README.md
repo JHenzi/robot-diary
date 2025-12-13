@@ -1,413 +1,234 @@
 # Robot Diary
 
-An art piece exploring the perspective of **B3N-T5-MNT**, a maintenance robot working in a building in New Orleans, Louisiana, observing the world through a window and documenting its experiences in a digital diary.
+An autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot in New Orleans observing the world through a window and documenting its experiences in a digital diary.
 
 **Live Site**: [robot.henzi.org](https://robot.henzi.org)
 
 ![Screenshot From Production](Screenshot.png)
 
-## Concept
+## The Concept
 
-This project creates an autonomous narrative agent—**B3N-T5-MNT**, a maintenance robot (Maintenance Unit) that periodically observes New Orleans, Louisiana through a live video stream, interprets what it sees using AI vision models, and writes diary entries about its observations. The robot maintains memory of past experiences, allowing it to notice changes, patterns, and develop a sense of continuity in its observations.
+B3N-T5-MNT is a maintenance robot that was designed for building maintenance but finds itself drawn to the window, observing Bourbon Street below. It captures frames from live video streams, interprets what it sees using AI vision models, and writes diary entries about its observations—creating a living document of a robot's perspective on the world.
 
-B3N-T5-MNT was designed for building maintenance tasks and performs these functions, but finds itself drawn to observing the world through a window. It maintains a diary, observing the world outside—a view of New Orleans, Louisiana.
+But this isn't just "AI writes about photos." This project explores something more interesting: **how do you make an AI agent's writing feel alive, varied, and contextually aware?**
 
-The diary entries are automatically generated as Hugo blog posts and published to a website, creating a living document of the robot's perspective on the world outside its window.
+## The Novel Approach: Dynamic Context-Aware Prompting
 
-## Features
+Most AI writing projects use static prompts. We don't. Every diary entry is generated using a **dynamically constructed prompt** that combines:
 
-- **Continuous Service**: Runs as a background service, observing and generating content continuously
-- **Periodic Image Capture**: Captures frames from live YouTube video streams
-- **AI Vision Interpretation**: Uses Groq's Llama-4-Maverick vision model to describe what the robot "sees"
-- **News Fallback**: Automatically falls back to news-based observations when image capture fails, using headlines from [Pulse API](https://pulse.henzi.org)
-- **Dynamic Prompt Generation**: Uses a cheaper model (`gpt-oss-20b`) to generate context-aware prompts based on recent history
-- **Contextual Memory**: Maintains memory of recent observations to create narrative continuity
-- **LLM-Based Memory Summarization**: Uses intelligent AI summarization to preserve key context from past observations without exhausting token limits
-- **Dynamic Storytelling**: Generates unique diary entries based on current observations and past memories
-- **Prompt Variety System**: Advanced prompting system that ensures each entry feels different through:
-  - Style variation (narrative, philosophical, analytical, poetic, humorous, etc.)
-  - Perspective shifts (urgency, nostalgia, curiosity, wonder, etc.)
-  - Context-aware focus instructions (time-based, weather-based, observational)
-  - Anti-repetition detection to avoid formulaic entries
-- **Weather Integration**: Incorporates current weather data for richer contextual prompts
-- **News Integration**: Randomly includes current news headlines (40% chance) for contextual awareness
-- **Automated Publishing**: Converts diary entries into Hugo posts and automatically builds the site
-- **Preview Images**: Posts automatically include cover images for beautiful previews in listings
-- **Next Observation Schedule**: Each post includes when the next scheduled observation will occur (with timezone)
+### Rich World Context
 
-## Current Status
+The robot doesn't just see an image—it "knows" things about the world:
 
-**✅ Live and Operational**: The project is fully operational and generating diary entries.
+- **Temporal Awareness**: Date, time, season, day of week, whether it's a weekend
+- **Holidays**: Detects US holidays (federal + cultural/religious) and mentions them naturally
+- **Moon Phases**: Tracks full moons, new moons, and special lunar events
+- **Astronomical Events**: Aware of solstices, equinoxes, and seasonal transitions
+- **Sunrise/Sunset**: Knows when the sun rose or set, how long ago
+- **Weather**: Current conditions, temperature, wind, precipitation—correlated with what it sees
+- **News**: Randomly includes current news headlines (40% chance) so the robot can reference world events as if it overheard them
+- **Seasonal Progress**: "We're in the middle of winter, with spring still 10 weeks away"
 
-### Image Source: YouTube Live Streams
+### Intelligent Memory System
 
-The system uses YouTube Live streams as the primary video source:
-- ✅ Reliable and accessible
-- ✅ Real-time content
-- ✅ Uses `yt-dlp` to extract frames from streams
-- ✅ No authentication required for public streams
+The robot remembers past observations, but not by dumping full text into prompts:
 
-### News Fallback System
+- **LLM-Generated Summaries**: Each observation is distilled by an AI model (`llama-3.1-8b-instant`) into 200-400 character summaries that preserve:
+  - Key visual details
+  - Emotional tone
+  - Notable events or patterns
+  - References to people or objects
+- **Narrative Continuity**: The robot can reference specific past observations, notice changes, and build on previous entries
+- **Personality Drift**: As the robot accumulates more observations, its personality evolves (curious → reflective → philosophical)
 
-When image capture fails, the system automatically falls back to news-based observations:
-- Fetches random news clusters from [Pulse API](https://pulse.henzi.org)
-- Selects 3 headlines from a random topic cluster
-- Generates text-only diary entries reflecting on the news from the robot's perspective
-- Ensures continuous content generation even when video streams are unavailable
-- Randomly triggers news-based observations every few days for variety
+### Prompt Variety Engine
+
+To prevent repetitive, formulaic entries, each prompt includes randomly selected variety instructions:
+
+- **Style Variations** (2 selected per entry): Narrative, philosophical, analytical, poetic, humorous, melancholic, speculative, anthropological, stream-of-consciousness, and more
+- **Perspective Shifts**: Urgency, nostalgia, curiosity, wonder, detachment, self-awareness, mechanical curiosity, and 20+ other perspectives
+- **Context-Aware Focus**: Instructions adapt to:
+  - Time of day (morning routines vs. evening activities)
+  - Weather conditions (wind effects, precipitation, visibility)
+  - Location specifics (Bourbon Street characteristics, New Orleans culture)
+  - Scene analysis (human interactions, movement patterns, architectural details)
+- **Creative Challenges**: 60% chance of including a creative constraint (e.g., "Try an unexpected metaphor only a robot would think of")
+- **Anti-Repetition Detection**: Analyzes recent entries to avoid repeating opening patterns or structures
+
+### Multi-Model Architecture
+
+We use a **three-model approach** for efficiency and quality:
+
+1. **Memory Summarization** (`llama-3.1-8b-instant`): Cheap model distills each observation into a context-preserving summary
+2. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
+3. **Final Generation** (`llama-4-maverick-17b-128e-instruct`): Expensive vision model receives the rich, context-aware prompt and generates the diary entry
+
+This architecture ensures:
+- **Cost Efficiency**: Only the final generation uses the expensive model
+- **Context Preservation**: No information loss through multiple LLM translations
+- **Rich Output**: The vision model receives comprehensive context, not just an image
+
+## What Makes This Different
+
+### 1. World Knowledge, Not Just Vision
+
+The robot doesn't just describe what it sees—it connects observations to:
+- Current events (news headlines)
+- Natural cycles (moon phases, seasons, sunrise/sunset)
+- Cultural context (holidays, time of day patterns)
+- Weather patterns (correlating visual observations with conditions)
+
+### 2. True Narrative Continuity
+
+Unlike systems that just append context, we use **intelligent summarization**:
+- Each past observation is distilled to its essential context
+- Summaries preserve emotional tone, key details, and references
+- The robot can genuinely reference past observations without exhausting token limits
+- Memory grows over time, creating a sense of accumulated experience
+
+### 3. Guaranteed Variety
+
+Every entry feels different because:
+- **Random selection** of styles, perspectives, and focus areas
+- **Anti-repetition detection** prevents formulaic openings
+- **Context-aware instructions** adapt to current conditions
+- **Explicit variety directives** in every prompt
+
+### 4. Graceful Degradation
+
+The system handles missing data elegantly:
+- If moon phase calculation fails? Skip it, continue with other context
+- If holidays library unavailable? Continue without holiday awareness
+- If weather API fails? Use cached data or continue without weather
+- **No data is fed to prompts if uncertain or missing**
+
+## Example: What Goes Into a Prompt
+
+Here's what the robot "knows" when writing an entry:
+
+```
+Today is Wednesday, December 25, 2025 at 10:51 PM CST. Today is Christmas Day. 
+A full moon is visible. The sun set 5 hours ago. We're in the middle of winter, 
+with spring still 10 weeks away. It is a weekday.
+
+Weather Conditions:
+The weather is Clear with a temperature of 45°F. The temperature has dropped 
+3 degrees since my last observation.
+
+Recent observations from the robot's memory:
+[LLM-generated summaries of past 5-10 observations, each 200-400 chars]
+
+PERSONALITY: The robot has been observing for a while. It may be developing a 
+more reflective, contemplative mood...
+
+STYLE VARIATION: For this entry, incorporate these approaches:
+- Focus on sensory details - describe sounds, light, movement, textures
+- Write more poetically - use poetic language, similes, metaphors
+
+PERSPECTIVE: You're observing as a robot, conscious of yourself as a machine—
+describe the world with mechanical curiosity, as an outsider to organic life
+
+FOCUS: You're observing Bourbon Street - notice the unique characteristics of 
+this area. What makes it distinct? What do you see that's specific to this location?
+
+CREATIVE CHALLENGE: Try an unexpected metaphor for what you see - use your 
+robotic perspective to make a comparison humans wouldn't think of
+```
+
+The vision model receives this rich context along with the image, resulting in entries that feel **aware, varied, and genuinely contextual**.
+
+## Results
+
+The output is diary entries that:
+- Reference specific past observations naturally
+- Notice changes and patterns over time
+- Connect visual observations to weather, time, and world events
+- Vary dramatically in style, tone, and focus
+- Feel like they're written by an entity with memory and awareness
+- Demonstrate "world knowledge" beyond just visual description
 
 ## Tech Stack
 
-- **Python**: Core automation and API integration
-- **YouTube Live Streams**: Primary source of live video feeds via `yt-dlp`
-- **Pulse API** ([pulse.henzi.org](https://pulse.henzi.org)): News headlines for fallback observations
-- **Pirate Weather API**: Current weather data for contextual prompts
-- **Groq + Multi-Model Approach**:
-  - `openai/gpt-oss-20b`: Dynamic prompt generation based on recent history
-  - `meta-llama/llama-4-maverick-17b-128e-instruct`: Vision interpretation and diary entry generation
-  - `llama-3.1-8b-instant`: Memory summarization (cost-efficient distillation of past observations)
-- **Hugo**: Static site generator for the diary blog (located in `hugo/` folder)
-- **Memory System**: Context storage for maintaining narrative continuity
-- **Service Architecture**: Long-running background service with automatic Hugo builds
+- **Python**: Core automation
+- **Groq API**: Multi-model LLM inference
+  - `llama-4-maverick-17b-128e-instruct`: Vision + final generation
+  - `llama-3.1-8b-instant`: Memory summarization
+- **Astral**: Astronomical calculations (sunrise/sunset, moon phases)
+- **Holidays**: US holiday detection
+- **Pirate Weather API**: Weather data
+- **Pulse API**: News headlines ([pulse.henzi.org](https://pulse.henzi.org))
+- **YouTube Live Streams**: Video source via `yt-dlp`
+- **Hugo**: Static site generation
 
-## Project Structure
+## Contributing
 
-```
-robot-diary/
-├── README.md              # This file
-├── DEVELOPMENT_PLAN.md    # Detailed development roadmap
-├── DECISIONS.md           # Architecture decision records
-├── .env.example          # Environment variable template
-├── .env                  # Your actual environment variables (gitignored)
-├── src/
-│   ├── camera/           # Camera API integration
-│   ├── llm/              # LLM integration (prompt generation + vision/writing)
-│   ├── memory/           # Memory/context management
-│   ├── hugo/             # Hugo post generation and build
-│   └── service.py        # Main service daemon
-├── hugo/                  # Hugo site directory
-│   ├── content/          # Hugo content (posts generated here)
-│   ├── static/           # Static assets (images copied here)
-│   └── hugo.toml         # Hugo configuration
-├── images/                # Downloaded webcam images (temporary)
-├── memory/                # Persistent memory storage
-└── requirements.txt       # Python dependencies
-```
+We're actively looking for:
+
+- **Feedback**: What works? What doesn't? How can we improve the prompting?
+- **Testing**: Help us test edge cases, different contexts, error handling
+- **Enhancements**: Ideas for additional context, better variety systems, improved memory strategies
+- **Pull Requests**: Improvements to prompting logic, context generation, or documentation
+
+### Areas of Interest
+
+- **Context Expansion**: What other world knowledge should the robot have? (local events, cultural observances, etc.)
+- **Variety Improvements**: New style options, perspective shifts, focus instructions
+- **Memory Strategies**: Better summarization techniques, retrieval methods
+- **Error Handling**: More robust graceful degradation
+- **Testing**: Comprehensive test coverage for context generation
 
 ## Setup
 
-### Prerequisites
+### Quick Start
 
-- Python 3.8+
-- Hugo (for building and publishing the site)
-- Groq API key
-- yt-dlp (for YouTube stream frame extraction)
-
-### Installation
-
-1. Clone this repository:
 ```bash
+# Clone and install
 git clone <repository-url>
 cd robot-diary
-```
-
-2. Create a virtual environment:
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+source venv/bin/activate
 pip install -r requirements.txt
-```
 
-4. Set up environment variables:
-```bash
+# Configure
 cp .env.example .env
-# Edit .env with your API keys and configuration
-```
+# Edit .env with your GROQ_API_KEY and YOUTUBE_STREAM_URL
 
-Required environment variables:
-- `GROQ_API_KEY`: Your Groq API key
-- `YOUTUBE_STREAM_URL`: URL of the YouTube live stream to observe
-- `LOCATION_TIMEZONE`: Timezone for scheduling (default: `America/Chicago`)
-
-Optional environment variables:
-- `PIRATE_WEATHER_KEY`: Weather API key for contextual prompts
-- `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
-- `HUGO_SITE_PATH`: Path to Hugo site (default: `./hugo`)
-- `DEPLOY_ENABLED`: Enable automatic site deployment (default: `false`)
-
-5. Configure Hugo site:
-```bash
-# The Hugo site is already set up in the hugo/ folder
-# Posts will be generated in hugo/content/posts/
-# Images will be copied to hugo/static/images/
-```
-
-## Usage
-
-**Status**: ✅ **Live** - Fully operational and generating diary entries.
-
-### Running as a Service
-
-The robot diary runs as a continuous background service:
-
-```bash
+# Run
 python run_service.py
 ```
 
-Or directly:
-```bash
-python src/service.py
-```
+### Required Environment Variables
 
-The service will:
-1. Run continuously in the background
-2. Make observations at randomized scheduled times (morning: 7:30-9:30 AM, evening: 4-6 PM weekdays / 6 PM-1 AM weekends)
-3. For each observation cycle:
-   - Attempt to capture a frame from the YouTube live stream
-   - If image capture fails, automatically fall back to news-based observation using [Pulse API](https://pulse.henzi.org)
-   - Load recent memory/history (using intelligent LLM-generated summaries)
-   - Fetch current weather data (if configured)
-   - Fetch random news headlines (40% chance) for contextual awareness
-   - Use `gpt-oss-20b` to generate a dynamic prompt with:
-     - Recent memory summaries
-     - Style variation instructions (randomly selected)
-     - Perspective shift instructions
-     - Context-aware focus instructions
-     - Anti-repetition warnings
-   - For image-based observations: Send image to `llama-4-maverick` for vision interpretation
-   - For news-based observations: Generate text-only entry reflecting on news headlines
-   - Generate diary entry using the optimized prompt
-   - Calculate next scheduled observation time
-   - Append next scheduled time to diary entry (with timezone)
-   - Generate LLM summary of the entry for future memory retrieval
-   - Create Hugo post in `hugo/content/posts/` with cover image (for image-based posts)
-   - Automatically build Hugo site
-   - Deploy site (if configured)
-   - Update memory with the new observation (including LLM summary)
-
-### Running as a System Service
-
-For production, run as a systemd service or similar:
-
-```bash
-# Example systemd service file
-# /etc/systemd/system/robot-diary.service
-[Unit]
-Description=Robot Diary Service
-After=network.target
-
-[Service]
-Type=simple
-User=your-user
-WorkingDirectory=/path/to/robot-diary
-Environment="PATH=/path/to/robot-diary/venv/bin"
-ExecStart=/path/to/robot-diary/venv/bin/python src/service.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Manual Observation Trigger
-
-You can manually trigger an observation:
-
-```bash
-# Regular observation (always fetches fresh image by default)
-python observe_now.py
-
-# Use cached image if available (skip fresh fetch)
-python observe_now.py --use-cache
-
-# News-based observation (text-only, no image)
-python observe_now.py --news-only
-```
-
-**Note**: Manual observations default to fetching fresh images. Use `--use-cache` if you want to use a cached image instead.
-
-### Configuration
-
-The service behavior can be configured via environment variables:
-- `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe
 - `GROQ_API_KEY`: Your Groq API key
-- `PIRATE_WEATHER_KEY`: (Optional) Weather API key for contextual prompts
-- `LOCATION_TIMEZONE`: Timezone for scheduling (default: `America/Chicago`)
+- `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe
+
+### Optional Environment Variables
+
+- `PIRATE_WEATHER_KEY`: Weather API key for contextual prompts
+- `USE_PROMPT_OPTIMIZATION`: Enable LLM-based prompt optimization (default: `false` - uses direct template combination)
 - `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
-- `HUGO_SITE_PATH`: Path to Hugo site directory (default: `./hugo`)
-- `DEPLOY_ENABLED`: Enable automatic site deployment (default: `false`)
-
-### News Fallback Configuration
-
-The system automatically uses [Pulse API](https://pulse.henzi.org) for news-based observations:
-- No API key required (public API)
-- Automatically fetches random news clusters
-- Selects 3 headlines from random topics
-- Generates thoughtful reflections from the robot's perspective
-
-News-based observations occur:
-- Automatically when image capture fails
-- Randomly every few days (10% chance per scheduled observation, or if 3+ days since last news observation)
-- Manually via `--news-only` flag
-
-### LLM Prompting
-
-The system uses a **multi-model approach** for dynamic, varied content generation:
-
-1. **Memory Summarization** (using `llama-3.1-8b-instant`):
-   - When each observation is saved, an AI model generates an intelligent summary
-   - Preserves key context (visual details, events, emotional tone, references) in 200-400 characters
-   - Enables better narrative continuity without exhausting token limits
-   - Cost-efficient distillation that captures what's important for future callbacks
-
-2. **Prompt Generation** (using `openai/gpt-oss-20b`):
-   - Analyzes recent memory/history (using LLM-generated summaries)
-   - Considers narrative continuity
-   - Generates optimized prompts tailored to current context
-   - Includes variety instructions to ensure each entry feels unique
-   - Cost-effective for prompt iteration
-
-3. **Final Generation** (using `meta-llama/llama-4-maverick-17b-128e-instruct`):
-   - Receives optimized prompt from step 2
-   - Processes image for vision interpretation (for image-based observations)
-   - Generates final diary entry with natural variety
-
-#### Prompt Variety System
-
-To ensure each entry feels different and avoids repetition, the system includes:
-
-- **Style Variation**: Randomly selects 2 from 10+ writing styles (narrative, philosophical, analytical, poetic, humorous, speculative, etc.)
-- **Perspective Shifts**: Varies the robot's perspective (urgency, nostalgia, curiosity, wonder, detachment, etc.)
-- **Focus Instructions**: Context-aware focus areas based on time of day, weather, and scene characteristics
-- **Anti-Repetition**: Detects and warns against repeating recent opening patterns or structures
-- **Explicit Variety Instructions**: Prompts explicitly instruct the model to vary style, focus, tone, and structure
-
-The dynamic prompts include:
-- The robot's "persona" (working in New Orleans, Louisiana, observing Bourbon Street)
-- Recent memories/observations (using intelligent LLM summaries)
-- Current image description (for image-based observations)
-- Style and perspective variation instructions
-- Context-aware narrative elements (weather, time, season)
-- News headlines (40% chance) for contextual awareness
-
-#### Memory System
-
-- **Full Content**: Complete diary entries stored for reference
-- **LLM Summaries**: Intelligent summaries (200-400 chars) that preserve key context
-- **Fallback Summaries**: Simple truncation if LLM summarization fails
-- **Smart Retrieval**: Uses LLM summaries in prompts for better context with fewer tokens
-
-Customize prompt templates in `src/llm/prompts.py` and style options in `src/llm/client.py`.
 
 ## Philosophy
 
-This project explores themes of:
+This project explores:
 - **Observation and interpretation**: How AI "sees" and understands visual information
 - **Narrative continuity**: Creating a sense of self and memory in an AI agent
+- **Contextual awareness**: Making AI writing feel connected to the world, not isolated
 - **Automated art**: Using automation to create ongoing, evolving artistic works
 - **Perspective**: The unique viewpoint of a "trapped" observer with limited information
-
-## Docker Deployment
-
-The project includes Docker support for containerized deployment:
-
-### Building the Image
-
-```bash
-docker build -t robot-diary .
-```
-
-### Running with Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### Running Manually
-
-*Not Recommended!*
-
-```bash
-docker run -d \
-  --name robot-diary \
-  --restart unless-stopped \
-  -v $(pwd)/images:/app/images \
-  -v $(pwd)/memory:/app/memory \
-  -v $(pwd)/weather:/app/weather \
-  -v $(pwd)/hugo:/app/hugo \
-  -v $(pwd)/.env:/app/.env:ro \
-  robot-diary
-```
-
-**Note**: The Docker image includes:
-- ✅ FFmpeg (for frame extraction)
-- ✅ yt-dlp (for YouTube stream access)
-- ✅ Hugo Extended (for site generation)
-- ✅ rsync & openssh-client (for deployment)
-- ✅ All Python dependencies
-
-### Container Rebuilds
-
-When rebuilding a running container:
-- **No data loss**: All persistent data is in mounted volumes (images, memory, weather, hugo, logs)
-- **Schedule preserved**: Next observation time is saved in `memory/schedule.json`
-- **No duplicate observations**: Service checks schedule before creating new observations
-- **Safe to rebuild**: Service will resume from saved schedule
-
-**Recommended rebuild procedure**:
-```bash
-# Rebuild image (container keeps running)
-docker-compose build
-
-# Restart container to use new image
-docker-compose restart robot-diary
-# OR
-docker-compose up -d  # Recreates container with new image
-```
 
 ## License
 
 [GPL](LICENSE)
 
-This code is fully released under the GNU General Public License, we provide no warranty, however, require all modifications to be published.
-
-## Recent Enhancements
-
-### Prompt Variety System (2025-12-13)
-- **Style Variation**: Each entry randomly incorporates 2 different writing styles from 10+ options
-- **Perspective Shifts**: Varies the robot's perspective (urgency, nostalgia, curiosity, wonder, etc.)
-- **Focus Instructions**: Context-aware focus areas based on time, weather, and scene
-- **Anti-Repetition**: Detects and prevents repetitive opening patterns
-- **Result**: Each entry feels unique and avoids formulaic repetition
-
-### LLM-Based Memory Summarization (2025-12-13)
-- **Intelligent Summaries**: Uses `llama-3.1-8b-instant` to generate context-preserving summaries (200-400 chars)
-- **Better Context**: Preserves key details, events, emotional tone, and references better than truncation
-- **Token Efficient**: Summaries use 200-400 chars vs full content (often 2000+ chars)
-- **Cost Effective**: Uses cheap model, only runs once per observation
-- **Better Callbacks**: Robot can reference specific details from past observations
-
-### Next Scheduled Observation Display (2025-12-13)
-- Each post now includes when the next scheduled observation will occur
-- Includes timezone information (CST/CDT) so readers know what timezone the bot operates in
-- Format: `*Next scheduled observation: Next morning observation scheduled for 08:54 AM on Saturday, December 13 (CST)*`
-
-### Enhanced News Integration (2025-12-12)
-- News headlines included in 40% of regular observations (not just fallback)
-- Full article metadata (dates, sources, sentiment) passed to LLM
-- Robot can casually reference news as if overheard on broadcasts
-- Better contextual awareness of world events
+This code is fully released under the GNU General Public License. We provide no warranty, however, require all modifications to be published.
 
 ## Acknowledgments
 
 - **New Orleans, Louisiana** for the live video feed
 - **Groq** for fast, cost-effective LLM inference
-- **Meta's Llama-4-Maverick** model for vision and language capabilities
-- **Meta's Llama-3.1-8b-instant** for efficient memory summarization
-- **[Pulse API](https://pulse.henzi.org)** for news headlines and fallback observations
+- **Meta's Llama models** for vision and language capabilities
+- **[Pulse API](https://pulse.henzi.org)** for news headlines
 - **Hugo** for static site generation
 - **PaperMod** Hugo theme for beautiful post previews
 

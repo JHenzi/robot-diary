@@ -12,6 +12,12 @@ Pillow>=10.0.0
 python-dateutil>=2.8.2
 pytz>=2024.1
 
+# Astronomical calculations (sunrise/sunset, moon phases)
+astral>=3.2
+
+# US holidays detection
+holidays>=0.36
+
 # YouTube stream access
 yt-dlp>=2024.1.0
 

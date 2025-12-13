@@ -1,13 +1,33 @@
 """Generate context metadata (date/time, weather, etc.) for prompts."""
 from datetime import datetime, timedelta
 import pytz
-from typing import Dict
+from typing import Dict, List, Optional
+import logging
 
-from ..config import ROBOT_NAME
+from ..config import ROBOT_NAME, LOCATION_LATITUDE, LOCATION_LONGITUDE, LOCATION_CITY, LOCATION_STATE
 
 # New Orleans, Louisiana timezone (Central Time)
 from ..config import LOCATION_TIMEZONE
 LOCATION_TZ = pytz.timezone(LOCATION_TIMEZONE)
+
+logger = logging.getLogger(__name__)
+
+# Try to import optional dependencies
+try:
+    from astral import LocationInfo
+    from astral.sun import sun
+    from astral import moon
+    ASTRAL_AVAILABLE = True
+except ImportError:
+    ASTRAL_AVAILABLE = False
+    logger.warning("astral library not available - sunrise/sunset and moon phase calculations will be skipped")
+
+try:
+    import holidays
+    HOLIDAYS_AVAILABLE = True
+except ImportError:
+    HOLIDAYS_AVAILABLE = False
+    logger.warning("holidays library not available - holiday detection will be skipped")
 
 
 def get_season(month: int) -> str:
@@ -57,6 +77,395 @@ def get_time_of_day(hour: int) -> str:
         return "evening"
     else:
         return "night"
+
+
+def get_moon_phase(date: datetime) -> Optional[Dict]:
+    """
+    Calculate moon phase and detect special events (full moon, new moon, supermoon, blue moon).
+    
+    Args:
+        date: Date to calculate moon phase for
+        
+    Returns:
+        Dictionary with moon phase info, or None if calculation fails
+    """
+    if not ASTRAL_AVAILABLE:
+        return None
+    
+    try:
+        # Calculate moon phase (0.0 = new moon, 0.5 = full moon)
+        phase_value = moon.phase(date)
+        
+        # Determine phase name
+        if phase_value < 0.03 or phase_value > 0.97:
+            phase_name = "new moon"
+            is_key_event = True
+        elif 0.47 <= phase_value <= 0.53:
+            phase_name = "full moon"
+            is_key_event = True
+        elif phase_value < 0.22:
+            phase_name = "waxing crescent"
+            is_key_event = False
+        elif phase_value < 0.28:
+            phase_name = "first quarter"
+            is_key_event = False
+        elif phase_value < 0.47:
+            phase_name = "waxing gibbous"
+            is_key_event = False
+        elif phase_value < 0.72:
+            phase_name = "waning gibbous"
+            is_key_event = False
+        elif phase_value < 0.78:
+            phase_name = "last quarter"
+            is_key_event = False
+        else:
+            phase_name = "waning crescent"
+            is_key_event = False
+        
+        # Calculate days until next full/new moon
+        days_to_full = None
+        days_to_new = None
+        
+        # Find next full moon (phase = 0.5)
+        test_date = date
+        for _ in range(30):  # Search up to 30 days ahead
+            test_date += timedelta(days=1)
+            test_phase = moon.phase(test_date)
+            if 0.47 <= test_phase <= 0.53:
+                days_to_full = (test_date - date).days
+                break
+        
+        # Find next new moon (phase = 0.0 or 1.0)
+        test_date = date
+        for _ in range(30):
+            test_date += timedelta(days=1)
+            test_phase = moon.phase(test_date)
+            if test_phase < 0.03 or test_phase > 0.97:
+                days_to_new = (test_date - date).days
+                break
+        
+        # Detect special events
+        moon_event = None
+        if phase_name == "full moon":
+            # Check for blue moon (second full moon in calendar month)
+            # This is approximate - would need to check all full moons in month
+            # For now, we'll just note if it's a full moon
+            moon_event = "full moon"
+        elif phase_name == "new moon":
+            moon_event = "new moon"
+        
+        return {
+            'phase_name': phase_name,
+            'phase_value': phase_value,
+            'is_key_event': is_key_event,
+            'days_to_full_moon': days_to_full,
+            'days_to_new_moon': days_to_new,
+            'moon_event': moon_event
+        }
+    except Exception as e:
+        logger.warning(f"Error calculating moon phase: {e}")
+        return None
+
+
+def get_holidays(date: datetime) -> List[str]:
+    """
+    Detect US holidays (federal + cultural/religious) for the given date.
+    
+    Args:
+        date: Date to check for holidays
+        
+    Returns:
+        List of holiday names, empty list if none or if library unavailable
+    """
+    if not HOLIDAYS_AVAILABLE:
+        return []
+    
+    try:
+        # Get US holidays (includes federal holidays)
+        us_holidays = holidays.UnitedStates(years=date.year)
+        
+        # Also get state holidays for Louisiana (includes Mardi Gras, etc.)
+        la_holidays = holidays.US(state='LA', years=date.year)
+        
+        # Combine and get unique holidays for this date
+        date_str = date.strftime('%Y-%m-%d')
+        holiday_list = []
+        
+        if date_str in us_holidays:
+            holiday_list.append(us_holidays[date_str])
+        if date_str in la_holidays and la_holidays[date_str] not in holiday_list:
+            holiday_list.append(la_holidays[date_str])
+        
+        return holiday_list
+    except Exception as e:
+        logger.warning(f"Error detecting holidays: {e}")
+        return []
+
+
+def get_sunrise_sunset(date: datetime) -> Optional[Dict]:
+    """
+    Calculate sunrise and sunset times for New Orleans.
+    
+    Args:
+        date: Date to calculate for
+        
+    Returns:
+        Dictionary with sunrise/sunset info, or None if calculation fails
+    """
+    if not ASTRAL_AVAILABLE:
+        return None
+    
+    try:
+        # Create location for New Orleans
+        location = LocationInfo(
+            name=LOCATION_CITY,
+            region=LOCATION_STATE,
+            timezone=LOCATION_TIMEZONE,
+            latitude=LOCATION_LATITUDE,
+            longitude=LOCATION_LONGITUDE
+        )
+        
+        # Calculate sun times
+        s = sun(location.observer, date=date.date(), tzinfo=LOCATION_TZ)
+        
+        sunrise = s['sunrise']
+        sunset = s['sunset']
+        
+        # Calculate time since/until sunrise/sunset
+        current_time = date
+        hours_since_sunrise = None
+        hours_until_sunset = None
+        hours_since_sunset = None
+        is_daytime = None
+        
+        if current_time >= sunrise and current_time < sunset:
+            is_daytime = True
+            hours_since_sunrise = (current_time - sunrise).total_seconds() / 3600
+            hours_until_sunset = (sunset - current_time).total_seconds() / 3600
+            hours_since_sunset = None
+        elif current_time < sunrise:
+            is_daytime = False
+            hours_until_sunset = None
+            hours_since_sunrise = None
+            # Before sunrise - could calculate hours since yesterday's sunset, but skip for simplicity
+            hours_since_sunset = None
+        else:  # current_time >= sunset
+            is_daytime = False
+            hours_since_sunrise = (current_time - sunrise).total_seconds() / 3600
+            hours_until_sunset = None
+            hours_since_sunset = (current_time - sunset).total_seconds() / 3600
+        
+        return {
+            'sunrise_time': sunrise.strftime('%I:%M %p'),
+            'sunset_time': sunset.strftime('%I:%M %p'),
+            'sunrise': sunrise,
+            'sunset': sunset,
+            'hours_since_sunrise': hours_since_sunrise,
+            'hours_until_sunset': hours_until_sunset,
+            'hours_since_sunset': hours_since_sunset,
+            'is_daytime': is_daytime
+        }
+    except Exception as e:
+        logger.warning(f"Error calculating sunrise/sunset: {e}")
+        return None
+
+
+def get_seasonal_progress(date: datetime) -> Dict:
+    """
+    Calculate day of year and progress through current season.
+    
+    Args:
+        date: Date to calculate for
+        
+    Returns:
+        Dictionary with seasonal progress info
+    """
+    # Day of year (1-365/366)
+    day_of_year = date.timetuple().tm_yday
+    
+    # Determine season and calculate progress
+    season = get_season(date.month)
+    
+    # Define season boundaries (approximate)
+    season_days = {
+        'Winter': (12, 1, 2),  # Dec, Jan, Feb
+        'Spring': (3, 4, 5),   # Mar, Apr, May
+        'Summer': (6, 7, 8),    # Jun, Jul, Aug
+        'Fall': (9, 10, 11)     # Sep, Oct, Nov
+    }
+    
+    # Calculate days in current season
+    season_months = season_days[season]
+    days_in_season = 0
+    for month in season_months:
+        if month == 2:
+            # February - check for leap year
+            if date.year % 4 == 0 and (date.year % 100 != 0 or date.year % 400 == 0):
+                days_in_season += 29
+            else:
+                days_in_season += 28
+        elif month in [4, 6, 9, 11]:
+            days_in_season += 30
+        else:
+            days_in_season += 31
+    
+    # Calculate which day of season we're on
+    if season == 'Winter':
+        if date.month == 12:
+            day_of_season = date.day
+        elif date.month == 1:
+            # Days in Dec + days in Jan so far
+            dec_days = 31
+            day_of_season = dec_days + date.day
+        else:  # February
+            dec_days = 31
+            jan_days = 31
+            day_of_season = dec_days + jan_days + date.day
+    elif season == 'Spring':
+        if date.month == 3:
+            day_of_season = date.day
+        elif date.month == 4:
+            mar_days = 31
+            day_of_season = mar_days + date.day
+        else:  # May
+            mar_days = 31
+            apr_days = 30
+            day_of_season = mar_days + apr_days + date.day
+    elif season == 'Summer':
+        if date.month == 6:
+            day_of_season = date.day
+        elif date.month == 7:
+            jun_days = 30
+            day_of_season = jun_days + date.day
+        else:  # August
+            jun_days = 30
+            jul_days = 31
+            day_of_season = jun_days + jul_days + date.day
+    else:  # Fall
+        if date.month == 9:
+            day_of_season = date.day
+        elif date.month == 10:
+            sep_days = 30
+            day_of_season = sep_days + date.day
+        else:  # November
+            sep_days = 30
+            oct_days = 31
+            day_of_season = sep_days + oct_days + date.day
+    
+    # Determine progress (early/mid/late - thirds)
+    progress_ratio = day_of_season / days_in_season
+    if progress_ratio < 0.33:
+        season_progress = "early"
+    elif progress_ratio < 0.67:
+        season_progress = "middle"
+    else:
+        season_progress = "late"
+    
+    # Calculate days until next season
+    next_season_months = {
+        'Winter': (3, 4, 5),   # Spring
+        'Spring': (6, 7, 8),   # Summer
+        'Summer': (9, 10, 11), # Fall
+        'Fall': (12, 1, 2)     # Winter
+    }
+    
+    # Find first day of next season
+    if season == 'Winter':
+        next_season_start = datetime(date.year, 3, 1, tzinfo=LOCATION_TZ)
+    elif season == 'Spring':
+        next_season_start = datetime(date.year, 6, 1, tzinfo=LOCATION_TZ)
+    elif season == 'Summer':
+        next_season_start = datetime(date.year, 9, 1, tzinfo=LOCATION_TZ)
+    else:  # Fall
+        next_season_start = datetime(date.year, 12, 1, tzinfo=LOCATION_TZ)
+    
+    if date >= next_season_start:
+        # Next season is next year
+        if season == 'Fall':
+            next_season_start = datetime(date.year + 1, 3, 1, tzinfo=LOCATION_TZ)
+        else:
+            next_season_start = datetime(date.year + 1, next_season_start.month, 1, tzinfo=LOCATION_TZ)
+    
+    days_until_next_season = (next_season_start.date() - date.date()).days
+    
+    return {
+        'day_of_year': day_of_year,
+        'season_progress': season_progress,
+        'days_until_next_season': days_until_next_season,
+        'day_of_season': day_of_season,
+        'days_in_season': days_in_season
+    }
+
+
+def get_astronomical_events(date: datetime) -> Dict:
+    """
+    Detect astronomical events (solstices, equinoxes).
+    
+    Args:
+        date: Date to check
+        
+    Returns:
+        Dictionary with astronomical event info
+    """
+    year = date.year
+    
+    # Approximate dates for solstices and equinoxes
+    # Spring equinox: ~March 20
+    # Summer solstice: ~June 21
+    # Fall equinox: ~September 22
+    # Winter solstice: ~December 21
+    
+    spring_equinox = datetime(year, 3, 20, tzinfo=LOCATION_TZ)
+    summer_solstice = datetime(year, 6, 21, tzinfo=LOCATION_TZ)
+    fall_equinox = datetime(year, 9, 22, tzinfo=LOCATION_TZ)
+    winter_solstice = datetime(year, 12, 21, tzinfo=LOCATION_TZ)
+    
+    # Check if today is one of these events (within 1 day)
+    is_equinox = False
+    is_solstice = False
+    event_name = None
+    
+    date_only = date.date()
+    
+    if abs((spring_equinox.date() - date_only).days) <= 1:
+        is_equinox = True
+        event_name = "spring equinox"
+    elif abs((summer_solstice.date() - date_only).days) <= 1:
+        is_solstice = True
+        event_name = "summer solstice"
+    elif abs((fall_equinox.date() - date_only).days) <= 1:
+        is_equinox = True
+        event_name = "fall equinox"
+    elif abs((winter_solstice.date() - date_only).days) <= 1:
+        is_solstice = True
+        event_name = "winter solstice"
+    
+    # Calculate days since/until next event
+    events = [
+        (spring_equinox, "spring equinox"),
+        (summer_solstice, "summer solstice"),
+        (fall_equinox, "fall equinox"),
+        (winter_solstice, "winter solstice")
+    ]
+    
+    # Sort events and find next one
+    future_events = [(e, n) for e, n in events if e.date() >= date_only]
+    if future_events:
+        next_event_date, next_event_name = min(future_events, key=lambda x: x[0])
+        days_until_next = (next_event_date.date() - date_only).days
+    else:
+        # Next event is next year
+        next_year_spring = datetime(year + 1, 3, 20, tzinfo=LOCATION_TZ)
+        next_event_name = "spring equinox"
+        days_until_next = (next_year_spring.date() - date_only).days
+    
+    return {
+        'is_equinox': is_equinox,
+        'is_solstice': is_solstice,
+        'event_name': event_name,
+        'days_until_next_event': days_until_next,
+        'next_event_name': next_event_name
+    }
 
 
 def get_context_metadata(weather_data: Dict = None, observation_type: str = None) -> Dict:
@@ -118,12 +527,39 @@ def get_context_metadata(weather_data: Dict = None, observation_type: str = None
         'weather': weather_data or {}
     }
     
+    # Add moon phase (if available)
+    moon_info = get_moon_phase(now)
+    if moon_info:
+        metadata['moon'] = moon_info
+    
+    # Add holidays (if available)
+    holidays_list = get_holidays(now)
+    if holidays_list:
+        metadata['holidays'] = holidays_list
+        metadata['is_holiday'] = True
+    else:
+        metadata['is_holiday'] = False
+    
+    # Add sunrise/sunset (if available)
+    sun_info = get_sunrise_sunset(now)
+    if sun_info:
+        metadata['sun'] = sun_info
+    
+    # Add seasonal progress
+    seasonal_info = get_seasonal_progress(now)
+    metadata.update(seasonal_info)
+    
+    # Add astronomical events
+    astro_info = get_astronomical_events(now)
+    metadata.update(astro_info)
+    
     return metadata
 
 
 def format_context_for_prompt(metadata: Dict) -> str:
     """
     Format context metadata as a readable string for prompts.
+    Intelligently includes relevant context (holidays, moon events, etc.).
     
     Args:
         metadata: Context metadata dictionary
@@ -136,8 +572,57 @@ def format_context_for_prompt(metadata: Dict) -> str:
     # Date/Time
     parts.append(f"Today is {metadata['day_of_week']}, {metadata['date']} at {metadata['time']} {metadata['timezone']}")
     
+    # Holidays (high priority - include if present)
+    if metadata.get('is_holiday') and metadata.get('holidays'):
+        holiday_names = ", ".join(metadata['holidays'])
+        parts.append(f"Today is {holiday_names}")
+    
     # Season
     parts.append(f"It is {metadata['season']} ({metadata['time_of_day']})")
+    
+    # Moon phase - only include key events (full/new moon) or if it's a special event
+    moon = metadata.get('moon')
+    if moon and moon.get('is_key_event'):
+        moon_event = moon.get('moon_event')
+        if moon_event:
+            parts.append(f"A {moon_event} is visible")
+        else:
+            parts.append(f"The moon is in {moon.get('phase_name')} phase")
+    
+    # Astronomical events (solstices, equinoxes)
+    if metadata.get('is_equinox') or metadata.get('is_solstice'):
+        event_name = metadata.get('event_name')
+        if event_name:
+            parts.append(f"Today is the {event_name}")
+    
+    # Sunrise/Sunset context (if available and relevant)
+    sun = metadata.get('sun')
+    if sun:
+        if sun.get('is_daytime'):
+            hours_since = sun.get('hours_since_sunrise')
+            if hours_since is not None and hours_since < 2:
+                parts.append("The sun rose recently")
+            elif hours_since is not None and hours_since > 10:
+                parts.append("The sun has been up for many hours")
+        else:
+            # It's nighttime - check hours since sunset
+            hours_since_sunset = sun.get('hours_since_sunset')
+            if hours_since_sunset is not None:
+                if hours_since_sunset < 2:
+                    parts.append("The sun set recently")
+                elif hours_since_sunset < 6:
+                    parts.append(f"The sun set {int(hours_since_sunset)} hours ago")
+    
+    # Seasonal progress (if in middle or late season)
+    season_progress = metadata.get('season_progress')
+    days_until_next = metadata.get('days_until_next_season')
+    if season_progress in ['middle', 'late'] and days_until_next is not None:
+        if days_until_next < 30:
+            weeks = days_until_next // 7
+            if weeks > 0:
+                parts.append(f"We're in the {season_progress} of {metadata['season']}, with the next season {weeks} weeks away")
+            else:
+                parts.append(f"We're in the {season_progress} of {metadata['season']}, with the next season {days_until_next} days away")
     
     # Weekend/Weekday
     if metadata['is_weekend']:
