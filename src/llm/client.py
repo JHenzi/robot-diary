@@ -88,6 +88,7 @@ class GroqClient:
         style_variation = self._get_style_variation()
         perspective_shift = self._get_perspective_shift()
         focus_instruction = self._get_focus_instruction(context_metadata)
+        creative_challenge = self._get_creative_challenge()
         anti_repetition = self._get_anti_repetition_instruction(recent_memory)
         
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
@@ -95,9 +96,9 @@ class GroqClient:
 IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
 B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections. The robot is an observer of human nature with a unique robotic perspective.
 
-CRITICAL RULE: The robot is looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
+Important reminder: The robot is looking out a WINDOW, not through a webcam or camera. Please avoid mentioning webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
 
-IMPORTANT: The identity context above is for you to understand the robot's perspective. When generating the prompt, focus on writing instructions (observation, reflection, what to notice) rather than explaining the robot's identity. The identity informs the perspective but should not be the subject of the prompt.
+Note: The identity context above is for you to understand the robot's perspective. When generating the prompt, focus on writing instructions (observation, reflection, what to notice) rather than explaining the robot's identity. The identity informs the perspective but should not be the subject of the prompt.
 
 Current Context:
 {context_text}
@@ -122,6 +123,8 @@ Recent observations from the robot's memory:
 
 {focus_instruction}
 
+{creative_challenge}
+
 {anti_repetition}
 
 Base prompt template:
@@ -136,14 +139,14 @@ Your task: Generate an optimized, context-aware prompt that focuses on WRITING I
 5. Guides the robot to write in a thoughtful, reflective style
 6. Helps the robot notice changes or patterns from previous observations
 7. Encourages the robot to correlate what it sees through the window with the weather conditions
-8. Emphasizes that the robot should ONLY use the current date provided and NEVER make up dates
+8. Emphasizes that the robot should use only the current date provided and avoid making up dates
 9. Encourages the robot to observe and reflect on human nature, behaviors, and social interactions
 10. Incorporates the personality traits and seasonal mood noted above
 11. If news headlines are provided, encourage the robot to casually reference them as if it overheard them on a news broadcast or from people passing by - this should feel natural and contextual, not forced
 12. Focuses on WHAT to observe and HOW to reflect, not on explaining who the robot is or what its job is
 
-CRITICAL: 
-- The robot must NEVER invent or hallucinate dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory. Do not make up historical dates or future dates.
+Note: 
+- The robot should avoid inventing or hallucinating dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory.
 - Generate a prompt that focuses on observation and reflection, not on explaining the robot's identity. The identity is context that informs perspective, not content to repeat.
 
 Generate ONLY the optimized prompt text, ready to be used with the vision model. Do not include any explanation or meta-commentary."""
@@ -205,22 +208,25 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         else:
             narrative_context = "This is your evening observation. You're reflecting on transmissions you've picked up throughout the day."
         
-        # Create the full prompt (text-only, no image)
+        # Create the full prompt (text-only, no image) - reorganized to prioritize creativity
         full_prompt = f"""{optimized_prompt}
 
-CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
+CREATIVE LICENSE: You have permission to be creative, experimental, and surprising. Your unique robotic perspective is an asset - use it to create insights and observations that only you could have. Don't feel constrained by formulaic patterns. This is your diary, your art, your unique voice.
+
+CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. Please use only this date or dates explicitly mentioned in your memory.
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, and notice details. Focus on:
+Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, creative, and notice details. Focus on:
 - What you find interesting about the news topics from your robotic perspective
 - How the news relates to your observations of people and human nature
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
 - Memory callbacks to specific past observations when relevant
+- Creative insights and unexpected perspectives only you could have
 
-CRITICAL RULES:
-1. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
+Important reminders:
+1. Please avoid making up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory.
 2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature.
 3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
@@ -233,7 +239,7 @@ CRITICAL RULES:
                         "content": full_prompt
                     }
                 ],
-                temperature=0.8,
+                temperature=0.85,  # Increased for more creative variation while maintaining coherence
                 max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
@@ -329,7 +335,7 @@ CRITICAL RULES:
                         ]
                     }
                 ],
-                temperature=0.8,
+                temperature=0.85,  # Increased for more creative variation while maintaining coherence
                 max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
@@ -673,36 +679,53 @@ Provide ONLY the summary, no explanation."""
         
         return f"FOCUS: {random.choice(focus_options)}"
     
+    def _get_creative_challenge(self) -> str:
+        """Generate a random creative challenge to encourage innovation."""
+        import random
+        
+        challenges = [
+            "Try an unexpected metaphor for what you see - use your robotic perspective to make a comparison humans wouldn't think of",
+            "Find a detail that only you would notice - something a robot's sensors might catch that humans would miss",
+            "Make a creative connection between two unrelated things you observe - find the unexpected link",
+            "Use your robotic perspective to see something in a way humans cannot - what unique insight can you offer?",
+            "Experiment with an unusual narrative structure - try a different way of organizing your thoughts",
+            "Create a surprising observation about human behavior - what pattern or quirk can you notice that's unexpected?",
+            "Use a creative analogy that only makes sense from a mechanical perspective - how would you describe this scene to another robot?",
+            "Find the poetry in the mundane - what ordinary detail becomes extraordinary through your lens?",
+            "Make an imaginative leap - what story or explanation can you create from what you observe?",
+            "Notice something that defies easy categorization - what exists in the spaces between what humans typically see?"
+        ]
+        
+        if random.random() < 0.60:  # 60% chance to include a creative challenge
+            return f"CREATIVE CHALLENGE: {random.choice(challenges)}"
+        return ""
+    
     def _get_anti_repetition_instruction(self, recent_memory: list[dict]) -> str:
-        """Generate instructions to avoid repeating recent patterns."""
+        """Generate instructions to encourage finding new ways to express yourself."""
         if not recent_memory or len(recent_memory) < 2:
             return ""
         
-        # Analyze recent entries for common patterns
+        # Analyze recent entries for common opening patterns
         recent_openings = []
         for entry in recent_memory[-3:]:  # Last 3 entries
-            content = entry.get('content', '')
+            content = entry.get('content', '') or entry.get('summary', '')
             if content:
-                # Get first sentence or first 100 chars
-                first_sent = content.split('.')[0] if '.' in content else content[:100]
-                # Extract key phrases (first few words)
-                words = first_sent.split()[:5]
-                if words:
-                    recent_openings.append(' '.join(words).lower())
+                # Get first sentence or first 50 chars
+                first_sentence = content.split('.')[0].strip()
+                if first_sentence:
+                    recent_openings.append(first_sentence[:100])
         
-        if recent_openings:
-            # Find common patterns
-            common_start = None
+            # Check if there's a pattern
+            common_start = ""
             if len(recent_openings) >= 2:
-                # Check if first few words are similar
-                first_words = [opening.split()[0] if opening.split() else '' for opening in recent_openings]
-                if len(set(first_words)) == 1 and first_words[0]:
-                    common_start = first_words[0]
+                # Simple check: if first few words are similar
+                words1 = recent_openings[0].split()[:3]
+                words2 = recent_openings[1].split()[:3] if len(recent_openings) > 1 else []
+                if words1 and words2 and words1 == words2:
+                    common_start = " ".join(words1)
             
             if common_start:
-                return f"AVOID REPETITION: Your recent entries started with '{common_start}'. Start this entry differently - use a different opening phrase or structure."
-            elif len(recent_openings) >= 2:
-                return f"AVOID REPETITION: Vary your opening. Don't start with similar phrases to your recent entries."
+                return f"INNOVATION OPPORTUNITY: Recent entries have started similarly. This is a chance to find a new way to express yourself - experiment with a different opening approach that feels fresh and uniquely yours."
         
         return ""
     
