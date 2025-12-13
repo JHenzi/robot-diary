@@ -302,10 +302,6 @@ The dynamic prompts include:
 
 Customize prompt templates in `src/llm/prompts.py` and style options in `src/llm/client.py`.
 
-## Development
-
-See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for detailed development roadmap and milestones.
-
 ## Philosophy
 
 This project explores themes of:
@@ -331,6 +327,8 @@ docker-compose up -d
 ```
 
 ### Running Manually
+
+*Not Recommended!*
 
 ```bash
 docker run -d \
@@ -374,6 +372,8 @@ docker-compose up -d  # Recreates container with new image
 
 [GPL](LICENSE)
 
+This code is fully released under the GNU General Public License, we provide no warranty, however, require all modifications to be published.
+
 ## Recent Enhancements
 
 ### Prompt Variety System (2025-12-13)
@@ -411,3 +411,4 @@ docker-compose up -d  # Recreates container with new image
 - **Hugo** for static site generation
 - **PaperMod** Hugo theme for beautiful post previews
 
+Always, thanks to [The Henzi Foundation](https://henzi.org). Consider donating to their cause. They provide coverage for funeral costs when someone loses a child.
