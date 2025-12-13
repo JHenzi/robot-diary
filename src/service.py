@@ -123,6 +123,21 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         memory_count = memory_manager.get_total_count()
         logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
+        # Calculate days since first observation
+        days_since_first = 0
+        first_obs_date = memory_manager.get_first_observation_date()
+        if first_obs_date:
+            now = datetime.now(LOCATION_TZ)
+            # Ensure first_obs_date is timezone-aware
+            if first_obs_date.tzinfo is None:
+                first_obs_date = LOCATION_TZ.localize(first_obs_date)
+            else:
+                first_obs_date = first_obs_date.astimezone(LOCATION_TZ)
+            days_since_first = (now - first_obs_date).days
+            logger.info(f"Days since first observation: {days_since_first}")
+        else:
+            logger.info("No previous observations found - this is the first observation")
+        
         # Step 2.5: Fetch weather and context metadata
         logger.info("Step 2.5: Fetching weather and context metadata...")
         weather_data = {}
@@ -195,7 +210,7 @@ Write a diary entry reflecting on this news. Focus on:
 Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
         
         optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
-                                                   context_metadata, weather_data, memory_count)
+                                                   context_metadata, weather_data, memory_count, days_since_first)
         # Combine with news-specific context
         full_prompt = f"""{news_prompt_base}
 
@@ -370,7 +385,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Step 3: Generate dynamic prompt
         logger.info("Step 3: Generating dynamic prompt...")
         optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
-                                                   context_metadata, weather_data, memory_count)
+                                                   context_metadata, weather_data, memory_count, days_since_first)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
         # Step 4: Create diary entry

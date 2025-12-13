@@ -133,6 +133,28 @@ class MemoryManager:
         memory = self._load_memory()
         return len(memory)
     
+    def get_first_observation_date(self) -> Optional[datetime]:
+        """
+        Get the date of the first observation.
+        
+        Returns:
+            Datetime of first observation, or None if no observations exist
+        """
+        memory = self._load_memory()
+        if not memory:
+            return None
+        
+        try:
+            first_entry = memory[0]
+            first_date_str = first_entry.get('date', '')
+            if first_date_str:
+                # Parse ISO format datetime
+                return datetime.fromisoformat(first_date_str.replace('Z', '+00:00'))
+        except Exception as e:
+            logger.warning(f"Error parsing first observation date: {e}")
+        
+        return None
+    
     def get_next_scheduled_time(self) -> Optional[Dict]:
         """
         Get the next scheduled observation time from memory.

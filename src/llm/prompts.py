@@ -60,7 +60,7 @@ BASE_PROMPT_TEMPLATE = f"""{ROBOT_IDENTITY}
 
 def generate_dynamic_prompt(recent_memory: List[Dict], client, 
                             context_metadata: Dict = None, weather_data: Dict = None,
-                            memory_count: int = 0) -> str:
+                            memory_count: int = 0, days_since_first: int = 0) -> str:
     """
     Generate a dynamic prompt based on recent memory, context, and weather.
     
@@ -70,12 +70,13 @@ def generate_dynamic_prompt(recent_memory: List[Dict], client,
         context_metadata: Dictionary with date/time and other context
         weather_data: Dictionary with current weather data
         memory_count: Total number of observations in memory (for personality drift)
+        days_since_first: Number of days since first observation (for milestone tracking)
         
     Returns:
         Optimized prompt string
     """
     return client.generate_prompt(recent_memory, BASE_PROMPT_TEMPLATE, 
-                                 context_metadata, weather_data, memory_count)
+                                 context_metadata, weather_data, memory_count, days_since_first)
 
 
 def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None) -> str:

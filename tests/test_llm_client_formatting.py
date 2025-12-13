@@ -93,16 +93,138 @@ class TestLLMClientFormatting:
         assert isinstance(instruction, str)
     
     def test_get_personality_note(self, mock_client):
-        """Test personality note generation."""
-        # Test with low memory count
+        """Test personality note generation with all stages."""
+        # Test first observation
         note = mock_client._get_personality_note(0)
         assert isinstance(note, str)
         assert len(note) > 0
+        assert "first observation" in note.lower()
         
-        # Test with high memory count
-        note = mock_client._get_personality_note(100)
+        # Test new observer stage
+        note = mock_client._get_personality_note(3)
         assert isinstance(note, str)
-        assert len(note) > 0
+        assert "new" in note.lower() or "curious" in note.lower()
+        
+        # Test developing patterns stage
+        note = mock_client._get_personality_note(10)
+        assert isinstance(note, str)
+        
+        # Test accumulating experience stage
+        note = mock_client._get_personality_note(25)
+        assert isinstance(note, str)
+        
+        # Test seasoned observer stage
+        note = mock_client._get_personality_note(50)
+        assert isinstance(note, str)
+        
+        # Test long-term witness stage
+        note = mock_client._get_personality_note(75)
+        assert isinstance(note, str)
+        
+        # Test veteran observer stage
+        note = mock_client._get_personality_note(150)
+        assert isinstance(note, str)
+        
+        # Test ancient observer stage
+        note = mock_client._get_personality_note(250)
+        assert isinstance(note, str)
+    
+    def test_get_personality_note_with_seasonal_modifiers(self, mock_client):
+        """Test personality note with seasonal modifiers."""
+        context_metadata = {'season': 'Winter'}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "winter" in note.lower() or "introspective" in note.lower() or "contemplative" in note.lower()
+        
+        context_metadata = {'season': 'Spring'}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "spring" in note.lower() or "optimism" in note.lower() or "curiosity" in note.lower()
+        
+        context_metadata = {'season': 'Summer'}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "summer" in note.lower() or "energy" in note.lower() or "observant" in note.lower()
+        
+        context_metadata = {'season': 'Fall'}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "fall" in note.lower() or "autumn" in note.lower() or "nostalgic" in note.lower() or "reflective" in note.lower()
+    
+    def test_get_personality_note_with_holiday_modifiers(self, mock_client):
+        """Test personality note with holiday modifiers."""
+        context_metadata = {'is_holiday': True, 'holidays': ['Christmas']}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "holiday" in note.lower() or "reflects" in note.lower()
+        
+        # Test with just is_holiday flag
+        context_metadata = {'is_holiday': True}
+        note = mock_client._get_personality_note(10, context_metadata=context_metadata)
+        assert isinstance(note, str)
+        assert "holiday" in note.lower()
+    
+    def test_get_personality_note_with_weather_modifiers(self, mock_client):
+        """Test personality note with weather modifiers."""
+        # Test rain weather
+        weather_data = {'summary': 'Light Rain'}
+        note = mock_client._get_personality_note(10, weather_data=weather_data)
+        assert isinstance(note, str)
+        assert "rain" in note.lower() or "contemplative" in note.lower() or "introspective" in note.lower()
+        
+        # Test clear weather
+        weather_data = {'summary': 'Clear'}
+        note = mock_client._get_personality_note(10, weather_data=weather_data)
+        assert isinstance(note, str)
+        assert "clear" in note.lower() or "engaged" in note.lower() or "observant" in note.lower()
+        
+        # Test cloudy weather
+        weather_data = {'summary': 'Overcast'}
+        note = mock_client._get_personality_note(10, weather_data=weather_data)
+        assert isinstance(note, str)
+        assert "cloud" in note.lower() or "subdued" in note.lower() or "reflective" in note.lower()
+    
+    def test_get_personality_note_with_milestone_modifiers(self, mock_client):
+        """Test personality note with milestone modifiers."""
+        # Test first week
+        note = mock_client._get_personality_note(5, days_since_first=3)
+        assert isinstance(note, str)
+        assert "first week" in note.lower() or "new" in note.lower() or "fascinating" in note.lower()
+        
+        # Test first month
+        note = mock_client._get_personality_note(10, days_since_first=20)
+        assert isinstance(note, str)
+        assert "month" in note.lower() or "patterns" in note.lower()
+        
+        # Test first season
+        note = mock_client._get_personality_note(30, days_since_first=75)
+        assert isinstance(note, str)
+        assert "season" in note.lower() or "perspective" in note.lower()
+        
+        # Test first year
+        note = mock_client._get_personality_note(100, days_since_first=400)
+        assert isinstance(note, str)
+        assert "year" in note.lower() or "milestone" in note.lower() or "profound" in note.lower()
+    
+    def test_get_personality_note_with_combined_modifiers(self, mock_client):
+        """Test personality note with multiple modifiers combined."""
+        context_metadata = {
+            'season': 'Winter',
+            'is_holiday': True
+        }
+        weather_data = {'summary': 'Light Rain'}
+        
+        note = mock_client._get_personality_note(
+            25, 
+            context_metadata=context_metadata,
+            weather_data=weather_data,
+            days_since_first=15
+        )
+        
+        assert isinstance(note, str)
+        # Should contain multiple modifiers
+        modifier_count = note.count('.')
+        assert modifier_count >= 2  # Base personality + at least 2 modifiers
     
     def test_get_seasonal_note(self, mock_client):
         """Test seasonal note generation."""

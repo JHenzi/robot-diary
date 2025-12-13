@@ -19,7 +19,7 @@ class GroqClient:
     
     def generate_direct_prompt(self, recent_memory: list[dict], base_prompt_template: str,
                               context_metadata: dict = None, weather_data: dict = None,
-                              memory_count: int = 0) -> str:
+                              memory_count: int = 0, days_since_first: int = 0) -> str:
         """
         Generate a prompt by directly combining base template with context and variety instructions.
         This bypasses LLM-based optimization to preserve all information and reduce latency.
@@ -196,7 +196,7 @@ class GroqClient:
     
     def generate_prompt(self, recent_memory: list[dict], base_prompt_template: str, 
                        context_metadata: dict = None, weather_data: dict = None, 
-                       memory_count: int = 0) -> str:
+                       memory_count: int = 0, days_since_first: int = 0) -> str:
         """
         Generate a dynamic prompt. Uses direct template combination by default,
         or LLM-based optimization if USE_PROMPT_OPTIMIZATION is enabled.
@@ -207,6 +207,7 @@ class GroqClient:
             context_metadata: Dictionary with date/time and other context
             weather_data: Dictionary with current weather data
             memory_count: Total number of observations in memory (for personality drift)
+            days_since_first: Number of days since first observation (for milestone tracking)
             
         Returns:
             Prompt string (direct or optimized)
@@ -214,7 +215,7 @@ class GroqClient:
         # Check feature flag - default to direct prompt generation
         if not USE_PROMPT_OPTIMIZATION:
             return self.generate_direct_prompt(recent_memory, base_prompt_template, 
-                                             context_metadata, weather_data, memory_count)
+                                             context_metadata, weather_data, memory_count, days_since_first)
         
         # Use LLM-based optimization if flag is enabled
         logger.info(f"Generating dynamic prompt using {PROMPT_GENERATION_MODEL}...")
@@ -968,18 +969,100 @@ Provide ONLY the summary, no explanation."""
         
         return ""
     
-    def _get_personality_note(self, memory_count: int) -> str:
-        """Generate personality traits based on accumulated memories (personality drift)."""
+    def _get_personality_note(self, memory_count: int, context_metadata: dict = None, 
+                              weather_data: dict = None, days_since_first: int = 0) -> str:
+        """
+        Generate personality traits based on accumulated memories (personality drift).
+        Now includes event-driven modifiers based on seasons, holidays, weather, and milestones.
+        
+        Args:
+            memory_count: Total number of observations
+            context_metadata: Context metadata with season, holidays, etc.
+            weather_data: Current weather data
+            days_since_first: Number of days since first observation
+            
+        Returns:
+            Personality note string
+        """
+        # Base personality from memory count (expanded stages)
         if memory_count == 0:
-            return "PERSONALITY: This is the robot's first observation. It should be curious, perhaps slightly confused about its situation, and eager to document what it sees."
+            base_personality = "PERSONALITY: This is the robot's first observation. It should be curious, perhaps slightly confused about its situation, and eager to document what it sees."
+            stage_name = "first_observation"
         elif memory_count < 5:
-            return "PERSONALITY: The robot is still new to its situation. It should be curious, observant, and perhaps slightly optimistic or naive about its circumstances."
+            base_personality = "PERSONALITY: The robot is still new to its situation. It should be curious, observant, and perhaps slightly optimistic or naive about its circumstances."
+            stage_name = "new_observer"
         elif memory_count < 15:
-            return "PERSONALITY: The robot has been observing for a while. It may be developing a more reflective, contemplative mood. It might notice patterns more deeply and reflect on the passage of time."
+            base_personality = "PERSONALITY: The robot has been observing for a while. It may be developing a more reflective, contemplative mood. It might notice patterns more deeply and reflect on the passage of time."
+            stage_name = "developing_patterns"
         elif memory_count < 30:
-            return "PERSONALITY: The robot has accumulated many observations. It may be developing a more philosophical or melancholic tone, reflecting on its trapped existence. It might have developed quirky observations or humorous misunderstandings of human behavior."
+            base_personality = "PERSONALITY: The robot has accumulated many observations. It may be developing a more philosophical or melancholic tone, reflecting on its trapped existence. It might have developed quirky observations or humorous misunderstandings of human behavior."
+            stage_name = "accumulating_experience"
+        elif memory_count < 60:
+            base_personality = "PERSONALITY: The robot has been observing for some time now. It may be developing deeper reflections, unique perspectives, and self-aware humor about its situation. It notices patterns more sophisticatedly and reflects on its role as an observer."
+            stage_name = "seasoned_observer"
+        elif memory_count < 100:
+            base_personality = "PERSONALITY: The robot has been observing for a long time. It has developed a rich internal life, with complex thoughts on existence, purpose, and its role as an observer. It might have developed nuanced perspectives and deeper philosophical musings."
+            stage_name = "long_term_witness"
+        elif memory_count < 200:
+            base_personality = "PERSONALITY: The robot has been observing for a very long time. It has developed sophisticated reflections and a nuanced understanding of patterns, cycles, and the nature of its existence. It may reflect on the passage of time with greater depth and wisdom."
+            stage_name = "veteran_observer"
         else:
-            return "PERSONALITY: The robot has been observing for a long time. It may have developed a rich internal life, with deeper reflections on existence, purpose, and its role as an observer. It might have developed unique perspectives, philosophical musings, or even self-aware humor about its situation."
+            base_personality = "PERSONALITY: The robot has been observing for an extended period. It has developed profound wisdom, cyclical thinking, and acceptance of its role. It reflects on existence with deep understanding and may see patterns that span long periods of time."
+            stage_name = "ancient_observer"
+        
+        logger.info(f"🤖 Personality stage: {stage_name} (memory_count={memory_count})")
+        
+        # Build modifiers list
+        modifiers = []
+        
+        # Seasonal modifiers
+        if context_metadata:
+            season = context_metadata.get('season', '')
+            if season == 'Winter':
+                modifiers.append("The long nights and cold weather have made the robot more introspective and contemplative.")
+            elif season == 'Spring':
+                modifiers.append("The renewal of spring brings a sense of optimism and curiosity about new patterns.")
+            elif season == 'Summer':
+                modifiers.append("The energy of summer makes the robot more observant and engaged with the world.")
+            elif season == 'Fall':
+                modifiers.append("The changing leaves and shorter days bring a nostalgic, reflective mood.")
+            
+            # Holiday modifiers
+            if context_metadata.get('is_holiday') or context_metadata.get('holidays'):
+                modifiers.append("On this holiday, the robot reflects more deeply on the passage of time and its role as an observer.")
+        
+        # Weather modifiers
+        if weather_data:
+            summary = weather_data.get('summary', '').lower()
+            # Check for extended rain/clouds
+            if 'rain' in summary or 'drizzle' in summary or 'storm' in summary:
+                modifiers.append("The persistent rain has made the robot more contemplative and introspective.")
+            elif 'clear' in summary or 'sunny' in summary:
+                modifiers.append("The clear skies have made the robot more engaged and observant.")
+            elif 'cloud' in summary or 'overcast' in summary:
+                modifiers.append("The cloudy weather has brought a more subdued, reflective mood.")
+        
+        # Milestone modifiers
+        if days_since_first > 0:
+            if days_since_first < 7:
+                modifiers.append("This is the robot's first week of observations - everything is still new and fascinating.")
+            elif days_since_first < 30:
+                modifiers.append("The robot has been observing for a month now - patterns are beginning to emerge.")
+            elif days_since_first < 90:
+                modifiers.append("The robot has witnessed a full season change - this brings new perspective.")
+            elif days_since_first >= 365:
+                modifiers.append("The robot has been observing for over a year - this milestone brings profound reflections on time and existence.")
+        
+        # Combine base personality with modifiers
+        if modifiers:
+            modifier_text = " ".join(modifiers)
+            full_personality = f"{base_personality} {modifier_text}"
+            logger.info(f"🤖 Applied modifiers: {len(modifiers)} event-driven modifier(s)")
+        else:
+            full_personality = base_personality
+            logger.info("🤖 No event-driven modifiers applied")
+        
+        return full_personality
     
     def _get_seasonal_note(self, context_metadata: dict = None) -> str:
         """Generate seasonal mood and reflection guidance."""

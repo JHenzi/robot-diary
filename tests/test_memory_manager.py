@@ -85,6 +85,30 @@ class TestMemoryManager:
         
         assert memory_manager.get_total_count() == 3
     
+    def test_get_first_observation_date(self, memory_manager, temp_memory_dir):
+        """Test getting first observation date."""
+        # Test with no observations
+        first_date = memory_manager.get_first_observation_date()
+        assert first_date is None
+        
+        # Add first observation
+        image_path = temp_memory_dir / 'test_image_1.jpg'
+        image_path.touch()
+        memory_manager.add_observation(image_path, "First entry")
+        
+        first_date = memory_manager.get_first_observation_date()
+        assert first_date is not None
+        assert isinstance(first_date, datetime)
+        
+        # Add more observations - first date should remain the same
+        image_path2 = temp_memory_dir / 'test_image_2.jpg'
+        image_path2.touch()
+        memory_manager.add_observation(image_path2, "Second entry")
+        
+        first_date2 = memory_manager.get_first_observation_date()
+        assert first_date2 is not None
+        assert first_date2 == first_date  # Should be the same as first
+    
     def test_save_and_load_schedule(self, memory_manager, temp_memory_dir):
         """Test saving and loading schedule."""
         from datetime import datetime
