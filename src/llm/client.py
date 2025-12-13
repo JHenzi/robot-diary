@@ -715,14 +715,14 @@ Provide ONLY the summary, no explanation."""
                 if first_sentence:
                     recent_openings.append(first_sentence[:100])
         
-            # Check if there's a pattern
+        # Check if there's a pattern (outside the loop)
+        if len(recent_openings) >= 2:
             common_start = ""
-            if len(recent_openings) >= 2:
-                # Simple check: if first few words are similar
-                words1 = recent_openings[0].split()[:3]
-                words2 = recent_openings[1].split()[:3] if len(recent_openings) > 1 else []
-                if words1 and words2 and words1 == words2:
-                    common_start = " ".join(words1)
+            # Simple check: if first few words are similar
+            words1 = recent_openings[0].split()[:3]
+            words2 = recent_openings[1].split()[:3] if len(recent_openings) > 1 else []
+            if words1 and words2 and words1 == words2:
+                common_start = " ".join(words1)
             
             if common_start:
                 return f"INNOVATION OPPORTUNITY: Recent entries have started similarly. This is a chance to find a new way to express yourself - experiment with a different opening approach that feels fresh and uniquely yours."

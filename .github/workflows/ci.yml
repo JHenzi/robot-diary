@@ -1,0 +1,65 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Set up test environment
+      run: |
+        # Create minimal Hugo structure for config validation
+        mkdir -p hugo/content/posts hugo/static/images
+        touch hugo/hugo.toml
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
+      env:
+        # Set dummy values for required env vars (tests don't use them)
+        GROQ_API_KEY: dummy_key_for_testing_only_minimum_10_chars
+        YOUTUBE_STREAM_URL: https://www.youtube.com/watch?v=test123
+        LOCATION_TIMEZONE: America/Chicago
+    
+    - name: Generate coverage report
+      run: |
+        pytest tests/ --cov=src --cov-report=term-missing --cov-report=xml
+      env:
+        GROQ_API_KEY: dummy_key_for_testing_only_minimum_10_chars
+        YOUTUBE_STREAM_URL: https://www.youtube.com/watch?v=test123
+        LOCATION_TIMEZONE: America/Chicago
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
