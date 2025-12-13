@@ -289,7 +289,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         image_path = None
         try:
             image_path = fetch_latest_image(force_refresh=force_image_refresh)
-            if force_refresh:
+            if force_image_refresh:
                 logger.info(f"Using fresh image (force refresh): {image_path}")
             else:
                 logger.info(f"Using image: {image_path}")
