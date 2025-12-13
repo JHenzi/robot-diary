@@ -28,25 +28,21 @@ def get_random_evening_time(is_weekend: bool) -> Tuple[time, bool]:
     Get a random evening time based on weekday/weekend.
     
     Weekdays: 4:00 PM - 6:00 PM (16:00 - 18:00)
-    Weekends: 6:00 PM - 1:00 AM (18:00 - 1:00 next day)
+    Weekends: 6:00 PM - 11:59 PM (18:00 - 23:59)
     
     Args:
         is_weekend: True if it's a weekend
         
     Returns:
         Tuple of (time object, is_next_day)
-        is_next_day is True if the time is on the next day (for weekend late night)
+        is_next_day is always False now (evening times stay on same day)
     """
     if is_weekend:
-        # Weekend: 6:00 PM (18:00) to 1:00 AM next day (25:00)
-        total_minutes = random.randint(1080, 1500)  # 18:00 to 25:00 (next day 1:00)
+        # Weekend: 6:00 PM (18:00) to 11:59 PM (23:59) - keep evening times on same day
+        # For late night (midnight-1:00 AM), we'll handle that separately if needed
+        total_minutes = random.randint(1080, 1439)  # 18:00 to 23:59
         hour = total_minutes // 60
         minute = total_minutes % 60
-        
-        # If hour >= 24, it's next day
-        if hour >= 24:
-            hour = hour % 24
-            return time(hour, minute), True
         return time(hour, minute), False
     else:
         # Weekday: 4:00 PM - 6:00 PM (16:00 - 18:00)

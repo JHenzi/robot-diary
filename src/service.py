@@ -224,10 +224,30 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         # Step 6: Generate Hugo post (no image)
         logger.info("Step 6: Generating Hugo post...")
         
-        # Calculate next scheduled observation and append to diary entry
-        from .scheduler import get_next_observation_time, get_observation_schedule_summary
-        now = datetime.now(LOCATION_TZ)
-        next_time, next_obs_type = get_next_observation_time(now)
+        # Get next scheduled observation from saved schedule (not recalculate)
+        from .scheduler import get_observation_schedule_summary, get_next_observation_time
+        scheduled_info = memory_manager.get_next_scheduled_time()
+        if scheduled_info and scheduled_info.get('datetime'):
+            try:
+                from datetime import datetime as dt
+                next_time = dt.fromisoformat(scheduled_info['datetime'])
+                # Ensure timezone-aware and convert to LOCATION_TZ
+                if next_time.tzinfo is None:
+                    next_time = LOCATION_TZ.localize(next_time)
+                else:
+                    next_time = next_time.astimezone(LOCATION_TZ)
+                next_obs_type = scheduled_info.get('type', 'evening')
+            except Exception as e:
+                logger.warning(f"Error parsing saved schedule: {e}, calculating new schedule")
+                now = datetime.now(LOCATION_TZ)
+                next_time, next_obs_type = get_next_observation_time(now)
+                memory_manager.save_next_scheduled_time(next_time, next_obs_type)
+        else:
+            # No saved schedule, calculate new one
+            now = datetime.now(LOCATION_TZ)
+            next_time, next_obs_type = get_next_observation_time(now)
+            memory_manager.save_next_scheduled_time(next_time, next_obs_type)
+        
         next_schedule = get_observation_schedule_summary(next_time, next_obs_type)
         timezone = context_metadata.get('timezone', 'CST') if context_metadata else 'CST'
         diary_entry_with_schedule = diary_entry + f"\n\n---\n\n*Next scheduled observation: {next_schedule} ({timezone})*"
@@ -368,10 +388,30 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Step 6: Generate Hugo post
         logger.info("Step 6: Generating Hugo post...")
         
-        # Calculate next scheduled observation and append to diary entry
-        from .scheduler import get_next_observation_time, get_observation_schedule_summary
-        now = datetime.now(LOCATION_TZ)
-        next_time, next_obs_type = get_next_observation_time(now)
+        # Get next scheduled observation from saved schedule (not recalculate)
+        from .scheduler import get_observation_schedule_summary, get_next_observation_time
+        scheduled_info = memory_manager.get_next_scheduled_time()
+        if scheduled_info and scheduled_info.get('datetime'):
+            try:
+                from datetime import datetime as dt
+                next_time = dt.fromisoformat(scheduled_info['datetime'])
+                # Ensure timezone-aware and convert to LOCATION_TZ
+                if next_time.tzinfo is None:
+                    next_time = LOCATION_TZ.localize(next_time)
+                else:
+                    next_time = next_time.astimezone(LOCATION_TZ)
+                next_obs_type = scheduled_info.get('type', 'evening')
+            except Exception as e:
+                logger.warning(f"Error parsing saved schedule: {e}, calculating new schedule")
+                now = datetime.now(LOCATION_TZ)
+                next_time, next_obs_type = get_next_observation_time(now)
+                memory_manager.save_next_scheduled_time(next_time, next_obs_type)
+        else:
+            # No saved schedule, calculate new one
+            now = datetime.now(LOCATION_TZ)
+            next_time, next_obs_type = get_next_observation_time(now)
+            memory_manager.save_next_scheduled_time(next_time, next_obs_type)
+        
         next_schedule = get_observation_schedule_summary(next_time, next_obs_type)
         timezone = context_metadata.get('timezone', 'CST') if context_metadata else 'CST'
         diary_entry_with_schedule = diary_entry + f"\n\n---\n\n*Next scheduled observation: {next_schedule} ({timezone})*"
