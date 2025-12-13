@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 from groq import Groq
 
-from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL
+from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL, USE_PROMPT_OPTIMIZATION
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +17,206 @@ class GroqClient:
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY)
     
-    def generate_prompt(self, recent_memory: list[dict], base_prompt_template: str, 
-                       context_metadata: dict = None, weather_data: dict = None, 
-                       memory_count: int = 0) -> str:
+    def generate_direct_prompt(self, recent_memory: list[dict], base_prompt_template: str,
+                              context_metadata: dict = None, weather_data: dict = None,
+                              memory_count: int = 0) -> str:
         """
-        Generate a dynamic prompt using the cheaper model.
+        Generate a prompt by directly combining base template with context and variety instructions.
+        This bypasses LLM-based optimization to preserve all information and reduce latency.
         
         Args:
             recent_memory: List of recent memory entries
             base_prompt_template: Base prompt template
             context_metadata: Dictionary with date/time and other context
             weather_data: Dictionary with current weather data
+            memory_count: Total number of observations in memory (for personality drift)
             
         Returns:
-            Optimized prompt string
+            Combined prompt string
         """
+        logger.info("Generating direct prompt (bypassing LLM optimization)...")
+        
+        # Format recent memory for prompt
+        memory_text = self._format_memory_for_prompt_gen(recent_memory)
+        
+        # Format context information
+        context_text = ""
+        if context_metadata:
+            from ..context.metadata import format_context_for_prompt
+            context_text = format_context_for_prompt(context_metadata)
+        
+        weather_text = ""
+        if weather_data:
+            from ..context.metadata import format_weather_for_prompt
+            weather_text = format_weather_for_prompt(weather_data)
+        
+        # Format news articles/headlines if available
+        news_text = ""
+        if context_metadata:
+            # Prefer full articles with dates if available
+            articles = context_metadata.get('news_articles', [])
+            if articles:
+                # Format articles with dates
+                article_refs = []
+                for article in articles:
+                    title = article.get('title', '')
+                    published_at = article.get('published_at', '')
+                    if published_at:
+                        try:
+                            dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                            date_str = dt.strftime('%B %d')
+                            article_refs.append(f"{title} (from {date_str})")
+                        except Exception:
+                            article_refs.append(title)
+                    else:
+                        article_refs.append(title)
+                news_text = f"Recent news the robot might have heard: {', '.join(article_refs)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by. Consider the timing of when these events happened."
+            elif context_metadata.get('news_headlines'):
+                # Fallback to headlines only
+                headlines = context_metadata['news_headlines']
+                if headlines:
+                    news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
+        
+        # Determine personality traits based on memory count (personality drift)
+        personality_note = self._get_personality_note(memory_count)
+        # Extract and log personality note
+        personality_text = personality_note.replace('PERSONALITY: ', '').strip()
+        logger.info(f"🤖 Personality note: {personality_text}")
+        
+        # Determine seasonal mood/reflection
+        seasonal_note = self._get_seasonal_note(context_metadata)
+        if seasonal_note:
+            seasonal_text = seasonal_note.replace('SEASONAL CONTEXT: ', '').strip()
+            logger.info(f"🍂 Seasonal note: {seasonal_text}")
+        else:
+            logger.info("🍂 No seasonal note (context metadata missing)")
+        
+        # Determine if we should include special reflection types (random chance)
+        reflection_instructions = self._get_reflection_instructions()
+        if reflection_instructions:
+            logger.info(f"💭 Reflection instructions: {reflection_instructions}")
+        else:
+            logger.info("💭 No special reflection instructions selected")
+        
+        # Add variety instructions
+        style_variation = self._get_style_variation()
+        # Extract and log the selected styles
+        style_lines = [line.strip('- ').strip() for line in style_variation.split('\n')[1:] if line.strip()]
+        logger.info(f"🎨 Selected style variations: {', '.join(style_lines)}")
+        
+        perspective_shift = self._get_perspective_shift()
+        # Extract and log the selected perspective
+        perspective_text = perspective_shift.replace('PERSPECTIVE: ', '').strip()
+        logger.info(f"👁️  Selected perspective: {perspective_text}")
+        
+        focus_instruction = self._get_focus_instruction(context_metadata)
+        # Extract and log the selected focus
+        focus_text = focus_instruction.replace('FOCUS: ', '').strip()
+        logger.info(f"🎯 Selected focus: {focus_text}")
+        
+        creative_challenge = self._get_creative_challenge()
+        if creative_challenge:
+            # Extract and log the creative challenge
+            challenge_text = creative_challenge.replace('CREATIVE CHALLENGE: ', '').strip()
+            logger.info(f"✨ Selected creative challenge: {challenge_text}")
+        else:
+            logger.info("✨ No creative challenge selected this time")
+        
+        anti_repetition = self._get_anti_repetition_instruction(recent_memory)
+        anti_rep_text = ""
+        if anti_repetition:
+            # Extract and log the anti-repetition instruction
+            anti_rep_text = anti_repetition.replace('INNOVATION OPPORTUNITY: ', '').strip()
+            logger.info(f"🔄 Anti-repetition instruction: {anti_rep_text}")
+        
+        # Log a summary of all prompt selections
+        logger.info("=" * 60)
+        logger.info("📝 PROMPT SELECTIONS SUMMARY:")
+        logger.info(f"   🤖 Personality: {personality_text[:80]}{'...' if len(personality_text) > 80 else ''}")
+        if seasonal_note:
+            logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
+        if reflection_instructions:
+            reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
+            logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
+        logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
+        logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
+        logger.info(f"   🎯 Focus: {focus_text[:80]}{'...' if len(focus_text) > 80 else ''}")
+        if creative_challenge:
+            logger.info(f"   ✨ Challenge: {challenge_text[:80]}{'...' if len(challenge_text) > 80 else ''}")
+        if anti_rep_text:
+            logger.info(f"   🔄 Innovation: {anti_rep_text[:80]}{'...' if len(anti_rep_text) > 80 else ''}")
+        logger.info("=" * 60)
+        
+        # Directly combine all components into final prompt
+        direct_prompt_parts = [base_prompt_template]
+        
+        # Add context sections
+        if context_text:
+            direct_prompt_parts.append(f"\n\nCurrent Context:\n{context_text}")
+        
+        if weather_text:
+            direct_prompt_parts.append(f"\n\nWeather Conditions:\n{weather_text}")
+        
+        if news_text:
+            direct_prompt_parts.append(f"\n\n{news_text}")
+        
+        if memory_text:
+            direct_prompt_parts.append(f"\n\nRecent observations from the robot's memory:\n{memory_text}")
+        
+        # Add personality and seasonal notes
+        if personality_note:
+            direct_prompt_parts.append(f"\n\n{personality_note}")
+        
+        if seasonal_note:
+            direct_prompt_parts.append(f"\n\n{seasonal_note}")
+        
+        # Add variety instructions
+        if reflection_instructions:
+            direct_prompt_parts.append(f"\n\n{reflection_instructions}")
+        
+        if style_variation:
+            direct_prompt_parts.append(f"\n\n{style_variation}")
+        
+        if perspective_shift:
+            direct_prompt_parts.append(f"\n\n{perspective_shift}")
+        
+        if focus_instruction:
+            direct_prompt_parts.append(f"\n\n{focus_instruction}")
+        
+        if creative_challenge:
+            direct_prompt_parts.append(f"\n\n{creative_challenge}")
+        
+        if anti_repetition:
+            direct_prompt_parts.append(f"\n\n{anti_repetition}")
+        
+        # Combine all parts
+        final_prompt = "\n".join(direct_prompt_parts)
+        logger.info("✅ Direct prompt generated")
+        return final_prompt
+    
+    def generate_prompt(self, recent_memory: list[dict], base_prompt_template: str, 
+                       context_metadata: dict = None, weather_data: dict = None, 
+                       memory_count: int = 0) -> str:
+        """
+        Generate a dynamic prompt. Uses direct template combination by default,
+        or LLM-based optimization if USE_PROMPT_OPTIMIZATION is enabled.
+        
+        Args:
+            recent_memory: List of recent memory entries
+            base_prompt_template: Base prompt template
+            context_metadata: Dictionary with date/time and other context
+            weather_data: Dictionary with current weather data
+            memory_count: Total number of observations in memory (for personality drift)
+            
+        Returns:
+            Prompt string (direct or optimized)
+        """
+        # Check feature flag - default to direct prompt generation
+        if not USE_PROMPT_OPTIMIZATION:
+            return self.generate_direct_prompt(recent_memory, base_prompt_template, 
+                                             context_metadata, weather_data, memory_count)
+        
+        # Use LLM-based optimization if flag is enabled
         logger.info(f"Generating dynamic prompt using {PROMPT_GENERATION_MODEL}...")
         
         # Format recent memory for prompt generation
@@ -449,7 +634,7 @@ Provide ONLY the summary, no explanation."""
                     {"role": "user", "content": summary_prompt}
                 ],
                 temperature=0.3,  # Lower temperature for more consistent summaries
-                max_tokens=150  # Limit to keep summaries concise
+                max_tokens=250  # Limit to keep summaries concise
             )
             
             summary = response.choices[0].message.content.strip()

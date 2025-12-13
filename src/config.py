@@ -47,6 +47,9 @@ PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
 VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
 MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
 
+# Prompt Generation Configuration
+USE_PROMPT_OPTIMIZATION = os.getenv('USE_PROMPT_OPTIMIZATION', 'false').lower() == 'true'
+
 # Robot Configuration
 ROBOT_NAME = 'B3N-T5-MNT'
 ROBOT_TYPE = 'Maintenance Unit'
