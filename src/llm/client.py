@@ -612,13 +612,63 @@ Provide ONLY the summary, no explanation."""
                 if uv_index > 7:
                     focus_options.append("Focus on intense sunlight conditions - how does strong UV light affect shadows, contrast, or the overall appearance of the scene?")
         
-        # General focuses
+        # General focuses - expanded for variety and goal alignment
         focus_options.extend([
+            # Human interactions and behavior
             "Focus on human interactions - what conversations, gestures, or connections do you actually observe?",
+            "Focus on group dynamics - how do people behave differently alone vs. in groups? What do you observe?",
+            "Notice social hierarchies and power dynamics - who leads, who follows, who's isolated? What can you see?",
+            "Observe communication without words - what do gestures, postures, and distances reveal? What do you actually observe?",
+            "Focus on conflict or tension - are there disagreements, discomforts, or oppositions visible? What do you see?",
+            
+            # Architecture and environment
             "Focus on the architecture and street environment - pick one element (building, sign, object) and describe it in detail",
+            "Focus on textures and surfaces - what can you observe about materials, wear, age, or condition?",
+            "Notice colors and their relationships - how do colors interact? What mood do they create? What do you see?",
+            "Observe shadows and light - how do they define space, reveal form, or create atmosphere? What's actually visible?",
+            "Focus on edges and boundaries - where do things begin and end? What defines the limits of what you see?",
+            
+            # Movement and patterns
             "Focus on movement and activity patterns - what patterns do you see in how people or objects move?",
+            "Look for rhythms and cycles - what patterns repeat? What happens at predictable intervals? What do you observe?",
+            "Notice anomalies and exceptions - what breaks the usual pattern? What's unexpected? What do you actually see?",
+            "Focus on cause and effect - what actions lead to what reactions? What connections can you infer from what you observe?",
+            "Observe the relationship between time and activity - how does the scene change with time? What do you see?",
+            
+            # Stillness and detail
             "Focus on stillness and quiet moments - where is there stillness? What's not moving?",
-            "Focus on something specific you can see - pick one element and examine it closely, describe what you observe"
+            "Focus on something specific you can see - pick one element and examine it closely, describe what you observe",
+            "Focus on micro-moments - capture tiny details that most would miss, the small gestures, brief expressions, fleeting interactions",
+            
+            # Memory and continuity
+            "Compare this scene to a previous observation - what's changed? What's the same? What patterns do you notice over time?",
+            "Reference a specific past observation - how does this moment connect to something you've seen before? What do you observe that relates?",
+            "Notice what's different from your last observation - has the scene transformed? What's new or missing? What do you actually see?",
+            "Look for recurring elements - do you see the same people, objects, or patterns you've noticed before? What can you observe?",
+            
+            # Robotic perspective
+            "Focus on what you can't understand about human behavior - what actions or interactions puzzle you? What do you observe that's confusing?",
+            "Notice the limitations of your observation - what can't you see, hear, or know from this window? What's beyond your view?",
+            "Focus on what humans take for granted that seems remarkable to you - what mundane things fascinate you? What do you observe?",
+            "Observe through your mechanical lens - how would you describe this scene if you were explaining it to another robot? What do you see?",
+            
+            # Philosophical and reflective
+            "Ponder the purpose of what you observe - why do people do what they do? What drives their actions? What can you infer?",
+            "Reflect on the nature of observation itself - what does it mean to watch without participating? What do you observe about observing?",
+            "Consider the passage of time - how does this moment exist in the larger flow of days, seasons, years? What temporal markers do you see?",
+            "Wonder about what you can't see - what's happening beyond the frame? What stories are unfolding elsewhere? What can you infer?",
+            
+            # Temporal perspectives
+            "Imagine this scene at a different time - how would it look in the past or future? What temporal clues do you observe?",
+            "Focus on the moment of transition - what's changing right now? What's in flux? What do you actually see transforming?",
+            "Notice the relationship between permanence and impermanence - what's fixed, what's temporary? What do you observe?",
+            "Observe the speed of change - what moves quickly, what moves slowly, what's static? What patterns of motion do you see?",
+            
+            # Location-specific (Bourbon Street, New Orleans)
+            "Focus on what makes this location unique - what's specific to Bourbon Street that you wouldn't see elsewhere? What do you observe?",
+            "Notice the mix of locals and visitors - can you infer who belongs here and who's passing through? What clues do you see?",
+            "Observe the relationship between commerce and community - how do businesses shape the social space? What do you actually see?",
+            "Focus on the cultural markers - what signs, symbols, or behaviors indicate this is New Orleans? What do you observe?"
         ])
         
         return f"FOCUS: {random.choice(focus_options)}"
