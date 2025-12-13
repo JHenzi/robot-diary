@@ -16,6 +16,7 @@ from ..config import (
     DEPLOY_DESTINATION,
     DEPLOY_SSH_KEY
 )
+from ..context.metadata import LOCATION_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +55,10 @@ class HugoGenerator:
                     post_title = f"{post_title} - Transmission: {topic}"
             except Exception as e:
                 logger.warning(f"Error formatting title: {e}, using fallback")
-                post_title = datetime.now().strftime('%A %B %d, %Y')
+                post_title = datetime.now(LOCATION_TZ).strftime('%A %B %d, %Y')
         else:
             # Fallback to simple date if no metadata
-            post_title = datetime.now().strftime('%A %B %d, %Y')
+            post_title = datetime.now(LOCATION_TZ).strftime('%A %B %d, %Y')
         
         # Copy image to Hugo static directory (if not news-based)
         image_markdown = ""
@@ -72,14 +73,15 @@ class HugoGenerator:
         
         # Generate post filename with timestamp to avoid collisions
         # Format: YYYY-MM-DD_HHMMSS_observation_N.md
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        # Use location timezone to ensure correct date
+        timestamp = datetime.now(LOCATION_TZ).strftime('%Y-%m-%d_%H%M%S')
         post_filename = f"{timestamp}_observation_{observation_id}.md"
         post_path = self.content_dir / post_filename
         
         # Check if file already exists (shouldn't happen, but safety check)
         if post_path.exists():
             logger.warning(f"Post file already exists: {post_path}, appending timestamp")
-            timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S_%f')[:-3]  # Add microseconds
+            timestamp = datetime.now(LOCATION_TZ).strftime('%Y-%m-%d_%H%M%S_%f')[:-3]  # Add microseconds
             post_filename = f"{timestamp}_observation_{observation_id}.md"
             post_path = self.content_dir / post_filename
         
@@ -97,8 +99,17 @@ class HugoGenerator:
             image_filename = f"observation_{observation_id}_{image_path.name}"
             cover_image_param = f'cover.image = "/images/{image_filename}"\ncover.alt = "{post_title}"\ncover.hidden = false\ncover.hiddenInList = false\ncover.hiddenInSingle = true\n'
         
+        # Use location timezone for front matter date
+        now_local = datetime.now(LOCATION_TZ)
+        # Format timezone offset (e.g., -0600 for CST, -0500 for CDT)
+        tz_offset = now_local.strftime('%z')
+        if not tz_offset:
+            # Fallback if timezone offset not available
+            tz_offset = '-0600'  # Default to CST
+        date_str = now_local.strftime(f'%Y-%m-%dT%H:%M:%S{tz_offset}')
+        
         front_matter = f"""+++
-date = {datetime.now().strftime('"%Y-%m-%dT%H:%M:%S%z"')}
+date = "{date_str}"
 draft = false
 title = "{post_title}"
 tags = {tags}
