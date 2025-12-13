@@ -33,7 +33,7 @@ The robot doesn't just see an image—it "knows" things about the world:
 
 The robot remembers past observations, but not by dumping full text into prompts:
 
-- **LLM-Generated Summaries**: Each observation is distilled by an AI model (`llama-3.1-8b-instant`) into 200-400 character summaries that preserve:
+- **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)) into 200-400 character summaries that preserve:
   - Key visual details
   - Emotional tone
   - Notable events or patterns
@@ -59,9 +59,9 @@ To prevent repetitive, formulaic entries, each prompt includes randomly selected
 
 We use a **three-model approach** for efficiency and quality:
 
-1. **Memory Summarization** (`llama-3.1-8b-instant`): Cheap model distills each observation into a context-preserving summary
+1. **Memory Summarization** ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)): Cheap model distills each observation into a context-preserving summary
 2. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
-3. **Final Generation** (`llama-4-maverick-17b-128e-instruct`): Expensive vision model receives the rich, context-aware prompt and generates the diary entry
+3. **Final Generation** ([`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/)): Expensive vision model receives the rich, context-aware prompt and generates the diary entry
 
 This architecture ensures:
 - **Cost Efficiency**: Only the final generation uses the expensive model
@@ -149,16 +149,16 @@ The output is diary entries that:
 
 ## Tech Stack
 
-- **Python**: Core automation
-- **Groq API**: Multi-model LLM inference
-  - `llama-4-maverick-17b-128e-instruct`: Vision + final generation
-  - `llama-3.1-8b-instant`: Memory summarization
-- **Astral**: Astronomical calculations (sunrise/sunset, moon phases)
-- **Holidays**: US holiday detection
-- **Pirate Weather API**: Weather data
-- **Pulse API**: News headlines ([pulse.henzi.org](https://pulse.henzi.org))
-- **YouTube Live Streams**: Video source via `yt-dlp`
-- **Hugo**: Static site generation
+- **[Python](https://www.python.org/)**: Core automation
+- **[Groq API](https://groq.com/)**: Multi-model LLM inference
+  - [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/): Vision + final generation
+  - [`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/): Memory summarization
+- **[Astral](https://github.com/sffjunkie/astral)**: Astronomical calculations (sunrise/sunset, moon phases)
+- **[Holidays](https://github.com/vacanza/python-holidays)**: US holiday detection
+- **[Pirate Weather API](https://pirateweather.net/)**: Weather data
+- **[Pulse API](https://pulse.henzi.org)**: News headlines
+- **[YouTube Live Streams](https://www.youtube.com/)**: Video source via [`yt-dlp`](https://github.com/yt-dlp/yt-dlp)
+- **[Hugo](https://gohugo.io/)**: Static site generation
 
 ## Contributing
 
@@ -179,34 +179,64 @@ We're actively looking for:
 
 ## Setup
 
-### Quick Start
+### Quick Start with Docker
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone <repository-url>
 cd robot-diary
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
 
-# Configure
-cp .env.example .env
-# Edit .env with your GROQ_API_KEY and YOUTUBE_STREAM_URL
+# Create .env file with required values
+cat > .env << EOF
+GROQ_API_KEY=your_groq_api_key_here
+YOUTUBE_STREAM_URL=https://www.youtube.com/watch?v=your_stream_id
+EOF
 
-# Run
-python run_service.py
+# Build and run with docker-compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
 ```
 
 ### Required Environment Variables
 
-- `GROQ_API_KEY`: Your Groq API key
-- `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe
+Create a `.env` file in the project root with:
+
+- `GROQ_API_KEY`: Your [Groq API](https://groq.com/) key (required)
+- `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe (required)
 
 ### Optional Environment Variables
 
-- `PIRATE_WEATHER_KEY`: Weather API key for contextual prompts
+Add these to your `.env` file to enable additional features:
+
+- `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context
 - `USE_PROMPT_OPTIMIZATION`: Enable LLM-based prompt optimization (default: `false` - uses direct template combination)
 - `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
+- `DEPLOY_ENABLED`: Enable automatic deployment after Hugo build (default: `false`)
+- `DEPLOY_DESTINATION`: Deployment target (format: `user@host:/path/to/destination`)
+- `DEPLOY_METHOD`: Deployment method - `rsync` or `scp` (default: `rsync`)
+- `DEPLOY_SSH_KEY`: Path to SSH key file for deployment (if needed)
+
+### Managing the Container
+
+```bash
+# Start the service
+docker-compose up -d
+
+# Stop the service
+docker-compose stop
+
+# View logs
+docker-compose logs -f
+
+# Restart the service
+docker-compose restart
+
+# Update and rebuild
+git pull
+docker-compose up -d --build
+```
 
 ## Philosophy
 
@@ -226,10 +256,10 @@ This code is fully released under the GNU General Public License. We provide no 
 ## Acknowledgments
 
 - **New Orleans, Louisiana** for the live video feed
-- **Groq** for fast, cost-effective LLM inference
-- **Meta's Llama models** for vision and language capabilities
+- **[Groq](https://groq.com/)** for fast, cost-effective LLM inference
+- **[Meta's Llama models](https://llama.meta.com/)** for vision and language capabilities
 - **[Pulse API](https://pulse.henzi.org)** for news headlines
-- **Hugo** for static site generation
-- **PaperMod** Hugo theme for beautiful post previews
+- **[Hugo](https://gohugo.io/)** for static site generation
+- **[PaperMod](https://github.com/adityatelange/hugo-PaperMod)** Hugo theme for beautiful post previews
 
 Always, thanks to [The Henzi Foundation](https://henzi.org). Consider donating to their cause. They provide coverage for funeral costs when someone loses a child.
