@@ -219,7 +219,7 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         observation_id = memory_count + 1
         # Create a placeholder image path for memory (news-based entries don't have images)
         placeholder_image = PROJECT_ROOT / 'images' / 'news_transmission.png'
-        memory_manager.add_observation(placeholder_image, diary_entry, image_url=f"news://{cluster_id}")
+        memory_manager.add_observation(placeholder_image, diary_entry, image_url=f"news://{cluster_id}", llm_client=llm_client)
         
         # Step 6: Generate Hugo post (no image)
         logger.info("Step 6: Generating Hugo post...")
@@ -354,7 +354,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Get observation ID from memory count (will be unique per observation)
         memory_count = memory_manager.get_total_count()
         observation_id = memory_count + 1
-        memory_manager.add_observation(image_path, diary_entry)
+        memory_manager.add_observation(image_path, diary_entry, llm_client=llm_client)
         
         # Step 6: Generate Hugo post
         logger.info("Step 6: Generating Hugo post...")

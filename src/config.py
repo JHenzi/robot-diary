@@ -45,6 +45,7 @@ MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
 # Model Configuration
 PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
 VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
+MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
 
 # Robot Configuration
 ROBOT_NAME = 'B3N-T5-MNT'

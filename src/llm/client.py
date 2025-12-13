@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 from groq import Groq
 
-from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL
+from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,12 @@ class GroqClient:
         # Determine if we should include special reflection types (random chance)
         reflection_instructions = self._get_reflection_instructions()
         
+        # Add variety instructions
+        style_variation = self._get_style_variation()
+        perspective_shift = self._get_perspective_shift()
+        focus_instruction = self._get_focus_instruction(context_metadata)
+        anti_repetition = self._get_anti_repetition_instruction(recent_memory)
+        
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
 IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
@@ -109,6 +115,14 @@ Recent observations from the robot's memory:
 {seasonal_note}
 
 {reflection_instructions}
+
+{style_variation}
+
+{perspective_shift}
+
+{focus_instruction}
+
+{anti_repetition}
 
 Base prompt template:
 {base_prompt_template}
@@ -327,6 +341,66 @@ CRITICAL RULES:
             logger.error(f"Error creating diary entry: {e}")
             raise
     
+    def generate_memory_summary(self, observation_content: str, observation_id: int, date: str) -> str:
+        """
+        Generate an intelligent summary of an observation that preserves context
+        needed for future callbacks and narrative continuity.
+        
+        Uses a cheap model for cost efficiency.
+        
+        Args:
+            observation_content: Full diary entry text
+            observation_id: Observation ID
+            date: Observation date
+            
+        Returns:
+            Summarized text (200-400 chars) that preserves key details
+        """
+        try:
+            # Format date for prompt
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(date.replace('Z', '+00:00'))
+                formatted_date = dt.strftime('%B %d, %Y')
+            except:
+                formatted_date = date
+            
+            summary_prompt = f"""Summarize this diary entry from a maintenance robot's observation, preserving:
+- Key visual details that might be referenced in future observations
+- Notable events, patterns, or changes observed
+- Emotional tone or perspective
+- Any references to previous observations or memories
+- Weather/time context that's relevant
+
+Keep summary to 200-400 characters. Focus on what would be useful for the robot to reference in future diary entries.
+
+Diary Entry:
+{observation_content}
+
+Observation ID: {observation_id}
+Date: {formatted_date}
+
+Provide ONLY the summary, no explanation."""
+            
+            response = self.client.chat.completions.create(
+                model=MEMORY_SUMMARIZATION_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a summarization assistant that creates concise, context-preserving summaries."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                temperature=0.3,  # Lower temperature for more consistent summaries
+                max_tokens=150  # Limit to keep summaries concise
+            )
+            
+            summary = response.choices[0].message.content.strip()
+            logger.debug(f"Generated LLM summary for observation #{observation_id}: {summary[:100]}...")
+            return summary
+            
+        except Exception as e:
+            logger.warning(f"Failed to generate LLM summary for observation #{observation_id}: {e}")
+            # Fallback to simple truncation
+            return observation_content[:200] + '...' if len(observation_content) > 200 else observation_content
+    
     def _format_memory_for_prompt_gen(self, recent_memory: list[dict]) -> str:
         """Format memory entries for prompt generation with better context for callbacks."""
         if not recent_memory:
@@ -343,11 +417,126 @@ CRITICAL RULES:
                 formatted_date = dt.strftime('%B %d, %Y')
             except:
                 formatted_date = date
-            summary = entry.get('summary', entry.get('content', '')[:200])
+            # Prefer llm_summary if available, fallback to summary, then content
+            summary = entry.get('llm_summary') or entry.get('summary') or entry.get('content', '')[:200]
             # Include key details that might be referenced
-            formatted.append(f"Observation #{entry_id} ({formatted_date}): {summary}")
+            formatted.append(f"Observation #{entry_id} ({formatted_date}):\n{summary}")
         
         return "\n".join(formatted)
+    
+    def _get_style_variation(self) -> str:
+        """
+        Generate style variation instructions to avoid repetitive posts.
+        Returns different writing styles/focuses to encourage variety.
+        """
+        import random
+        
+        style_options = [
+            "Focus on specific details - zoom in on one particular element (a person, object, weather pattern)",
+            "Write in a more philosophical tone - reflect on deeper meanings and patterns",
+            "Adopt a more narrative style - tell a story about what you're observing",
+            "Focus on contrasts - compare what you see now vs. what you remember",
+            "Write more conversationally - as if speaking directly to a friend",
+            "Focus on sensory details - describe sounds, light, movement, not just visuals",
+            "Adopt a more analytical perspective - break down what you observe into components",
+            "Write with more emotional depth - explore feelings and reactions to what you see",
+            "Focus on patterns and repetition - what cycles or rhythms do you notice?",
+            "Write more speculatively - wonder about what you can't see, what's happening elsewhere"
+        ]
+        
+        selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
+        return f"STYLE VARIATION: For this entry, incorporate these approaches:\n" + "\n".join(f"- {style}" for style in selected_styles)
+    
+    def _get_perspective_shift(self) -> str:
+        """Generate perspective variation instructions."""
+        import random
+        
+        perspectives = [
+            "Write from the perspective of someone who has been watching for a long time",
+            "Write as if this is the first time you've noticed something important",
+            "Write with urgency - something feels different or significant",
+            "Write with calm detachment - observe without judgment",
+            "Write with curiosity - ask questions about what you're seeing",
+            "Write with nostalgia - connect to past observations",
+            "Write with anticipation - what might happen next?"
+        ]
+        
+        return f"PERSPECTIVE: {random.choice(perspectives)}"
+    
+    def _get_focus_instruction(self, context_metadata: dict) -> str:
+        """Generate focus instructions based on context."""
+        import random
+        
+        focus_options = []
+        
+        # Time-based focuses
+        if context_metadata:
+            time_of_day = context_metadata.get('time_of_day', '')
+            if time_of_day == 'morning':
+                focus_options.extend([
+                    "Focus on how the morning light changes what you see",
+                    "Notice who is out early and what they're doing",
+                    "Observe the transition from night to day"
+                ])
+            elif time_of_day == 'evening':
+                focus_options.extend([
+                    "Focus on evening activities and how people wind down",
+                    "Notice how artificial light changes the scene",
+                    "Observe the transition from day to night"
+                ])
+            
+            # Weather-based focuses
+            weather = context_metadata.get('weather', {})
+            if weather:
+                weather_summary = weather.get('summary', '').lower() if isinstance(weather, dict) else str(weather).lower()
+                if 'rain' in weather_summary or 'storm' in weather_summary:
+                    focus_options.append("Focus on how weather affects the scene and people's behavior")
+                if 'clear' in weather_summary or 'sunny' in weather_summary:
+                    focus_options.append("Focus on how good weather changes the atmosphere")
+        
+        # General focuses
+        focus_options.extend([
+            "Focus on human interactions - conversations, gestures, connections",
+            "Focus on the architecture and built environment",
+            "Focus on movement and activity patterns",
+            "Focus on stillness and quiet moments",
+            "Focus on something you've never noticed before"
+        ])
+        
+        return f"FOCUS: {random.choice(focus_options)}"
+    
+    def _get_anti_repetition_instruction(self, recent_memory: list[dict]) -> str:
+        """Generate instructions to avoid repeating recent patterns."""
+        if not recent_memory or len(recent_memory) < 2:
+            return ""
+        
+        # Analyze recent entries for common patterns
+        recent_openings = []
+        for entry in recent_memory[-3:]:  # Last 3 entries
+            content = entry.get('content', '')
+            if content:
+                # Get first sentence or first 100 chars
+                first_sent = content.split('.')[0] if '.' in content else content[:100]
+                # Extract key phrases (first few words)
+                words = first_sent.split()[:5]
+                if words:
+                    recent_openings.append(' '.join(words).lower())
+        
+        if recent_openings:
+            # Find common patterns
+            common_start = None
+            if len(recent_openings) >= 2:
+                # Check if first few words are similar
+                first_words = [opening.split()[0] if opening.split() else '' for opening in recent_openings]
+                if len(set(first_words)) == 1 and first_words[0]:
+                    common_start = first_words[0]
+            
+            if common_start:
+                return f"AVOID REPETITION: Your recent entries started with '{common_start}'. Start this entry differently - use a different opening phrase or structure."
+            elif len(recent_openings) >= 2:
+                return f"AVOID REPETITION: Vary your opening. Don't start with similar phrases to your recent entries."
+        
+        return ""
     
     def _get_personality_note(self, memory_count: int) -> str:
         """Generate personality traits based on accumulated memories (personality drift)."""

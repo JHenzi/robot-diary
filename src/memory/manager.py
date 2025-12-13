@@ -43,7 +43,7 @@ class MemoryManager:
         except Exception as e:
             logger.error(f"Error saving memory: {e}")
     
-    def add_observation(self, image_path: Path, diary_entry: str, image_url: Optional[str] = None):
+    def add_observation(self, image_path: Path, diary_entry: str, image_url: Optional[str] = None, llm_client=None):
         """
         Add a new observation to memory.
         
@@ -51,17 +51,31 @@ class MemoryManager:
             image_path: Path to the image file
             diary_entry: The generated diary entry text
             image_url: Original image URL (optional)
+            llm_client: Optional GroqClient instance for generating LLM summaries
         """
         memory = self._load_memory()
         
+        observation_id = len(memory) + 1
+        observation_date = datetime.now().isoformat()
+        
+        # Generate LLM summary if client provided
+        llm_summary = None
+        if llm_client:
+            try:
+                llm_summary = llm_client.generate_memory_summary(diary_entry, observation_id, observation_date)
+                logger.debug(f"Generated LLM summary for observation #{observation_id}")
+            except Exception as e:
+                logger.warning(f"Failed to generate LLM summary: {e}, using fallback")
+        
         observation = {
-            'id': len(memory) + 1,
-            'date': datetime.now().isoformat(),
+            'id': observation_id,
+            'date': observation_date,
             'image_path': str(image_path),
             'image_filename': image_path.name,
             'image_url': image_url,
             'content': diary_entry,
-            'summary': diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry
+            'summary': diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry,
+            'llm_summary': llm_summary  # Intelligent summary from LLM
         }
         
         memory.append(observation)
