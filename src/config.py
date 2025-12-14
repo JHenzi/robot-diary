@@ -47,6 +47,10 @@ PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
 VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
 MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
 
+# Diary Writing Model - can be overridden via environment variable
+# Defaults to VISION_MODEL, but can be set to a larger model like 'openai/gpt-oss-120b' for testing
+DIARY_WRITING_MODEL = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
+
 # Prompt Generation Configuration
 USE_PROMPT_OPTIMIZATION = os.getenv('USE_PROMPT_OPTIMIZATION', 'false').lower() == 'true'
 

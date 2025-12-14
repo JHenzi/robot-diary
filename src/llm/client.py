@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytz
 from groq import Groq
 
-from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL, USE_PROMPT_OPTIMIZATION
+from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL, USE_PROMPT_OPTIMIZATION, DIARY_WRITING_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +353,6 @@ class GroqClient:
 IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
 B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections. The robot is an observer of human nature with a unique robotic perspective.
 
-Important reminder: The robot is looking out a WINDOW, not through a webcam or camera. Please avoid mentioning webcams, cameras, or digital images in the prompt. The robot sees the world directly through glass.
 
 Note: The identity context above is for you to understand the robot's perspective. When generating the prompt, focus on writing instructions (observation, reflection, what to notice) rather than explaining the robot's identity. The identity informs the perspective but should not be the subject of the prompt.
 
@@ -621,7 +620,7 @@ Provide a comprehensive, factual description that another system could use to wr
             narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
         
         # Step 2: Write creative diary entry from the factual description
-        logger.info(f"✍️  Step 2: Writing diary entry from description using {VISION_MODEL}...")
+        logger.info(f"✍️  Step 2: Writing diary entry from description using {DIARY_WRITING_MODEL}...")
         
         # Create the full prompt for creative writing (NO IMAGE - we use the description instead)
         full_prompt = f"""{optimized_prompt}
@@ -643,15 +642,16 @@ YOUR TASK: Based on the factual description above, write a diary entry that:
 - Maintains your unique voice and personality
 
 CRITICAL RULES:
-1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
-2. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
-3. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
-4. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry.
-5. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided."""
+1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
+2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
+3. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided."""
+
+        # Store the full prompt for debugging/simulation
+        self._last_full_prompt = full_prompt
 
         try:
             response = self.client.chat.completions.create(
-                model=VISION_MODEL,
+                model=DIARY_WRITING_MODEL,  # Use configurable writing model (can be GPT-OSS-120b for testing)
                 messages=[
                     {
                         "role": "user",
@@ -664,6 +664,10 @@ CRITICAL RULES:
             
             diary_entry = response.choices[0].message.content.strip()
             logger.info("✅ Diary entry created")
+            
+            # Store the full prompt for debugging/simulation purposes
+            self._last_full_prompt = full_prompt
+            
             return diary_entry
             
         except Exception as e:

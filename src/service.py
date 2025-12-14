@@ -534,6 +534,9 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
+        # Get the full prompt (includes image description) if available
+        full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
+        
         # Step 5: Generate simulation markdown file
         logger.info("Step 5: Generating simulation markdown file...")
         
@@ -588,7 +591,7 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             f.write("---\n\n")
             f.write("## Prompt Sent to LLM\n\n")
             f.write("```\n")
-            f.write(optimized_prompt)
+            f.write(full_prompt)  # Use full prompt that includes image description
             f.write("\n```\n\n")
             f.write("---\n\n")
             f.write("## Diary Entry\n\n")
