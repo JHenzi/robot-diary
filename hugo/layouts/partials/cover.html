@@ -53,31 +53,18 @@
             {{- $srcWidth := cond (gt $cover.Width $maxDisplayWidth) $maxDisplayWidth $cover.Width }}
             {{- $srcImage := cond (gt $cover.Width $maxDisplayWidth) ($cover.Resize (printf "%dx" $maxDisplayWidth)) $cover }}
             
-            {{- /* Build srcset safely - only include valid sizes */}}
-            {{- $srcsetParts := slice }}
-            {{- range $size := $sizes -}}
-                {{- $sizeInt := int $size }}
-                {{- if and (ge $cover.Width $sizeInt) (le $sizeInt $maxDisplayWidth) }}
-                    {{- $resized := $cover.Resize (printf "%dx" $sizeInt) }}
-                    {{- if and $resized $resized.Permalink }}
-                        {{- $srcsetParts = $srcsetParts | append (printf "%s %sw" $resized.Permalink $sizeInt) }}
-                    {{- end }}
-                {{- end }}
-            {{- end }}
-            {{- if and $srcImage $srcImage.Permalink }}
-                {{- $srcsetParts = $srcsetParts | append (printf "%s %dw" $srcImage.Permalink $srcWidth) }}
-            {{- end }}
-            
-            {{- if and (gt (len $srcsetParts) 0) $srcImage $srcImage.Permalink }}
-            <img loading="{{$loading}}"
-                srcset="{{ delimit $srcsetParts ", " }}"
-                src="{{ $srcImage.Permalink }}"
-                sizes="(min-width: 769px) {{ $maxDisplayWidth }}px, 100vw"
-                width="{{ $srcWidth }}" 
-                height="{{ $srcImage.Height }}"
-                alt="{{ $alt }}">
+            {{- /* Use optimized image - skip srcset if generation fails to avoid #ZgotmplZ errors */}}
+            {{- if and $srcImage $srcImage.Permalink (ne (strings.TrimSpace $srcImage.Permalink) "") }}
+                {{- /* Simple approach: just use the optimized image without complex srcset */}}
+                {{- /* The browser will still benefit from the optimized size */}}
+                <img loading="{{$loading}}"
+                    src="{{ $srcImage.Permalink }}"
+                    sizes="(min-width: 769px) {{ $maxDisplayWidth }}px, 100vw"
+                    width="{{ $srcWidth }}" 
+                    height="{{ $srcImage.Height }}"
+                    alt="{{ $alt }}">
             {{- else }}
-                {{- /* Fallback if srcset generation failed - use original static path */}}
+                {{- /* Fallback if image processing failed - use original static path */}}
                 <img loading="{{ $loading }}" src="{{ $imgdl }}" alt="{{ $alt }}">
             {{- end }}
         {{- else }}{{/* Unprocessable image, responsive images disabled, or not in production build */}}
