@@ -188,13 +188,14 @@ def get_holidays(date: datetime) -> List[str]:
         la_holidays = holidays.US(state='LA', years=date.year)
         
         # Combine and get unique holidays for this date
-        date_str = date.strftime('%Y-%m-%d')
+        # Holidays library uses date objects as keys, not strings
+        date_obj = date.date()
         holiday_list = []
         
-        if date_str in us_holidays:
-            holiday_list.append(us_holidays[date_str])
-        if date_str in la_holidays and la_holidays[date_str] not in holiday_list:
-            holiday_list.append(la_holidays[date_str])
+        if date_obj in us_holidays:
+            holiday_list.append(us_holidays[date_obj])
+        if date_obj in la_holidays and la_holidays[date_obj] not in holiday_list:
+            holiday_list.append(la_holidays[date_obj])
         
         return holiday_list
     except Exception as e:
@@ -228,14 +229,17 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
         
         upcoming = []
         date_only = date.date()
+        holidays_found_in_dict = 0
         
         # Check each day in the range
         for i in range(1, days_ahead + 1):
             check_date = date_only + timedelta(days=i)
             check_date_str = check_date.strftime('%Y-%m-%d')
             
-            if check_date_str in all_holidays:
-                holiday_name = all_holidays[check_date_str]
+            # Holidays library uses date objects as keys, not strings
+            if check_date in all_holidays:
+                holidays_found_in_dict += 1
+                holiday_name = all_holidays[check_date]
                 # Filter out minor holidays, focus on major ones
                 major_holidays = [
                     'Christmas', 'New Year', 'Thanksgiving', 'Independence Day',
@@ -246,8 +250,9 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
                 
                 # Include if it's a major holiday or contains major holiday keywords (case-insensitive)
                 holiday_lower = holiday_name.lower()
+                matches = [m for m in major_holidays if m.lower() in holiday_lower]
                 
-                if any(major.lower() in holiday_lower for major in major_holidays):
+                if matches:
                     upcoming.append({
                         'name': holiday_name,
                         'days_until': i,
@@ -260,9 +265,29 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
         
         # Sort by days until
         upcoming.sort(key=lambda x: x['days_until'])
+        
+        # Debug: log if no holidays found
+        if not upcoming and holidays_found_in_dict > 0:
+            logger.warning(f"Found {holidays_found_in_dict} holiday(s) in date range but all were filtered out as minor holidays")
+        elif not upcoming:
+            # Check a few specific dates to see what's happening
+            sample_dates = [(date_only + timedelta(days=i)).strftime('%Y-%m-%d') for i in [1, 11, 25] if i <= days_ahead]
+            logger.debug(f"No upcoming holidays found. Checked {days_ahead} days from {date_only}. Sample dates: {sample_dates}")
+            # Check if Christmas is actually in the dict
+            xmas_date = (date_only + timedelta(days=11)).strftime('%Y-%m-%d') if 11 <= days_ahead else None
+            if xmas_date and xmas_date in all_holidays:
+                xmas_name = all_holidays[xmas_date]
+                logger.debug(f"DEBUG: Found {xmas_name} on {xmas_date} in all_holidays dict, but wasn't added to upcoming list")
+                # Check why it wasn't added
+                holiday_lower = xmas_name.lower()
+                matches = [m for m in ['Christmas', 'New Year', 'Thanksgiving', 'Independence Day', 'Memorial Day', 'Labor Day', 'Veterans Day', 'Presidents Day', 'Martin Luther King', 'Easter', 'Halloween', 'Valentine', 'Mardi Gras', 'New Year\'s Day', 'Christmas Day', 'New Year\'s Eve'] if m.lower() in holiday_lower]
+                logger.debug(f"DEBUG: Filter check for '{xmas_name}': would match {matches}")
+        
         return upcoming
     except Exception as e:
         logger.warning(f"Error detecting upcoming holidays: {e}")
+        import traceback
+        logger.debug(f"Traceback: {traceback.format_exc()}")
         return []
 
 
