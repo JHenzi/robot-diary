@@ -508,9 +508,76 @@ Important reminders:
             logger.error(f"Error creating text-only diary entry: {e}")
             raise
     
+    def describe_image(self, image_path: Path) -> str:
+        """
+        Step 1: Get a detailed, factual description of what's in the image.
+        This is a focused vision task - describe what you see, not creative writing.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Detailed factual description of the image contents
+        """
+        logger.info(f"📸 Step 1: Describing image using {VISION_MODEL}...")
+        
+        # Read and encode image
+        with open(image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Focused, factual prompt for image description
+        description_prompt = """You are a visual analysis system. Your task is to provide a detailed, factual description of what you see in this image.
+
+Describe ONLY what is clearly visible in the image:
+- People: How many? Where are they positioned? What are they doing? What are they wearing? Any notable features?
+- Objects: Vehicles, signs, buildings, street furniture, etc. - describe their positions, colors, sizes, conditions
+- Environment: Street layout, lighting conditions, weather visible in the scene, time of day indicators
+- Actions: What are people actually doing? (walking, standing, talking, etc.)
+- Spatial relationships: Where are things relative to each other?
+
+CRITICAL RULES:
+- Describe ONLY what you can clearly see. Do NOT invent details.
+- Do NOT make assumptions about what people are thinking, feeling, or planning.
+- Do NOT describe things that are not visible (sounds, smells, future events).
+- Be specific and concrete: "A man in a blue jacket walking on the left side of the street" not "A person moving through the scene"
+- If something is unclear or partially obscured, say so explicitly.
+
+Provide a comprehensive, factual description that another system could use to write about this scene accurately."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=VISION_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": description_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.1,  # Very low temperature for factual accuracy
+                max_tokens=2000  # Enough for detailed description
+            )
+            
+            description = response.choices[0].message.content.strip()
+            logger.info("✅ Image description generated")
+            return description
+            
+        except Exception as e:
+            logger.error(f"Error describing image: {e}")
+            raise
+    
     def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None) -> str:
         """
-        Create a diary entry using vision model.
+        Create a diary entry using two-step process:
+        1. Get factual image description
+        2. Write creative diary entry from description
         
         Args:
             image_path: Path to the image file
@@ -520,11 +587,10 @@ Important reminders:
         Returns:
             Diary entry text
         """
-        logger.info(f"Creating diary entry using {VISION_MODEL}...")
+        logger.info(f"Creating diary entry using two-step process...")
         
-        # Read and encode image
-        with open(image_path, 'rb') as f:
-            image_data = base64.b64encode(f.read()).decode('utf-8')
+        # Step 1: Get factual image description
+        image_description = self.describe_image(image_path)
         
         # Get current date context for explicit inclusion
         if context_metadata:
@@ -554,21 +620,34 @@ Important reminders:
         else:
             narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
         
-        # Create the full prompt with image
+        # Step 2: Write creative diary entry from the factual description
+        logger.info(f"✍️  Step 2: Writing diary entry from description using {VISION_MODEL}...")
+        
+        # Create the full prompt for creative writing (NO IMAGE - we use the description instead)
         full_prompt = f"""{optimized_prompt}
 
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and notice details.
+WHAT YOU SEE (factual description from your visual sensors):
+{image_description}
 
-YOUR PRIMARY TASK: Decipher what you see in the image. Describe specific subjects you observe - people (where they are, what they're doing), objects, vehicles, buildings. Only describe what is clearly visible. Do not invent details like pets, actions, or objects that aren't actually present.
+Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and creative.
+
+YOUR TASK: Based on the factual description above, write a diary entry that:
+- Grounds all observations in the factual description provided
+- Only describes people, objects, and actions that are explicitly mentioned in the description
+- Adds your robotic perspective, reflections, and interpretations
+- Connects what you see to your memories, the news, weather, and context
+- Maintains your unique voice and personality
 
 CRITICAL RULES:
 1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
-2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
-3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
+2. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
+3. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
+4. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry.
+5. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided."""
 
         try:
             response = self.client.chat.completions.create(
@@ -576,18 +655,10 @@ CRITICAL RULES:
                 messages=[
                     {
                         "role": "user",
-                        "content": [
-                            {"type": "text", "text": full_prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_data}"
-                                }
-                            }
-                        ]
+                        "content": full_prompt
                     }
                 ],
-                temperature=random.uniform(0.3, 0.85),  # Randomized for variety while maintaining instruction adherence
+                temperature=random.uniform(0.5, 0.75),  # Higher temperature for creativity, but still grounded
                 max_tokens=random.randint(3500, 8192)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
