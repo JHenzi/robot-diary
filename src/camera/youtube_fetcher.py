@@ -2,7 +2,7 @@
 import subprocess
 import hashlib
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import json
 import logging
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Cache metadata file to track latest image
 CACHE_METADATA_FILE = IMAGES_DIR / '.cache_metadata.json'
+IMAGE_CACHE_TTL_MINUTES = 30  # Cache expires after 30 minutes
 
 
 def _load_cache_metadata():
@@ -127,7 +128,8 @@ def fetch_latest_image(force_refresh: bool = False) -> Path:
     Fetch a live frame from YouTube stream using yt-dlp and FFmpeg.
     
     Uses intelligent caching to avoid unnecessary captures:
-    - Only captures new frame if force_refresh is True or cache is missing
+    - Only captures new frame if force_refresh is True or cache is missing/expired
+    - Cache expires after 30 minutes
     - Compares image hash to detect if content changed
     
     Args:
@@ -145,8 +147,23 @@ def fetch_latest_image(force_refresh: bool = False) -> Path:
     if not force_refresh and cache_metadata.get('latest_path'):
         cached_path = IMAGES_DIR / cache_metadata.get('latest_path')
         if cached_path.exists():
-            logger.info(f"✅ Using cached image: {cached_path}")
-            return cached_path
+            # Check if cache is still valid (not expired)
+            fetched_at = cache_metadata.get('fetched_at')
+            if fetched_at:
+                try:
+                    cached_time = datetime.fromisoformat(fetched_at)
+                    age = datetime.now() - cached_time
+                    
+                    if age < timedelta(minutes=IMAGE_CACHE_TTL_MINUTES):
+                        logger.info(f"✅ Using cached image (age: {age}): {cached_path}")
+                        return cached_path
+                    else:
+                        logger.info(f"Cache expired (age: {age}), capturing new frame")
+                except Exception as e:
+                    logger.warning(f"Error checking cache age: {e}, capturing new frame")
+            else:
+                # No timestamp, treat as expired
+                logger.info("Cache missing timestamp, capturing new frame")
     
     # Capture new frame
     logger.info(f"Capturing live frame from YouTube stream: {YOUTUBE_STREAM_URL}")
