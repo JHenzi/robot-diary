@@ -1,5 +1,146 @@
 /* Custom styling for Robot Diary */
 
+/* ============================================
+   WIDTH ENHANCEMENTS FOR DESKTOP
+   ============================================ */
+
+/* Increase main content width on desktop screens */
+/* Mobile remains unchanged (responsive) - uses default 720px */
+@media screen and (min-width: 769px) {
+    /* Wider landing page/column for desktop (list pages) */
+    :root {
+        --main-width: 900px;
+    }
+    
+    /* Even wider for single blog post pages */
+    /* body:not(.list) means single post pages (no .list class) */
+    body:not(.list) {
+        --main-width: 1000px;
+    }
+}
+
+/* Ensure footer matches main width on desktop */
+@media screen and (min-width: 769px) {
+    .footer {
+        max-width: calc(var(--main-width) + var(--gap) * 2);
+    }
+}
+
+/* ============================================
+   HOME PAGE / LANDING PAGE ENHANCEMENTS
+   ============================================ */
+
+/* Compact, visual home info section */
+.home-info {
+    margin-bottom: calc(var(--gap) * 1.5);
+}
+
+.home-info-hero {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--gap);
+    flex-wrap: wrap;
+}
+
+.home-info-image {
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+}
+
+.home-info-image .robot-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius);
+    background: var(--code-bg);
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.home-info-text {
+    flex: 1;
+    min-width: 250px;
+}
+
+.home-info .entry-header h1 {
+    margin-bottom: 0.75rem;
+    font-size: 2rem;
+}
+
+.home-info .entry-content {
+    font-size: 1rem;
+    line-height: 1.7;
+}
+
+.home-info .entry-content p {
+    margin-bottom: 1rem;
+}
+
+.robot-quote {
+    margin: 1.25rem 0;
+    padding: 1rem 1.25rem;
+    background: var(--code-bg);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+    font-style: italic;
+}
+
+.robot-quote p {
+    margin: 0;
+    color: var(--secondary);
+    font-size: 0.95rem;
+}
+
+.robot-quote cite {
+    display: block;
+    margin-top: 0.5rem;
+    text-align: right;
+    font-size: 0.85rem;
+    color: var(--secondary);
+    font-style: normal;
+}
+
+/* Make first-entry more compact on home page */
+.home-info.first-entry {
+    min-height: auto;
+    padding: var(--gap);
+    margin-bottom: var(--gap);
+}
+
+/* Ensure posts appear quickly - reduce home info spacing */
+@media screen and (min-width: 769px) {
+    .home-info {
+        max-width: 100%;
+    }
+    
+    .home-info-image {
+        width: 140px;
+        height: 140px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .home-info-hero {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .home-info-image {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .home-info .entry-header h1 {
+        font-size: 1.75rem;
+    }
+}
+
+/* ============================================
+   EXISTING STYLING ENHANCEMENTS
+   ============================================ */
+
 /* Improve post entry cards */
 .post-entry {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
