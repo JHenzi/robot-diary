@@ -480,7 +480,7 @@ Important reminders:
                     }
                 ],
                 temperature=0.85,  # Increased for more creative variation while maintaining coherence
-                max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
+                max_tokens=3000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -570,8 +570,8 @@ CRITICAL RULES:
                         ]
                     }
                 ],
-                temperature=0.85,  # Increased for more creative variation while maintaining coherence
-                max_tokens=3000  # Increased to allow for longer, more varied entries with detailed observations
+                temperature=0.75,  # Increased for more creative variation while maintaining coherence
+                max_tokens=3500  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
