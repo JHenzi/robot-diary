@@ -107,15 +107,16 @@ class MemoryManager:
             except Exception as e:
                 logger.warning(f"Failed to generate LLM summary: {e}, using fallback")
         
+        # Ensure all values are JSON-serializable
         observation = {
             'id': observation_id,
             'date': observation_date,
             'image_path': str(image_path),
-            'image_filename': image_path.name,
+            'image_filename': str(image_path.name) if hasattr(image_path, 'name') else str(image_path),
             'image_url': image_url,
-            'content': diary_entry,
-            'summary': diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry,
-            'llm_summary': llm_summary  # Intelligent summary from LLM
+            'content': str(diary_entry),
+            'summary': str(diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry),
+            'llm_summary': str(llm_summary) if llm_summary is not None else None  # Intelligent summary from LLM
         }
         
         memory.append(observation)
@@ -261,12 +262,17 @@ class MemoryManager:
             
         except Exception as e:
             logger.error(f"Error saving schedule: {e}")
-            # Clean up temp file if it exists
+            # Clean up temp file if it exists (wrap in try-except to handle permission errors)
             temp_file = SCHEDULE_FILE.with_suffix('.json.tmp')
-            if temp_file.exists():
-                try:
-                    temp_file.unlink()
-                except Exception:
-                    pass
-            raise  # Re-raise to allow caller to handle
+            try:
+                if temp_file.exists():
+                    try:
+                        temp_file.unlink()
+                    except Exception:
+                        pass
+            except (PermissionError, OSError):
+                # Can't even check if file exists due to permissions
+                pass
+            # Don't re-raise - schedule saving failure is not critical
+            # The service will recalculate the schedule next time if needed
 

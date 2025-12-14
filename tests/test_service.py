@@ -25,10 +25,10 @@ class TestServiceNextScheduledTime:
         memory_file = temp_dir / 'observations.json'
         schedule_file = temp_dir / 'schedule.json'
         
-        manager = MemoryManager()
-        manager.memory_file = memory_file
-        
-        with patch('src.memory.manager.SCHEDULE_FILE', schedule_file):
+        # Patch the module-level constants so MemoryManager uses temp files
+        with patch('src.memory.manager.MEMORY_FILE', memory_file), \
+             patch('src.memory.manager.SCHEDULE_FILE', schedule_file):
+            manager = MemoryManager()
             yield manager
     
     @pytest.fixture
@@ -48,8 +48,14 @@ class TestServiceNextScheduledTime:
         
         mock_diary_entry = "Test diary entry"
         
+        # Ensure patches are active for MemoryManager instantiation inside run_observation_cycle
+        memory_file = temp_dir / 'observations.json'
+        schedule_file = temp_dir / 'schedule.json'
+        
         # Mock all external dependencies
-        with patch('src.service.fetch_latest_image', return_value=mock_image_path), \
+        with patch('src.memory.manager.MEMORY_FILE', memory_file), \
+             patch('src.memory.manager.SCHEDULE_FILE', schedule_file), \
+             patch('src.service.fetch_latest_image', return_value=mock_image_path), \
              patch('src.service.GroqClient') as mock_groq_class, \
              patch('src.service.HugoGenerator') as mock_hugo_class, \
              patch('src.service.get_context_metadata') as mock_context, \
@@ -165,7 +171,13 @@ class TestServiceNextScheduledTime:
         
         mock_diary_entry = "Test diary entry content"
         
-        with patch('src.service.fetch_latest_image', return_value=mock_image_path), \
+        # Ensure patches are active for MemoryManager instantiation inside run_observation_cycle
+        memory_file = temp_dir / 'observations.json'
+        schedule_file = temp_dir / 'schedule.json'
+        
+        with patch('src.memory.manager.MEMORY_FILE', memory_file), \
+             patch('src.memory.manager.SCHEDULE_FILE', schedule_file), \
+             patch('src.service.fetch_latest_image', return_value=mock_image_path), \
              patch('src.service.GroqClient') as mock_groq_class, \
              patch('src.service.HugoGenerator') as mock_hugo_class, \
              patch('src.service.get_context_metadata') as mock_context, \
@@ -214,8 +226,14 @@ class TestServiceNextScheduledTime:
     
     def test_news_based_observation_also_calculates_next_time(self, mock_memory_manager, location_tz, temp_dir):
         """Test that news-based observations also calculate next scheduled time correctly."""
+        # Ensure patches are active for MemoryManager instantiation inside run_news_based_observation
+        memory_file = temp_dir / 'observations.json'
+        schedule_file = temp_dir / 'schedule.json'
+        
         # Set up mocks
-        with patch('src.service.GroqClient') as mock_groq_class, \
+        with patch('src.memory.manager.MEMORY_FILE', memory_file), \
+             patch('src.memory.manager.SCHEDULE_FILE', schedule_file), \
+             patch('src.service.GroqClient') as mock_groq_class, \
              patch('src.service.HugoGenerator') as mock_hugo_class, \
              patch('src.service.get_context_metadata') as mock_context, \
              patch('src.service.get_random_cluster') as mock_cluster, \
