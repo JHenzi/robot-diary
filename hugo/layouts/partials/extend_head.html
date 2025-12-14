@@ -67,10 +67,10 @@
 <link rel="alternate" type="application/rss+xml" title="{{ $.Site.Title }} RSS Feed" href="{{ .Permalink }}">
 {{- end }}
 
-{{- /* Custom CSS */ -}}
+{{- /* Custom CSS - Inlined to avoid blocking render and improve LCP */ -}}
 {{- $customCSS := resources.Get "css/custom.css" }}
 {{- if $customCSS }}
-{{- $customCSS = $customCSS | minify | fingerprint }}
-<link rel="stylesheet" href="{{ $customCSS.RelPermalink }}" integrity="{{ $customCSS.Data.Integrity }}">
+{{- $customCSS = $customCSS | minify }}
+<style>{{ $customCSS.Content | safeCSS }}</style>
 {{- end }}
 

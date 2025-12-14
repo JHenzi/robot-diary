@@ -3,7 +3,8 @@
 <figure class="entry-cover">
     {{- $loading := cond $.IsSingle "eager" "lazy" }}
     {{- $addLink := (and site.Params.cover.linkFullImages $.IsSingle) }}
-    {{- $prod := or hugo.IsProduction (eq site.Params.env "production") }}
+    {{- /* Only process images in actual production builds, not in server mode */}}
+    {{- $prod := hugo.IsProduction }}
     {{- $alt := (.Params.cover.alt | default .Params.cover.caption | plainify) }}
     {{- $responsiveImages := (.Params.cover.responsiveImages | default site.Params.cover.responsiveImages) | default true }}
 
@@ -31,8 +32,10 @@
         {{- $processableFormats = $processableFormats | append "webp" -}}
     {{- end -}}
 
+    {{- /* Always use original static path as fallback */}}
     {{- $imgdl := (.Params.cover.image) | absURL }}
-    {{- if $cover -}}
+    {{- /* Only use processed path in production builds */}}
+    {{- if and $cover $prod -}}
         {{- $imgdl = $cover.Permalink }}
     {{- end -}}
 
@@ -41,28 +44,43 @@
     {{- end }}
 
     {{- if $cover -}}
-        {{/* Image is present in page bundle, global resources, or static folder */}}
+        {{/* Image is present in page bundle, global resources, or assets folder */}}
         {{- if (and (in $processableFormats $cover.MediaType.SubType) $responsiveImages $prod) }}
+            {{- /* Only process in production builds where image processing works */}}
             {{- /* Calculate max display width - list pages show at 900px, single at 1000px */}}
             {{- $maxDisplayWidth := cond $.IsSingle 1000 900 }}
             {{- /* Use the smaller of image width or max display width for src */}}
             {{- $srcWidth := cond (gt $cover.Width $maxDisplayWidth) $maxDisplayWidth $cover.Width }}
             {{- $srcImage := cond (gt $cover.Width $maxDisplayWidth) ($cover.Resize (printf "%dx" $maxDisplayWidth)) $cover }}
             
+            {{- /* Build srcset safely - only include valid sizes */}}
+            {{- $srcsetParts := slice }}
+            {{- range $size := $sizes -}}
+                {{- $sizeInt := int $size }}
+                {{- if and (ge $cover.Width $sizeInt) (le $sizeInt $maxDisplayWidth) }}
+                    {{- $resized := $cover.Resize (printf "%dx" $sizeInt) }}
+                    {{- if and $resized $resized.Permalink }}
+                        {{- $srcsetParts = $srcsetParts | append (printf "%s %sw" $resized.Permalink $sizeInt) }}
+                    {{- end }}
+                {{- end }}
+            {{- end }}
+            {{- if and $srcImage $srcImage.Permalink }}
+                {{- $srcsetParts = $srcsetParts | append (printf "%s %dw" $srcImage.Permalink $srcWidth) }}
+            {{- end }}
+            
+            {{- if and (gt (len $srcsetParts) 0) $srcImage $srcImage.Permalink }}
             <img loading="{{$loading}}"
-                srcset='{{- range $size := $sizes -}}
-                            {{- $sizeInt := int $size }}
-                            {{- if and (ge $cover.Width $sizeInt) (le $sizeInt $maxDisplayWidth) }}
-                                {{- printf "%s %sw," (($cover.Resize (printf "%dx" $sizeInt)).Permalink) $sizeInt }}
-                            {{- end }}
-                        {{- end }}
-                        {{- printf "%s %dw" ($srcImage.Permalink) ($srcWidth) }}'
+                srcset="{{ delimit $srcsetParts ", " }}"
                 src="{{ $srcImage.Permalink }}"
                 sizes="(min-width: 769px) {{ $maxDisplayWidth }}px, 100vw"
                 width="{{ $srcWidth }}" 
                 height="{{ $srcImage.Height }}"
                 alt="{{ $alt }}">
-        {{- else }}{{/* Unprocessable image or responsive images disabled */}}
+            {{- else }}
+                {{- /* Fallback if srcset generation failed - use original static path */}}
+                <img loading="{{ $loading }}" src="{{ $imgdl }}" alt="{{ $alt }}">
+            {{- end }}
+        {{- else }}{{/* Unprocessable image, responsive images disabled, or not in production build */}}
             <img loading="{{ $loading }}" src="{{ $imgdl }}" alt="{{ $alt }}">
         {{- end }}
     {{- else }}
