@@ -244,13 +244,19 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
                     'Mardi Gras', 'New Year\'s Day', 'Christmas Day', 'New Year\'s Eve'
                 ]
                 
-                # Include if it's a major holiday or contains major holiday keywords
-                if any(major in holiday_name for major in major_holidays):
+                # Include if it's a major holiday or contains major holiday keywords (case-insensitive)
+                holiday_lower = holiday_name.lower()
+                
+                if any(major.lower() in holiday_lower for major in major_holidays):
                     upcoming.append({
                         'name': holiday_name,
                         'days_until': i,
                         'date': check_date_str
                     })
+                    logger.info(f"🎄 Found upcoming holiday: {holiday_name} in {i} days ({check_date_str})")
+                else:
+                    # Log holidays we're filtering out for debugging
+                    logger.debug(f"Filtered out minor holiday: {holiday_name} on {check_date_str}")
         
         # Sort by days until
         upcoming.sort(key=lambda x: x['days_until'])
@@ -599,9 +605,15 @@ def get_context_metadata(weather_data: Dict = None, observation_type: str = None
         metadata['is_holiday'] = False
     
     # Add upcoming holidays (if available)
-    upcoming_holidays = get_upcoming_holidays(now, days_ahead=30)
-    if upcoming_holidays:
-        metadata['upcoming_holidays'] = upcoming_holidays
+    if not HOLIDAYS_AVAILABLE:
+        logger.warning("⚠️  Holidays library not available - upcoming holiday detection disabled")
+    else:
+        upcoming_holidays = get_upcoming_holidays(now, days_ahead=30)
+        if upcoming_holidays:
+            metadata['upcoming_holidays'] = upcoming_holidays
+            logger.info(f"🎄 Found {len(upcoming_holidays)} upcoming holiday(s): {[h['name'] for h in upcoming_holidays]}")
+        else:
+            logger.warning(f"⚠️  No upcoming holidays found for date {now.date()} (checked next 30 days)")
     
     # Add sunrise/sunset (if available)
     sun_info = get_sunrise_sunset(now)

@@ -152,11 +152,8 @@ class GroqClient:
         logger.info("=" * 60)
         
         # Build base template with randomized identity
-        # Always include creativity encouragement (user wants this)
-        from ..llm.prompts import CREATIVITY_ENCOURAGEMENT, WRITING_INSTRUCTIONS
+        from ..llm.prompts import WRITING_INSTRUCTIONS
         randomized_base_template = f"""{randomized_identity}
-
-{CREATIVITY_ENCOURAGEMENT}
 
 {WRITING_INSTRUCTIONS}"""
         
@@ -590,8 +587,8 @@ CRITICAL RULES:
                         ]
                     }
                 ],
-                temperature=random.uniform(0.5, 0.65),  # Randomized for variety while maintaining instruction adherence
-                max_tokens=random.randint(6000, 20000)  # Increased to allow for longer, more varied entries with detailed observations
+                temperature=random.uniform(0.3, 0.85),  # Randomized for variety while maintaining instruction adherence
+                max_tokens=random.randint(3500, 8192)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
