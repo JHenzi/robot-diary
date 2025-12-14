@@ -744,15 +744,23 @@ def main():
                         else:
                             run_observation_cycle(observation_type=obs_type)
                         
-                        # Schedule next observation
-                        next_time, obs_type = get_next_observation_time(now)
-                        memory_manager.save_next_scheduled_time(next_time, obs_type)
-                        logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
+                        # Read the next scheduled time that was saved by the observation cycle
+                        next_schedule = memory_manager.get_next_scheduled_time()
+                        if next_schedule:
+                            next_time_dt = datetime.fromisoformat(next_schedule['datetime']).astimezone(LOCATION_TZ)
+                            next_obs_type = next_schedule['type']
+                            logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time_dt, next_obs_type)}")
+                        else:
+                            # Fallback: calculate if somehow not saved
+                            next_time, obs_type = get_next_observation_time(now)
+                            memory_manager.save_next_scheduled_time(next_time, obs_type)
+                            logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
                     except Exception as e:
                         logger.error(f"Scheduled observation failed: {e}", exc_info=True)
-                        # Still schedule next time even if this one failed
+                        # Still schedule next time even if this one failed (since observation cycle didn't complete)
                         next_time, obs_type = get_next_observation_time(now)
                         memory_manager.save_next_scheduled_time(next_time, obs_type)
+                        logger.info(f"✅ Next scheduled (after error): {get_observation_schedule_summary(next_time, obs_type)}")
             else:
                 # Fallback to interval-based (legacy mode)
                 interval_seconds = OBSERVATION_INTERVAL_HOURS * 3600

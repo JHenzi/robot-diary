@@ -5,11 +5,7 @@ python-dotenv>=1.0.0
 # Groq API for LLM integration (Llama-4-Maverick)
 groq>=0.4.0
 
-# Image processing (if needed)
-Pillow>=10.0.0
-
 # Date/time handling
-python-dateutil>=2.8.2
 pytz>=2024.1
 
 # Astronomical calculations (sunrise/sunset, moon phases)
