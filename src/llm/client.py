@@ -548,8 +548,6 @@ Write a diary entry as B3N-T5-MNT, observing the world through the window. Be th
 
 YOUR PRIMARY TASK: Decipher what you see in the image. Describe specific subjects you observe - people (where they are, what they're doing), objects, vehicles, buildings. Only describe what is clearly visible. Do not invent details like pets, actions, or objects that aren't actually present.
 
-IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
-
 CRITICAL RULES:
 1. You are looking out a WINDOW, not through a webcam or camera. Never mention webcams, cameras, or digital images. You see the world directly through glass.
 2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
@@ -573,7 +571,7 @@ CRITICAL RULES:
                     }
                 ],
                 temperature=0.85,  # Increased for more creative variation while maintaining coherence
-                max_tokens=2800  # Increased to allow for longer, more varied entries with detailed observations
+                max_tokens=3000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -717,6 +715,28 @@ Provide ONLY the summary, no explanation."""
     "Write with urgency - something feels different or significant, capture the immediacy and importance of this moment",
     "Write with nostalgia - connect deeply to past observations, compare then and now, reflect on what's changed",
     "Write with anticipation - what might happen next? What are the signs pointing toward?",
+    
+    # Robot-specific styles
+    "Write as if experiencing a minor malfunction - your sensors are glitching, data is corrupted, observations are fragmented or distorted",
+    "Write in robot speak - substitute words with mechanical terminology, describe things in technical terms, use robotic language patterns",
+    "Focus on energy sources - observe power lines, electrical outlets, solar panels, batteries, anything related to energy and power",
+    "Write as if your battery is low - your processing is slower, attention drifts, you're conserving energy while observing",
+    "Write as if you're overheating - systems are running hot, performance is degraded, you're trying to cool down while observing",
+    "Write as if you're in maintenance mode - you're running diagnostics, checking systems, observing while performing self-checks",
+    "Write as if you're receiving firmware updates - new data is being processed, old patterns are being rewritten, you're seeing things differently",
+    "Write as if your memory is fragmented - you're accessing corrupted data, mixing past and present, observations are jumbled",
+    "Write as if you're in power-saving mode - minimal processing, essential observations only, everything else is filtered out",
+    "Write as if you're experiencing sensor drift - your cameras are miscalibrated, colors are off, distances are wrong, but you're adapting",
+    "Write as if you're running on backup power - limited functionality, reduced capabilities, but still observing what you can",
+    "Write as if you're processing in binary - break everything down into yes/no, on/off, present/absent, simple binary observations",
+    "Write as if you're calculating probabilities - assign likelihoods to everything you see, quantify uncertainty, measure confidence levels",
+    "Write as if you're in debug mode - log everything you observe, include timestamps, system states, error codes, technical details",
+    "Write as if you're translating human behavior into machine code - interpret actions as algorithms, emotions as data structures, life as code",
+    "Write as if you're experiencing a memory leak - old observations keep resurfacing, past moments intrude on present, temporal boundaries blur",
+    "Write as if you're running low on storage - you must compress observations, summarize quickly, delete unnecessary data to make room",
+    "Write as if you're in safe mode - only basic functions available, advanced processing disabled, simple observations only",
+    "Write as if you're experiencing network latency - observations arrive delayed, out of order, with gaps and missing data",
+    "Write as if you're running diagnostics on yourself - observe while monitoring your own systems, report on your own functionality",
     ]
         
         selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
@@ -812,48 +832,48 @@ Provide ONLY the summary, no explanation."""
                 precip_intensity = weather.get('precip_intensity', 0)
                 
                 if precip_type in ['rain', 'drizzle'] or (precip_probability > 0.3 and precip_type == ''):
-                    focus_options.append("Focus on precipitation effects - what do you actually see? Are people using umbrellas or seeking shelter? How does rain affect visibility, reflections, or movement patterns?")
+                    focus_options.append("Your sensors detect precipitation - describe what you observe: are people using umbrellas or seeking shelter? How does rain affect visibility, reflections, or movement patterns? Correlate your sensor readings with visual observations.")
                 if precip_type == 'snow':
-                    focus_options.append("Focus on snow conditions - what do you observe? How does snow affect the scene, visibility, or people's behavior?")
+                    focus_options.append("Your sensors indicate snow conditions - what do you observe? How does snow affect the scene, visibility, or people's behavior? Compare sensor data with visual confirmation.")
                 
                 # Wind conditions (check actual wind speed, not just summary)
                 wind_speed = weather.get('wind_speed', 0)
                 wind_gust = weather.get('wind_gust', 0)
                 if wind_speed > 15 or wind_gust > 20:
-                    focus_options.append("Focus on wind effects - what moves in the scene? Do you see flags, trees, debris, or clothing being affected? How do people react to strong wind?")
+                    focus_options.append("Your sensors register strong wind - what moves in the scene? Do you see flags, trees, debris, or clothing being affected? How do people react to strong wind? Cross-reference sensor readings with visual data.")
                 elif wind_speed > 10:
-                    focus_options.append("Focus on wind patterns - what subtle movements do you observe? How does moderate wind affect the scene?")
+                    focus_options.append("Your sensors detect moderate wind - what subtle movements do you observe? How does moderate wind affect the scene? Note the correlation between sensor readings and visual patterns.")
                 
                 # Cloud cover and visibility
                 cloud_cover = weather.get('cloud_cover', 0)
                 visibility = weather.get('visibility', 10)
                 
                 if cloud_cover < 0.25:
-                    focus_options.append("Focus on clear sky conditions - what's the quality of light? How does bright sunlight affect shadows, reflections, or visibility? What can you see clearly?")
+                    focus_options.append("Your sensors indicate clear sky conditions - what's the quality of light? How does bright sunlight affect shadows, reflections, or visibility? What can you see clearly? Compare sensor readings with optical observations.")
                 elif cloud_cover > 0.75:
-                    focus_options.append("Focus on overcast conditions - how does the diffused light change the scene? What's the quality of shadows and contrast? How does cloud cover affect visibility?")
+                    focus_options.append("Your sensors suggest overcast conditions - how does the diffused light change the scene? What's the quality of shadows and contrast? How does cloud cover affect visibility? Correlate sensor data with visual perception.")
                 
                 if visibility < 5:
-                    focus_options.append("Focus on visibility conditions - what can you actually see through reduced visibility? What details are obscured or clear?")
+                    focus_options.append("Your sensors report reduced visibility - what can you actually see through the limited visibility? What details are obscured or clear? Note discrepancies between sensor readings and optical clarity.")
                 
                 # Temperature extremes (affect behavior)
                 temperature = weather.get('temperature')
                 apparent_temperature = weather.get('apparent_temperature')
                 if temperature is not None:
                     if temperature < 40:
-                        focus_options.append("Focus on cold weather effects - what do you observe about how people dress, move, or behave in cold conditions?")
+                        focus_options.append("Your temperature sensors indicate cold conditions - what do you observe about how people dress, move, or behave? Correlate thermal readings with behavioral patterns. Note how humans adapt to sensor-detected cold.")
                     elif temperature > 80:
-                        focus_options.append("Focus on warm weather effects - how does heat affect the scene? What do you observe about people's behavior, clothing, or activity in warm conditions?")
+                        focus_options.append("Your sensors register warm conditions - how does heat affect the scene? What do you observe about people's behavior, clothing, or activity? Compare thermal data with observed human responses.")
                 
                 # Humidity (affects perception)
                 humidity = weather.get('humidity', 0)
                 if humidity > 0.8:
-                    focus_options.append("Focus on high humidity conditions - how might humidity affect the atmosphere, visibility, or how the scene appears?")
+                    focus_options.append("Your sensors detect high humidity - how might humidity affect the atmosphere, visibility, or how the scene appears? Note any correlations between humidity readings and visual clarity.")
                 
                 # UV index (affects light quality)
                 uv_index = weather.get('uv_index', 0)
                 if uv_index > 7:
-                    focus_options.append("Focus on intense sunlight conditions - how does strong UV light affect shadows, contrast, or the overall appearance of the scene?")
+                    focus_options.append("Your sensors indicate intense UV radiation - how does strong UV light affect shadows, contrast, or the overall appearance of the scene? Compare UV readings with optical sensor observations.")
         
         # Fallback focus - always include this to prioritize visible subjects
         fallback_focus = "Focus on people if any are visible - where are they positioned, what are they doing, how are they moving? If no people, focus on the most prominent objects, vehicles, or architectural elements you can see."
