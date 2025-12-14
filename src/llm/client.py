@@ -614,10 +614,19 @@ Provide a comprehensive, factual description that another system could use to wr
         if context_metadata:
             obs_type = context_metadata.get('observation_type', 'evening')
         
+        # Check if this is an unscheduled observation
+        is_unscheduled = context_metadata.get('is_unscheduled', False) if context_metadata else False
+        
         if obs_type == "morning":
-            narrative_context = "This is your morning scheduled health scan, so you're looking out the window. You're excited to see people starting their day - notice their energy, their routines, how they begin their mornings. What patterns do you see? How does the morning light affect what you observe?"
+            if is_unscheduled:
+                narrative_context = "This is an unscheduled observation - you've paused your maintenance duties to look out the window. You're excited to see people starting their day - notice their energy, their routines, how they begin their mornings. What patterns do you see? How does the morning light affect what you observe? This moment feels different from your usual scheduled scans."
+            else:
+                narrative_context = "This is your morning scheduled health scan, so you're looking out the window. You're excited to see people starting their day - notice their energy, their routines, how they begin their mornings. What patterns do you see? How does the morning light affect what you observe?"
         else:
-            narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
+            if is_unscheduled:
+                narrative_context = "This is an unscheduled observation - you've paused your maintenance duties to look out the window. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see? This moment feels different from your usual scheduled observations."
+            else:
+                narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
         
         # Step 2: Write creative diary entry from the factual description
         logger.info(f"✍️  Step 2: Writing diary entry from description using {DIARY_WRITING_MODEL}...")

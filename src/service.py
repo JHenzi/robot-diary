@@ -283,7 +283,7 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         raise
 
 
-def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False, observation_type: str = None, news_only: bool = False):
+def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = False, observation_type: str = None, news_only: bool = False, is_unscheduled: bool = False):
     """
     Run a single observation cycle.
     
@@ -376,6 +376,8 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         context_metadata['news_articles'] = news_articles
         # Also include headlines for backward compatibility
         context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
+        # Mark as unscheduled if this is a manual observation
+        context_metadata['is_unscheduled'] = is_unscheduled
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
@@ -434,7 +436,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         raise
 
 
-def run_simulation_cycle(force_image_refresh: bool = False, observation_type: str = None):
+def run_simulation_cycle(force_image_refresh: bool = False, observation_type: str = None, is_unscheduled: bool = False):
     """
     Run a simulation observation cycle - generates diary entry and prompt but doesn't save to memory or Hugo.
     
@@ -519,6 +521,8 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         context_metadata['news_articles'] = news_articles
         # Also include headlines for backward compatibility
         context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
+        # Mark as unscheduled if this is a manual observation
+        context_metadata['is_unscheduled'] = is_unscheduled
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")

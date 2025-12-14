@@ -73,7 +73,8 @@ if __name__ == '__main__':
         if args.simulate:
             sim_path = run_simulation_cycle(
                 force_image_refresh=force_refresh,
-                observation_type=observation_type
+                observation_type=observation_type,
+                is_unscheduled=True  # Manual observations are always unscheduled
             )
             print(f"✅ Simulation completed successfully!")
             print(f"📄 Markdown saved to: {sim_path}")
@@ -81,7 +82,8 @@ if __name__ == '__main__':
             run_observation_cycle(
                 force_image_refresh=force_refresh, 
                 observation_type=observation_type,
-                news_only=args.news_only
+                news_only=args.news_only,
+                is_unscheduled=True  # Manual observations are always unscheduled
             )
             print("✅ Observation completed successfully!")
     except Exception as e:

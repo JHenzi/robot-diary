@@ -22,7 +22,7 @@ class TestPrompts:
         """Test that writing instructions exist."""
         assert isinstance(WRITING_INSTRUCTIONS, str)
         assert len(WRITING_INSTRUCTIONS) > 0
-        assert "WINDOW" in WRITING_INSTRUCTIONS.upper()
+        assert "THOUGHTFUL" in WRITING_INSTRUCTIONS.upper() or "OBSERVANT" in WRITING_INSTRUCTIONS.upper()
     
     def test_creativity_encouragement_exists(self):
         """Test that creativity encouragement exists."""

@@ -185,7 +185,7 @@ def get_holidays(date: datetime) -> List[str]:
         us_holidays = holidays.UnitedStates(years=date.year)
         
         # Also get state holidays for Louisiana (includes Mardi Gras, etc.)
-        la_holidays = holidays.US(state='LA', years=date.year)
+        la_holidays = holidays.US(subdiv='LA', years=date.year)
         
         # Combine and get unique holidays for this date
         # Holidays library uses date objects as keys, not strings
@@ -220,7 +220,7 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
     try:
         # Get US holidays for current year and next year (in case we're near year end)
         us_holidays = holidays.UnitedStates(years=[date.year, date.year + 1])
-        la_holidays = holidays.US(state='LA', years=[date.year, date.year + 1])
+        la_holidays = holidays.US(subdiv='LA', years=[date.year, date.year + 1])
         
         # Combine both holiday dicts
         all_holidays = {}
