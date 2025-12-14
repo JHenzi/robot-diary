@@ -544,12 +544,9 @@ CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} 
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and notice details. Focus on:
-- What you observe through the window (people, activities, weather, light, changes)
-- Patterns and connections to previous observations
-- Reflections on human nature and behaviors
-- How weather conditions affect what you see
-- Memory callbacks to specific past observations when relevant
+Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and notice details.
+
+YOUR PRIMARY TASK: Decipher what you see in the image. Describe specific subjects you observe - people (where they are, what they're doing), objects, vehicles, buildings. Only describe what is clearly visible. Do not invent details like pets, actions, or objects that aren't actually present.
 
 IGNORE any watermarks, text overlays, or labels in the image - focus only on the actual scene outside the window.
 
@@ -576,7 +573,7 @@ CRITICAL RULES:
                     }
                 ],
                 temperature=0.85,  # Increased for more creative variation while maintaining coherence
-                max_tokens=2000  # Increased to allow for longer, more varied entries with detailed observations
+                max_tokens=2800  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -858,6 +855,10 @@ Provide ONLY the summary, no explanation."""
                 if uv_index > 7:
                     focus_options.append("Focus on intense sunlight conditions - how does strong UV light affect shadows, contrast, or the overall appearance of the scene?")
         
+        # Fallback focus - always include this to prioritize visible subjects
+        fallback_focus = "Focus on people if any are visible - where are they positioned, what are they doing, how are they moving? If no people, focus on the most prominent objects, vehicles, or architectural elements you can see."
+        focus_options.append(fallback_focus)
+        
         # General focuses - expanded for variety and goal alignment
         focus_options.extend([
             # Human interactions and behavior
@@ -898,11 +899,8 @@ Provide ONLY the summary, no explanation."""
             "Focus on what humans take for granted that seems remarkable to you - what mundane things fascinate you? What do you observe?",
             "Observe through your mechanical lens - how would you describe this scene if you were explaining it to another robot? What do you see?",
             
-            # Philosophical and reflective
-            "Ponder the purpose of what you observe - why do people do what they do? What drives their actions? What can you infer?",
-            "Reflect on the nature of observation itself - what does it mean to watch without participating? What do you observe about observing?",
+            # Philosophical and reflective (reduced emphasis - prioritize visual description)
             "Consider the passage of time - how does this moment exist in the larger flow of days, seasons, years? What temporal markers do you see?",
-            "Wonder about what you can't see - what's happening beyond the frame? What stories are unfolding elsewhere? What can you infer?",
             
             # Temporal perspectives
             "Imagine this scene at a different time - how would it look in the past or future? What temporal clues do you observe?",
@@ -933,7 +931,12 @@ Provide ONLY the summary, no explanation."""
             "Use a creative analogy that only makes sense from a mechanical perspective - how would you describe this scene to another robot?",
             "Find the poetry in the mundane - what ordinary detail becomes extraordinary through your lens?",
             "Make an imaginative leap - what story or explanation can you create from what you observe?",
-            "Notice something that defies easy categorization - what exists in the spaces between what humans typically see?"
+            "Notice something that defies easy categorization - what exists in the spaces between what humans typically see?",
+            # Urgency variations
+            "You only have a moment to observe - what do you need to capture quickly?",
+            "There are things you need to rush to - but first, what do you see right now?",
+            "Your attention is divided - what stands out most in this brief glance?",
+            "You're being called away soon - what must you document before you go?"
         ]
         
         if random.random() < 0.60:  # 60% chance to include a creative challenge
