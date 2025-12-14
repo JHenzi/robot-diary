@@ -2,6 +2,7 @@
 import base64
 from pathlib import Path
 import logging
+import random
 from datetime import datetime, timedelta
 import pytz
 from groq import Groq
@@ -479,7 +480,7 @@ Important reminders:
                         "content": full_prompt
                     }
                 ],
-                temperature=0.85,  # Increased for more creative variation while maintaining coherence
+                temperature=random.uniform(0.3, 0.65),  # Randomized for variety while maintaining instruction adherence
                 max_tokens=3000  # Increased to allow for longer, more varied entries with detailed observations
             )
             
@@ -570,7 +571,7 @@ CRITICAL RULES:
                         ]
                     }
                 ],
-                temperature=0.75,  # Increased for more creative variation while maintaining coherence
+                temperature=random.uniform(0.5, 0.65),  # Randomized for variety while maintaining instruction adherence
                 max_tokens=3500  # Increased to allow for longer, more varied entries with detailed observations
             )
             

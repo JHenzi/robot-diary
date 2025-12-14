@@ -566,12 +566,17 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         context_display.append(f"**Memory Count:** {memory_count} total observations")
         context_display.append(f"**Days Since First:** {days_since_first}")
         
-        # Get relative image path for markdown
+        # Get relative image path for markdown (from simulations/ directory)
+        # Simulations are in PROJECT_ROOT/simulations/, images are in PROJECT_ROOT/images/
+        # So we need ../images/ relative path
         try:
-            image_rel_path = str(image_path.relative_to(PROJECT_ROOT))
+            # Get relative path from PROJECT_ROOT
+            image_rel_to_root = image_path.relative_to(PROJECT_ROOT)
+            # Convert to relative path from simulations/ directory
+            image_rel_path = f"../{image_rel_to_root}"
         except ValueError:
-            # Path is not relative to PROJECT_ROOT, use absolute path or just filename
-            image_rel_path = str(image_path.name)
+            # Path is not relative to PROJECT_ROOT, use relative path assuming images/ directory
+            image_rel_path = f"../images/{image_path.name}"
         
         # Write markdown file
         with open(sim_path, 'w', encoding='utf-8') as f:
