@@ -27,21 +27,61 @@ class MemoryManager:
             self._save_memory([])
     
     def _load_memory(self) -> List[Dict]:
-        """Load memory from file."""
+        """Load memory from file with error recovery."""
+        if not self.memory_file.exists():
+            return []
+        
         try:
             with open(self.memory_file, 'r') as f:
-                return json.load(f)
+                content = f.read().strip()
+                if not content:
+                    return []
+                return json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error loading memory: {e}")
+            logger.warning("Memory file appears corrupted. Attempting to recover...")
+            # Try to backup corrupted file
+            backup_file = self.memory_file.with_suffix('.json.bak')
+            try:
+                import shutil
+                shutil.copy2(self.memory_file, backup_file)
+                logger.info(f"Backed up corrupted file to {backup_file}")
+            except Exception as backup_error:
+                logger.warning(f"Failed to backup corrupted file: {backup_error}")
+            return []
         except Exception as e:
             logger.error(f"Error loading memory: {e}")
             return []
     
     def _save_memory(self, memory: List[Dict]):
-        """Save memory to file."""
+        """Save memory to file using atomic write to prevent corruption."""
         try:
-            with open(self.memory_file, 'w') as f:
+            # Write to temporary file first
+            temp_file = self.memory_file.with_suffix('.json.tmp')
+            
+            # Write JSON to temp file
+            with open(temp_file, 'w') as f:
                 json.dump(memory, f, indent=2)
+                # Ensure data is flushed to disk
+                f.flush()
+                import os
+                os.fsync(f.fileno())
+            
+            # Atomic rename (works on most filesystems)
+            # This ensures the original file is only replaced if write succeeds
+            temp_file.replace(self.memory_file)
+            logger.debug(f"Memory saved successfully ({len(memory)} entries)")
+            
         except Exception as e:
             logger.error(f"Error saving memory: {e}")
+            # Clean up temp file if it exists
+            temp_file = self.memory_file.with_suffix('.json.tmp')
+            if temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except Exception:
+                    pass
+            raise  # Re-raise to allow caller to handle
     
     def add_observation(self, image_path: Path, diary_entry: str, image_url: Optional[str] = None, llm_client=None):
         """
@@ -167,15 +207,30 @@ class MemoryManager:
         
         try:
             with open(SCHEDULE_FILE, 'r') as f:
-                schedule = json.load(f)
+                content = f.read().strip()
+                if not content:
+                    return None
+                schedule = json.loads(content)
                 return schedule.get('next_observation')
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error loading schedule: {e}")
+            logger.warning("Schedule file appears corrupted. Attempting to recover...")
+            # Try to backup corrupted file
+            backup_file = SCHEDULE_FILE.with_suffix('.json.bak')
+            try:
+                import shutil
+                shutil.copy2(SCHEDULE_FILE, backup_file)
+                logger.info(f"Backed up corrupted schedule file to {backup_file}")
+            except Exception as backup_error:
+                logger.warning(f"Failed to backup corrupted schedule file: {backup_error}")
+            return None
         except Exception as e:
             logger.warning(f"Error loading schedule: {e}")
             return None
     
     def save_next_scheduled_time(self, next_time: datetime, obs_type: str):
         """
-        Save the next scheduled observation time to memory.
+        Save the next scheduled observation time to memory using atomic write.
         
         Args:
             next_time: Next observation datetime
@@ -189,9 +244,29 @@ class MemoryManager:
                 },
                 'last_updated': datetime.now().isoformat()
             }
-            with open(SCHEDULE_FILE, 'w') as f:
+            
+            # Write to temporary file first
+            temp_file = SCHEDULE_FILE.with_suffix('.json.tmp')
+            
+            with open(temp_file, 'w') as f:
                 json.dump(schedule, f, indent=2)
+                # Ensure data is flushed to disk
+                f.flush()
+                import os
+                os.fsync(f.fileno())
+            
+            # Atomic rename
+            temp_file.replace(SCHEDULE_FILE)
             logger.debug(f"Saved next scheduled time: {next_time.isoformat()} ({obs_type})")
+            
         except Exception as e:
             logger.error(f"Error saving schedule: {e}")
+            # Clean up temp file if it exists
+            temp_file = SCHEDULE_FILE.with_suffix('.json.tmp')
+            if temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except Exception:
+                    pass
+            raise  # Re-raise to allow caller to handle
 
