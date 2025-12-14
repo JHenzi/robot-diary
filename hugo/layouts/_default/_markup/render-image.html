@@ -1,0 +1,71 @@
+{{- $u := urls.Parse .Destination -}}
+{{- $src := $u.String -}}
+{{- $imgResource := "" -}}
+{{- $prod := or hugo.IsProduction (eq site.Params.env "production") -}}
+{{- $responsiveImages := true -}}
+
+{{- if not $u.IsAbs -}}
+  {{- $path := strings.TrimPrefix "./" $u.Path }}
+  {{- /* Try page resources first, then global resources, then assets */}}
+  {{- $imgResource = or (.PageInner.Resources.Get $path) (resources.Get $path) -}}
+  {{- /* If path starts with /images/, try assets/images/ */}}
+  {{- if not $imgResource -}}
+    {{- $imageFilename := strings.TrimPrefix "/images/" $path }}
+    {{- if $imageFilename }}
+      {{- $imgResource = resources.Get (printf "images/%s" $imageFilename) }}
+    {{- end }}
+  {{- end }}
+  {{- if $imgResource -}}
+    {{- $src = $imgResource.RelPermalink -}}
+    {{- with $u.RawQuery -}}
+      {{- $src = printf "%s?%s" $src . -}}
+    {{- end -}}
+    {{- with $u.Fragment -}}
+      {{- $src = printf "%s#%s" $src . -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $attributes := merge .Attributes (dict "alt" .Text "src" $src "title" (.Title | transform.HTMLEscape) "loading" "lazy") -}}
+
+{{- /* Process image if it's a resource and in production - always process if resource found */}}
+{{- if and $imgResource $prod -}}
+  {{- $processableFormats := (slice "jpg" "jpeg" "png" "tif" "bmp" "gif") -}}
+  {{- if hugo.IsExtended -}}
+    {{- $processableFormats = $processableFormats | append "webp" -}}
+  {{- end -}}
+  
+  {{- if in $processableFormats $imgResource.MediaType.SubType -}}
+    {{- /* For markdown images, max width is content width (1000px) */}}
+    {{- $maxWidth := 1000 -}}
+    {{- $srcWidth := cond (gt $imgResource.Width $maxWidth) $maxWidth $imgResource.Width -}}
+    {{- $srcImage := cond (gt $imgResource.Width $maxWidth) ($imgResource.Resize (printf "%dx" $maxWidth)) $imgResource -}}
+    {{- $sizes := (slice 360 480 720 1080) -}}
+    
+    {{- /* Build srcset with multiple sizes */}}
+    {{- $srcsetParts := slice -}}
+    {{- range $size := $sizes -}}
+      {{- $sizeInt := int $size -}}
+      {{- if and (ge $imgResource.Width $sizeInt) (le $sizeInt $maxWidth) -}}
+        {{- $srcsetParts = $srcsetParts | append (printf "%s %dw" (($imgResource.Resize (printf "%dx" $sizeInt)).Permalink) $sizeInt) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- $srcsetParts = $srcsetParts | append (printf "%s %dw" $srcImage.Permalink $srcWidth) -}}
+    {{- $srcset := delimit $srcsetParts ", " -}}
+    
+    {{- $attributes = merge $attributes (dict 
+      "srcset" $srcset
+      "sizes" "(min-width: 769px) 1000px, 100vw"
+      "width" $srcWidth
+      "height" $srcImage.Height
+    ) -}}
+  {{- end -}}
+{{- end -}}
+
+<img
+  {{- range $k, $v := $attributes -}}
+    {{- if $v -}}
+      {{- printf " %s=%q" $k $v | safeHTMLAttr -}}
+    {{- end -}}
+  {{- end -}}>
+{{- /**/ -}}

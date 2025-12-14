@@ -1,0 +1,85 @@
+{{- with .cxt}} {{/* Apply proper context from dict */}}
+{{- if (and .Params.cover.image (not $.isHidden)) }}
+<figure class="entry-cover">
+    {{- $loading := cond $.IsSingle "eager" "lazy" }}
+    {{- $addLink := (and site.Params.cover.linkFullImages $.IsSingle) }}
+    {{- $prod := or hugo.IsProduction (eq site.Params.env "production") }}
+    {{- $alt := (.Params.cover.alt | default .Params.cover.caption | plainify) }}
+    {{- $responsiveImages := (.Params.cover.responsiveImages | default site.Params.cover.responsiveImages) | default true }}
+
+    {{- $pageBundleCover := (.Resources.ByType "image").GetMatch (printf "*%s*" (.Params.cover.image)) }}
+    {{- $globalResourcesCover := (resources.ByType "image").GetMatch (printf "*%s*" (.Params.cover.image)) }}
+    
+    {{- /* Try to get images from assets directory (for processing) */}}
+    {{- $assetsCover := "" }}
+    {{- if (and (not $pageBundleCover) (not $globalResourcesCover)) }}
+        {{- $imagePath := .Params.cover.image }}
+        {{- /* Extract filename from path like /images/filename.jpg */}}
+        {{- $imageFilename := strings.TrimPrefix "/images/" $imagePath }}
+        {{- if $imageFilename }}
+            {{- $assetsCover = resources.Get (printf "images/%s" $imageFilename) }}
+        {{- end }}
+    {{- end }}
+    
+    {{- $cover := (or $pageBundleCover $globalResourcesCover $assetsCover) }}
+    {{- /* We are not using the .Param.cover.relative to decide the location of image */}}
+    {{- /* If we have the image in pageBundle, globalResources, or static folder we can process the image */}}
+
+    {{- $sizes := (slice "360" "480" "720" "1080" "1500") }}
+    {{- $processableFormats := (slice "jpg" "jpeg" "png" "tif" "bmp" "gif") -}}
+    {{- if hugo.IsExtended -}}
+        {{- $processableFormats = $processableFormats | append "webp" -}}
+    {{- end -}}
+
+    {{- $imgdl := (.Params.cover.image) | absURL }}
+    {{- if $cover -}}
+        {{- $imgdl = $cover.Permalink }}
+    {{- end -}}
+
+    {{- if $addLink }}
+        <a href="{{ $imgdl }}" target="_blank" rel="noopener noreferrer">
+    {{- end }}
+
+    {{- if $cover -}}
+        {{/* Image is present in page bundle, global resources, or static folder */}}
+        {{- if (and (in $processableFormats $cover.MediaType.SubType) $responsiveImages $prod) }}
+            {{- /* Calculate max display width - list pages show at 900px, single at 1000px */}}
+            {{- $maxDisplayWidth := cond $.IsSingle 1000 900 }}
+            {{- /* Use the smaller of image width or max display width for src */}}
+            {{- $srcWidth := cond (gt $cover.Width $maxDisplayWidth) $maxDisplayWidth $cover.Width }}
+            {{- $srcImage := cond (gt $cover.Width $maxDisplayWidth) ($cover.Resize (printf "%dx" $maxDisplayWidth)) $cover }}
+            
+            <img loading="{{$loading}}"
+                srcset='{{- range $size := $sizes -}}
+                            {{- $sizeInt := int $size }}
+                            {{- if and (ge $cover.Width $sizeInt) (le $sizeInt $maxDisplayWidth) }}
+                                {{- printf "%s %sw," (($cover.Resize (printf "%dx" $sizeInt)).Permalink) $sizeInt }}
+                            {{- end }}
+                        {{- end }}
+                        {{- printf "%s %dw" ($srcImage.Permalink) ($srcWidth) }}'
+                src="{{ $srcImage.Permalink }}"
+                sizes="(min-width: 769px) {{ $maxDisplayWidth }}px, 100vw"
+                width="{{ $srcWidth }}" 
+                height="{{ $srcImage.Height }}"
+                alt="{{ $alt }}">
+        {{- else }}{{/* Unprocessable image or responsive images disabled */}}
+            <img loading="{{ $loading }}" src="{{ $imgdl }}" alt="{{ $alt }}">
+        {{- end }}
+    {{- else }}
+        {{- /* For absolute urls and external links, no img processing here */}}
+        <img loading="{{ $loading }}" src="{{ $imgdl }}" alt="{{ $alt }}">
+    {{- end }}
+
+    {{- if $addLink }}
+        </a>
+    {{- end -}}
+
+    {{- /*  Display Caption  */}}
+    {{- if $.IsSingle }}
+        {{ with .Params.cover.caption -}}
+            <figcaption>{{ . | markdownify }}</figcaption>
+        {{- end }}
+    {{- end }}
+</figure>
+{{- end }}{{/* End image */}}
+{{- end -}}{{/* End context */ -}}

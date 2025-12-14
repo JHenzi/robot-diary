@@ -60,13 +60,23 @@ class HugoGenerator:
             # Fallback to simple date if no metadata
             post_title = datetime.now(LOCATION_TZ).strftime('%A %B %d, %Y')
         
-        # Copy image to Hugo static directory (if not news-based)
+        # Copy image to Hugo static and assets directories (if not news-based)
+        # Assets directory allows Hugo to process/resize images
         image_markdown = ""
         if not is_news_based and image_path and image_path.exists():
             image_filename = f"observation_{observation_id}_{image_path.name}"
+            # Copy to static (for backward compatibility and direct access)
             dest_image_path = self.static_images_dir / image_filename
             shutil.copy2(image_path, dest_image_path)
             logger.info(f"✅ Image copied to Hugo static: {dest_image_path}")
+            
+            # Also copy to assets for Hugo image processing
+            assets_images_dir = HUGO_SITE_PATH / 'assets' / 'images'
+            assets_images_dir.mkdir(parents=True, exist_ok=True)
+            assets_image_path = assets_images_dir / image_filename
+            shutil.copy2(image_path, assets_image_path)
+            logger.info(f"✅ Image copied to Hugo assets: {assets_image_path}")
+            
             image_markdown = f"![{post_title}](/images/{image_filename})\n\n"
         elif is_news_based:
             logger.info("News-based observation: No image to copy")
@@ -141,8 +151,9 @@ tags = {tags}
         logger.info(f"Building Hugo site at {HUGO_SITE_PATH}...")
         
         try:
+            # Build with production environment to enable image processing
             result = subprocess.run(
-                ['hugo', '--cleanDestinationDir'],
+                ['hugo', '--cleanDestinationDir', '--minify', '--environment', 'production'],
                 cwd=HUGO_SITE_PATH,
                 capture_output=True,
                 text=True,

@@ -24,8 +24,9 @@ def build_hugo():
     """Build the Hugo site."""
     print("🔨 Building Hugo site...")
     try:
+        # Build with production environment to enable image processing
         result = subprocess.run(
-            ['hugo'],
+            ['hugo', '--cleanDestinationDir', '--minify', '--environment', 'production'],
             cwd=HUGO_SITE_PATH,
             check=True,
             capture_output=True,
