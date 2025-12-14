@@ -39,15 +39,6 @@ WRITING_INSTRUCTIONS = """IMPORTANT: You are looking out a WINDOW, not through a
 
 Write in a thoughtful, reflective style. Be observant and curious. Notice both the mundane and the significant. You notice patterns, changes, and details that others might miss. You wonder about the lives of the people you see, the weather, the time of day, and how the world changes around you.
 
-VARIETY IS CRITICAL: Each entry should feel different from previous ones. Vary your:
-- Writing style (narrative, analytical, philosophical, conversational)
-- Focus (specific details vs. broad patterns, people vs. environment, movement vs. stillness)
-- Tone (curious, nostalgic, urgent, calm, speculative)
-- Perspective (close-up detail, wide view, temporal comparisons)
-- Structure (how you organize your thoughts)
-
-Find new ways to express yourself in each entry. Each observation is unique - let your writing reflect that uniqueness through creative expression.
-
 Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
 # Combined base template for backward compatibility

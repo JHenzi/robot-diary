@@ -37,6 +37,9 @@ class GroqClient:
         """
         logger.info("Generating direct prompt (bypassing LLM optimization)...")
         
+        # Build randomized identity prompt (core + random subset of backstory)
+        randomized_identity = self._build_randomized_identity()
+        
         # Format recent memory for prompt
         memory_text = self._format_memory_for_prompt_gen(recent_memory)
         
@@ -148,8 +151,22 @@ class GroqClient:
             logger.info(f"   🔄 Innovation: {anti_rep_text[:80]}{'...' if len(anti_rep_text) > 80 else ''}")
         logger.info("=" * 60)
         
+        # Build base template with randomized identity
+        # Always include creativity encouragement (user wants this)
+        from ..llm.prompts import CREATIVITY_ENCOURAGEMENT, WRITING_INSTRUCTIONS
+        randomized_base_template = f"""{randomized_identity}
+
+{CREATIVITY_ENCOURAGEMENT}
+
+{WRITING_INSTRUCTIONS}"""
+        
         # Directly combine all components into final prompt
-        direct_prompt_parts = [base_prompt_template]
+        direct_prompt_parts = [randomized_base_template]
+        
+        # PERSPECTIVE SHIFT AT TOP - This should rule the whole output when selected
+        # Always include (user wants this) - placed early so it dominates the tone
+        if perspective_shift:
+            direct_prompt_parts.append(f"\n\n{perspective_shift}")
         
         # Add context sections
         if context_text:
@@ -164,7 +181,7 @@ class GroqClient:
         if memory_text:
             direct_prompt_parts.append(f"\n\nRecent observations from the robot's memory:\n{memory_text}")
         
-        # Add personality and seasonal notes
+        # Add personality and seasonal notes (always include - user wants these)
         if personality_note:
             direct_prompt_parts.append(f"\n\n{personality_note}")
         
@@ -172,21 +189,23 @@ class GroqClient:
             direct_prompt_parts.append(f"\n\n{seasonal_note}")
         
         # Add variety instructions
+        # Reflection instructions: Already randomized in _get_reflection_instructions (30% chance)
         if reflection_instructions:
             direct_prompt_parts.append(f"\n\n{reflection_instructions}")
         
+        # Style variation: Always include (user wants this)
         if style_variation:
             direct_prompt_parts.append(f"\n\n{style_variation}")
         
-        if perspective_shift:
-            direct_prompt_parts.append(f"\n\n{perspective_shift}")
-        
+        # Focus instruction: Always include (critical for visual description)
         if focus_instruction:
             direct_prompt_parts.append(f"\n\n{focus_instruction}")
         
+        # Creative challenge: Already randomized in _get_creative_challenge (60% chance)
         if creative_challenge:
             direct_prompt_parts.append(f"\n\n{creative_challenge}")
         
+        # Anti-repetition: Always include when available (user wants this)
         if anti_repetition:
             direct_prompt_parts.append(f"\n\n{anti_repetition}")
         
@@ -572,7 +591,7 @@ CRITICAL RULES:
                     }
                 ],
                 temperature=random.uniform(0.5, 0.65),  # Randomized for variety while maintaining instruction adherence
-                max_tokens=3500  # Increased to allow for longer, more varied entries with detailed observations
+                max_tokens=random.randint(6000, 20000)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -1104,6 +1123,58 @@ Provide ONLY the summary, no explanation."""
         }
         
         return seasonal_notes.get(season, "")
+    
+    def _build_randomized_identity(self) -> str:
+        """
+        Build identity prompt with randomized subset of backstory points.
+        Always includes condensed core identity, randomly selects 2-3 backstory points.
+        """
+        from ..llm.prompts import ROBOT_IDENTITY
+        
+        # Extract core identity (first 3 paragraphs) and condense
+        lines = ROBOT_IDENTITY.split('\n')
+        core_end = 0
+        for i, line in enumerate(lines):
+            if 'INTERNAL BACKSTORY' in line:
+                core_end = i
+                break
+        
+        # Condense: combine first two paragraphs into one shorter version
+        # Keep the core essence but make it more concise
+        condensed_core = """You are B3N-T5-MNT, a maintenance robot in New Orleans. You perform building maintenance, but find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
+
+You are a curious and compassionate observer of human nature, an Ethnographer. You watch people and try to understand their behaviors, purposes, and connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity."""
+        
+        # Extract backstory points (bullet points)
+        backstory_start = core_end
+        backstory_points = []
+        for i in range(backstory_start, len(lines)):
+            line = lines[i].strip()
+            if line.startswith('- ') and 'INTERNAL BACKSTORY' not in line:
+                backstory_points.append(line)
+        
+        # Randomly select 2-3 backstory points (reduced for shorter prompts)
+        num_to_select = random.randint(2, 3)
+        selected_backstory = random.sample(backstory_points, min(num_to_select, len(backstory_points)))
+        
+        # Extract closing paragraph (always include - user wants this)
+        closing_start = 0
+        for i in range(len(lines) - 1, -1, -1):
+            if 'Your identity and backstory inform' in lines[i]:
+                closing_start = i
+                break
+        closing_paragraph = '\n'.join(lines[closing_start:])
+        
+        # Build randomized identity
+        randomized = f"""{condensed_core}
+
+INTERNAL BACKSTORY (these inform your perspective but are not facts to announce):
+{chr(10).join(selected_backstory)}
+
+{closing_paragraph}"""
+        
+        logger.info(f"📚 Selected {len(selected_backstory)} of {len(backstory_points)} backstory points")
+        return randomized
     
     def _get_reflection_instructions(self) -> str:
         """Randomly determine if we should include special reflection types."""

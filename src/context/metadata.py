@@ -202,6 +202,64 @@ def get_holidays(date: datetime) -> List[str]:
         return []
 
 
+def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
+    """
+    Detect upcoming US holidays within the next N days.
+    
+    Args:
+        date: Current date
+        days_ahead: Number of days to look ahead (default: 30)
+        
+    Returns:
+        List of dicts with 'name' and 'days_until' keys, empty list if none or if library unavailable
+    """
+    if not HOLIDAYS_AVAILABLE:
+        return []
+    
+    try:
+        # Get US holidays for current year and next year (in case we're near year end)
+        us_holidays = holidays.UnitedStates(years=[date.year, date.year + 1])
+        la_holidays = holidays.US(state='LA', years=[date.year, date.year + 1])
+        
+        # Combine both holiday dicts
+        all_holidays = {}
+        all_holidays.update(us_holidays)
+        all_holidays.update(la_holidays)
+        
+        upcoming = []
+        date_only = date.date()
+        
+        # Check each day in the range
+        for i in range(1, days_ahead + 1):
+            check_date = date_only + timedelta(days=i)
+            check_date_str = check_date.strftime('%Y-%m-%d')
+            
+            if check_date_str in all_holidays:
+                holiday_name = all_holidays[check_date_str]
+                # Filter out minor holidays, focus on major ones
+                major_holidays = [
+                    'Christmas', 'New Year', 'Thanksgiving', 'Independence Day',
+                    'Memorial Day', 'Labor Day', 'Veterans Day', 'Presidents Day',
+                    'Martin Luther King', 'Easter', 'Halloween', 'Valentine',
+                    'Mardi Gras', 'New Year\'s Day', 'Christmas Day', 'New Year\'s Eve'
+                ]
+                
+                # Include if it's a major holiday or contains major holiday keywords
+                if any(major in holiday_name for major in major_holidays):
+                    upcoming.append({
+                        'name': holiday_name,
+                        'days_until': i,
+                        'date': check_date_str
+                    })
+        
+        # Sort by days until
+        upcoming.sort(key=lambda x: x['days_until'])
+        return upcoming
+    except Exception as e:
+        logger.warning(f"Error detecting upcoming holidays: {e}")
+        return []
+
+
 def get_sunrise_sunset(date: datetime) -> Optional[Dict]:
     """
     Calculate sunrise and sunset times for New Orleans.
@@ -540,6 +598,11 @@ def get_context_metadata(weather_data: Dict = None, observation_type: str = None
     else:
         metadata['is_holiday'] = False
     
+    # Add upcoming holidays (if available)
+    upcoming_holidays = get_upcoming_holidays(now, days_ahead=30)
+    if upcoming_holidays:
+        metadata['upcoming_holidays'] = upcoming_holidays
+    
     # Add sunrise/sunset (if available)
     sun_info = get_sunrise_sunset(now)
     if sun_info:
@@ -576,6 +639,23 @@ def format_context_for_prompt(metadata: Dict) -> str:
     if metadata.get('is_holiday') and metadata.get('holidays'):
         holiday_names = ", ".join(metadata['holidays'])
         parts.append(f"Today is {holiday_names}")
+    
+    # Upcoming holidays (high priority - include if within 30 days)
+    upcoming = metadata.get('upcoming_holidays', [])
+    if upcoming:
+        # Show the nearest major holiday
+        nearest = upcoming[0]
+        days = nearest['days_until']
+        name = nearest['name']
+        if days == 1:
+            parts.append(f"Tomorrow is {name}")
+        elif days <= 7:
+            parts.append(f"{name} is in {days} days")
+        elif days <= 14:
+            parts.append(f"{name} is in {days} days (less than 2 weeks away)")
+        else:
+            weeks = days // 7
+            parts.append(f"{name} is in {days} days (about {weeks} weeks away)")
     
     # Season
     parts.append(f"It is {metadata['season']} ({metadata['time_of_day']})")
