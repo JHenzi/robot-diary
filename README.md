@@ -113,16 +113,30 @@ The system handles missing data elegantly:
 
 ## Example: What Goes Into a Prompt
 
-Here's what the robot "knows" when writing an entry:
+The system uses a **two-step process** to create diary entries:
 
+**Step 1: Image Description** - The vision model provides a detailed, factual description:
 ```
-Today is Wednesday, December 25, 2025 at 10:51 PM CST. Today is Christmas Day. 
+The scene shows Bourbon Street at night. There are approximately 8-10 people visible: 
+3 people walking on the left sidewalk, 2 people standing near a building entrance, 
+and a group of 4-5 people gathered near the center of the street. A white SUV is 
+parked on the left side. Neon signs are visible on buildings, casting colorful light 
+on the wet pavement. Streetlights illuminate the scene. The weather appears clear 
+with no visible precipitation.
+```
+
+**Step 2: Diary Writing** - The writing model receives this factual description plus rich context:
+```
+Today is Wednesday, December 25, 2025 at 10:51 PM CST. Christmas Day is in 11 days. 
 A full moon is visible. The sun set 5 hours ago. We're in the middle of winter, 
 with spring still 10 weeks away. It is a weekday.
 
 Weather Conditions:
 The weather is Clear with a temperature of 45°F. The temperature has dropped 
 3 degrees since my last observation.
+
+WHAT YOU SEE (factual description from your visual sensors):
+[The detailed image description from Step 1]
 
 Recent observations from the robot's memory:
 [LLM-generated summaries of past 5-10 observations, each 200-400 chars]
@@ -144,7 +158,9 @@ CREATIVE CHALLENGE: Try an unexpected metaphor for what you see - use your
 robotic perspective to make a comparison humans wouldn't think of
 ```
 
-The vision model receives this rich context along with the image, resulting in entries that feel **aware, varied, and genuinely contextual**.
+The writing model receives this rich context along with the factual image description, resulting in entries that feel **aware, varied, and genuinely contextual**. **With GPT-OSS-120b**, the larger model produces significantly richer narratives—deeper reflections, more sophisticated robotic voice, better narrative flow, and more nuanced observations.
+
+**With GPT-OSS-120b**: The larger model produces significantly richer narratives—deeper reflections, more sophisticated robotic voice, better narrative flow, and more nuanced observations. The robot's unique perspective becomes more pronounced, its thoughts more complex, and its storytelling more compelling.
 
 ## Results
 
@@ -155,6 +171,7 @@ The output is diary entries that:
 - Vary dramatically in style, tone, and focus
 - Feel like they're written by an entity with memory and awareness
 - Demonstrate "world knowledge" beyond just visual description
+- **With GPT-OSS-120b**: Exhibit richer narrative depth, more sophisticated robotic voice, and more nuanced reflections
 
 ## Tech Stack
 
