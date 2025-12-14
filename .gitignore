@@ -20,8 +20,7 @@ ENV/
 *~
 
 # Project specific
-images/*.jpg
-images/*.png
+images/
 memory/*.json
 weather/*.json
 *.log

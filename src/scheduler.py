@@ -86,22 +86,31 @@ def get_next_observation_time(current_time: datetime,
         # Make sure it's after current time
         if morning_time > current_time_only:
             next_dt = LOCATION_TZ.localize(datetime.combine(current_date, morning_time))
-            return next_dt, "morning"
+            # SAFETY CHECK: Ensure the scheduled time is in the future
+            if next_dt > current_time_local:
+                return next_dt, "morning"
+        
+        # Morning time has passed or would be in the past, schedule evening
+        if is_weekend:
+            evening_time, is_next_day = get_random_evening_time(True)
         else:
-            # Morning time has passed, schedule evening
-            if is_weekend:
-                evening_time, is_next_day = get_random_evening_time(True)
-            else:
-                evening_time, is_next_day = get_random_evening_time(False)
-            
-            # Check if evening time is next day (weekend late night)
-            if is_next_day:
-                next_date = current_date + timedelta(days=1)
-                next_dt = LOCATION_TZ.localize(datetime.combine(next_date, evening_time))
-            else:
-                next_dt = LOCATION_TZ.localize(datetime.combine(current_date, evening_time))
-            
-            return next_dt, "evening"
+            evening_time, is_next_day = get_random_evening_time(False)
+        
+        # Check if evening time is next day (weekend late night)
+        if is_next_day:
+            next_date = current_date + timedelta(days=1)
+            next_dt = LOCATION_TZ.localize(datetime.combine(next_date, evening_time))
+        else:
+            next_dt = LOCATION_TZ.localize(datetime.combine(current_date, evening_time))
+        
+        # SAFETY CHECK: If evening time is in the past, schedule next day's morning instead
+        if next_dt <= current_time_local:
+            next_date = current_date + timedelta(days=1)
+            morning_time = get_random_morning_time()
+            next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
+            return next_dt, "morning"
+        
+        return next_dt, "evening"
     else:
         # It's past morning time, schedule evening
         if is_weekend:
@@ -118,13 +127,20 @@ def get_next_observation_time(current_time: datetime,
         elif evening_time > current_time_only:
             # Evening time is later today - can schedule for today
             next_dt = LOCATION_TZ.localize(datetime.combine(current_date, evening_time))
-            return next_dt, "evening"
-        else:
-            # Evening time has passed, schedule next day's morning
-            next_date = current_date + timedelta(days=1)
-            morning_time = get_random_morning_time()
+            # SAFETY CHECK: Ensure the scheduled time is in the future
+            if next_dt > current_time_local:
+                return next_dt, "evening"
+        
+        # Evening time has passed or would be in the past, schedule next day's morning
+        next_date = current_date + timedelta(days=1)
+        morning_time = get_random_morning_time()
+        next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
+        # FINAL SAFETY CHECK: This should always be in the future, but verify
+        if next_dt <= current_time_local:
+            # This should never happen, but if it does, add another day
+            next_date = next_date + timedelta(days=1)
             next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
-            return next_dt, "morning"
+        return next_dt, "morning"
 
 
 def is_time_for_observation(current_time: datetime, 
@@ -147,8 +163,20 @@ def is_time_for_observation(current_time: datetime,
     current_time_local = current_time.astimezone(LOCATION_TZ)
     scheduled_time_local = scheduled_time.astimezone(LOCATION_TZ)
     
-    time_diff = abs((current_time_local - scheduled_time_local).total_seconds() / 60)
+    # CRITICAL: Never trigger if scheduled time is in the past (beyond tolerance)
+    # Only trigger if we're within tolerance_minutes AFTER the scheduled time
+    if scheduled_time_local < current_time_local:
+        # Scheduled time is in the past - check if we're still within tolerance window
+        time_diff = (current_time_local - scheduled_time_local).total_seconds() / 60
+        # Only trigger if we're within tolerance (e.g., scheduled for 2:00, it's 2:03, tolerance is 5)
+        if time_diff <= tolerance_minutes:
+            return True
+        else:
+            # Scheduled time is too far in the past - don't trigger
+            return False
     
+    # Scheduled time is in the future - check if we're within tolerance before it
+    time_diff = (scheduled_time_local - current_time_local).total_seconds() / 60
     return time_diff <= tolerance_minutes
 
 

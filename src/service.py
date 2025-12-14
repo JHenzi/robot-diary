@@ -752,9 +752,9 @@ def main():
                         # Read the next scheduled time that was saved by the observation cycle
                         next_schedule = memory_manager.get_next_scheduled_time()
                         if next_schedule:
-                            next_time_dt = datetime.fromisoformat(next_schedule['datetime']).astimezone(LOCATION_TZ)
-                            next_obs_type = next_schedule['type']
-                            logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time_dt, next_obs_type)}")
+                            next_time = datetime.fromisoformat(next_schedule['datetime']).astimezone(LOCATION_TZ)
+                            obs_type = next_schedule['type']
+                            logger.info(f"✅ Observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
                         else:
                             # Fallback: calculate if somehow not saved
                             next_time, obs_type = get_next_observation_time(now)
