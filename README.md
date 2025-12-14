@@ -57,16 +57,25 @@ To prevent repetitive, formulaic entries, each prompt includes randomly selected
 
 ### Multi-Model Architecture
 
-We use a **three-model approach** for efficiency and quality:
+We use a **two-step, multi-model approach** for efficiency and quality:
 
-1. **Memory Summarization** ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)): Cheap model distills each observation into a context-preserving summary
-2. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
-3. **Final Generation** ([`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/)): Expensive vision model receives the rich, context-aware prompt and generates the diary entry
+1. **Image Description** ([`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/)): Vision model provides a detailed, factual description of what's in the image (Step 1)
+2. **Memory Summarization** ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)): Cheap model distills each observation into a context-preserving summary
+3. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
+4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/), but can be upgraded to [`openai/gpt-oss-120b`](https://groq.com/models/openai/gpt-oss-120b/) for richer, more nuanced storytelling (Step 2)
+
+**Why Two Steps?** By separating image description from creative writing, we:
+- **Reduce Hallucination**: The writing model works from concrete facts, not trying to interpret images directly
+- **Enable Model Flexibility**: You can use a larger, more creative model (like GPT-OSS-120b) for writing while keeping vision tasks on the vision model
+- **Improve Grounding**: All observations are based on explicit factual descriptions, preventing invented details
+
+**GPT-OSS-120b Option**: Setting `DIARY_WRITING_MODEL=openai/gpt-oss-120b` produces significantly richer, more nuanced diary entries with better narrative flow and more sophisticated robotic voice—the robot's observations feel more thoughtful, its reflections deeper, and its unique perspective more pronounced.
 
 This architecture ensures:
 - **Cost Efficiency**: Only the final generation uses the expensive model
 - **Context Preservation**: No information loss through multiple LLM translations
-- **Rich Output**: The vision model receives comprehensive context, not just an image
+- **Rich Output**: The writing model receives comprehensive context, not just an image
+- **Factual Accuracy**: Grounded in explicit image descriptions, not hallucinated details
 
 ## What Makes This Different
 
@@ -151,7 +160,8 @@ The output is diary entries that:
 
 - **[Python](https://www.python.org/)**: Core automation
 - **[Groq API](https://groq.com/)**: Multi-model LLM inference
-  - [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/): Vision + final generation
+  - [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/): Vision model for image description (Step 1)
+  - [`openai/gpt-oss-120b`](https://groq.com/models/openai/gpt-oss-120b/) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
   - [`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/): Memory summarization
 - **[Astral](https://github.com/sffjunkie/astral)**: Astronomical calculations (sunrise/sunset, moon phases)
 - **[Holidays](https://github.com/vacanza/python-holidays)**: US holiday detection
@@ -186,11 +196,9 @@ We're actively looking for:
 git clone <repository-url>
 cd robot-diary
 
-# Create .env file with required values
-cat > .env << EOF
-GROQ_API_KEY=your_groq_api_key_here
-YOUTUBE_STREAM_URL=https://www.youtube.com/watch?v=your_stream_id
-EOF
+# Copy .env.example to .env and fill in your values
+cp .env.example .env
+# Edit .env with your API keys (GROQ_API_KEY, YOUTUBE_STREAM_URL, etc.)
 
 # Build and run with docker-compose
 docker-compose up -d
@@ -206,17 +214,28 @@ Create a `.env` file in the project root with:
 - `GROQ_API_KEY`: Your [Groq API](https://groq.com/) key (required)
 - `YOUTUBE_STREAM_URL`: YouTube live stream URL to observe (required)
 
-### Optional Environment Variables
+### Important Optional Environment Variables
 
-Add these to your `.env` file to enable additional features:
+**Model Configuration:**
+- `DIARY_WRITING_MODEL`: Model to use for diary entry writing (Step 2). Defaults to `meta-llama/llama-4-maverick-17b-128e-instruct`. Set to `openai/gpt-oss-120b` for richer, more nuanced storytelling with a stronger robotic voice. The 120B model produces significantly better narrative flow and more sophisticated observations.
 
-- `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context
+**Context & Features:**
+- `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context (highly recommended)
 - `USE_PROMPT_OPTIMIZATION`: Enable LLM-based prompt optimization (default: `false` - uses direct template combination)
 - `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
+
+**Deployment (if enabled):**
 - `DEPLOY_ENABLED`: Enable automatic deployment after Hugo build (default: `false`)
 - `DEPLOY_DESTINATION`: Deployment target (format: `user@host:/path/to/destination`)
 - `DEPLOY_METHOD`: Deployment method - `rsync` or `scp` (default: `rsync`)
 - `DEPLOY_SSH_KEY`: Path to SSH key file for deployment (if needed)
+
+**Advanced Configuration:**
+- `OBSERVATION_TIMES`: Comma-separated observation times in 24-hour format (default: `9:00,16:20`)
+- `MEMORY_RETENTION_DAYS`: Days to retain observations in memory (default: `30`)
+- `MAX_MEMORY_ENTRIES`: Maximum number of observations to keep (default: `50`)
+- `HUGO_SITE_PATH`: Path to Hugo site directory (default: `./hugo`)
+- `HUGO_BUILD_ON_UPDATE`: Automatically build Hugo site after each observation (default: `true`)
 
 ### Managing the Container
 

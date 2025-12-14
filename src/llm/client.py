@@ -439,7 +439,7 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         Returns:
             Diary entry text
         """
-        logger.info(f"Creating text-only diary entry using {VISION_MODEL}...")
+        logger.info(f"Creating text-only diary entry using {DIARY_WRITING_MODEL}...")
         
         # Get current date context for explicit inclusion
         if context_metadata:
@@ -488,15 +488,15 @@ Important reminders:
 
         try:
             response = self.client.chat.completions.create(
-                model=VISION_MODEL,
+                model=DIARY_WRITING_MODEL,  # Use configurable writing model (can be GPT-OSS-120b for testing)
                 messages=[
                     {
                         "role": "user",
                         "content": full_prompt
                     }
                 ],
-                temperature=random.uniform(0.3, 0.65),  # Randomized for variety while maintaining instruction adherence
-                max_tokens=3000  # Increased to allow for longer, more varied entries with detailed observations
+                temperature=random.uniform(0.5, 0.75),  # Higher temperature for creativity, matching image-based entries
+                max_tokens=random.randint(2000, 4500)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
