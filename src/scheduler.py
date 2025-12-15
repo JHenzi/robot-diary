@@ -81,38 +81,65 @@ def get_next_observation_time(current_time: datetime,
     
     # Check if we should schedule morning or evening
     if current_time_only < morning_end:
-        # It's still morning time, schedule morning observation for today
-        morning_time = get_random_morning_time()
-        # Make sure it's after current time
-        if morning_time > current_time_only:
+        # It's before 9:30 AM - could be early morning (before 7:30) or between 7:30-9:30
+        # If it's very early (before 7:30), schedule morning for today
+        # If it's between 7:30-9:30, check if we can still schedule morning for today
+        
+        morning_start = time(7, 30)
+        if current_time_only < morning_start:
+            # Very early morning (before 7:30 AM) - schedule morning for today
+            morning_time = get_random_morning_time()
             next_dt = LOCATION_TZ.localize(datetime.combine(current_date, morning_time))
-            # SAFETY CHECK: Ensure the scheduled time is in the future
-            if next_dt > current_time_local:
+            return next_dt, "morning"
+        
+        # It's between 7:30-9:30 AM, try to schedule morning for today if possible
+        # Get a random morning time, but ensure it's after current time
+        morning_time = get_random_morning_time()
+        # If the random time is before or equal to current time, pick a time between
+        # current time and 9:30 AM
+        if morning_time <= current_time_only:
+            # Calculate minutes from midnight for current time and morning end
+            current_minutes = current_time_only.hour * 60 + current_time_only.minute
+            morning_end_minutes = 9 * 60 + 30  # 9:30 AM
+            # Pick a random time between current time and 9:30 AM
+            if current_minutes < morning_end_minutes:
+                random_minutes = random.randint(current_minutes + 1, morning_end_minutes)
+                morning_time = time(random_minutes // 60, random_minutes % 60)
+            else:
+                # Current time is at or after 9:30 (shouldn't happen in this branch, but safety check)
+                next_date = current_date + timedelta(days=1)
+                morning_time = get_random_morning_time()
+                next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
                 return next_dt, "morning"
         
-        # Morning time has passed or would be in the past, schedule evening
-        if is_weekend:
-            evening_time, is_next_day = get_random_evening_time(True)
-        else:
-            evening_time, is_next_day = get_random_evening_time(False)
+        next_dt = LOCATION_TZ.localize(datetime.combine(current_date, morning_time))
+        # SAFETY CHECK: Ensure the scheduled time is in the future
+        if next_dt > current_time_local:
+            return next_dt, "morning"
         
-        # Check if evening time is next day (weekend late night)
-        if is_next_day:
-            next_date = current_date + timedelta(days=1)
-            next_dt = LOCATION_TZ.localize(datetime.combine(next_date, evening_time))
-        else:
-            next_dt = LOCATION_TZ.localize(datetime.combine(current_date, evening_time))
+        # Fallback: schedule tomorrow morning (shouldn't happen, but safety check)
+        next_date = current_date + timedelta(days=1)
+        morning_time = get_random_morning_time()
+        next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
+        return next_dt, "morning"
+    else:
+        # It's past morning time (after 9:30 AM), schedule evening
+        # BUT: if it's after midnight but before 9:30 AM, we should have been in the first branch
+        # This else branch handles times after 9:30 AM
         
-        # SAFETY CHECK: If evening time is in the past, schedule next day's morning instead
-        if next_dt <= current_time_local:
+        # Special case: if it's very late at night (after evening window), schedule next morning
+        # Evening window: weekdays 4:00 PM-6:00 PM, weekends 6:00 PM-11:59 PM
+        evening_end_weekday = time(18, 0)  # 6:00 PM
+        evening_end_weekend = time(23, 59)  # 11:59 PM
+        evening_end = evening_end_weekend if is_weekend else evening_end_weekday
+        
+        # If current time is after the evening window, schedule next morning
+        if current_time_only > evening_end:
             next_date = current_date + timedelta(days=1)
             morning_time = get_random_morning_time()
             next_dt = LOCATION_TZ.localize(datetime.combine(next_date, morning_time))
             return next_dt, "morning"
         
-        return next_dt, "evening"
-    else:
-        # It's past morning time, schedule evening
         if is_weekend:
             evening_time, is_next_day = get_random_evening_time(True)
         else:
