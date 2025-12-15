@@ -517,14 +517,18 @@ Important reminders:
     
     def describe_image(self, image_path: Path) -> str:
         """
-        Step 1: Get a detailed, factual description of what's in the image.
-        This is a focused vision task - describe what you see, not creative writing.
+        Step 1: Get a detailed, factual description of what's in the image, including
+        reasonable inferences about social and emotional context.
+        
+        This provides both factual observations and social/emotional context (relationships,
+        mood, interactions) based on visible cues, giving the writing model personable
+        material to work with while staying grounded in what's visible.
         
         Args:
             image_path: Path to the image file
             
         Returns:
-            Detailed factual description of the image contents
+            Detailed description of the image contents with social/emotional context
         """
         logger.info(f"📸 Step 1: Describing image using {VISION_MODEL}...")
         
@@ -532,24 +536,50 @@ Important reminders:
         with open(image_path, 'rb') as f:
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
-        # Focused, factual prompt for image description
-        description_prompt = """You are a visual analysis system. Your task is to provide a detailed, factual description of what you see in this image.
+        # Focused, factual prompt for image description with social/emotional context
+        description_prompt = """You are a visual analysis system. Your task is to provide a detailed, factual description of what you see in this image, with emphasis on DYNAMIC ELEMENTS and reasonable inferences about social and emotional context.
 
-Describe ONLY what is clearly visible in the image:
-- People: How many? Where are they positioned? What are they doing? What are they wearing? Any notable features?
-- Objects: Vehicles, signs, buildings, street furniture, etc. - describe their positions, colors, sizes, conditions
-- Environment: Street layout, lighting conditions, weather visible in the scene, time of day indicators
-- Actions: What are people actually doing? (walking, standing, talking, etc.)
-- Spatial relationships: Where are things relative to each other?
+PRIORITY: Focus on what's ALIVE and CHANGING in the scene:
+1. **People and their activities** - This is your primary focus. Describe movement, interactions, groupings, body language
+2. **Lighting and atmosphere** - How does light shape the scene? What's the mood created by lighting?
+3. **Weather effects** - Rain, fog, wind effects, reflections, shadows, etc.
+4. **Movement and flow** - Traffic, pedestrian patterns, dynamic elements
+5. **Road and ground conditions** - Surface texture, wet/dry, debris, etc.
+
+VARY YOUR FOCUS: Don't describe everything the same way every time. Sometimes emphasize:
+- The people and their interactions (most important)
+- The lighting and how it creates atmosphere
+- The weather effects visible in the scene
+- The architecture and buildings (when relevant)
+- Signs and text (ONLY when particularly relevant or interesting - don't read every sign)
+
+Describe what is clearly visible, prioritizing dynamic elements:
+- **People (HIGHEST PRIORITY):** How many? Where are they positioned? What are they doing? What are they wearing? How are they moving? Any notable features or interactions?
+- **Lighting and atmosphere:** What are the light sources? How do they affect the scene? What's the overall mood created by lighting?
+- **Weather effects:** Is there rain, fog, wind visible? Reflections? Shadows? How does weather affect what you see?
+- **Road and ground:** Surface conditions, markings, barriers, crosswalks, etc.
+- **Movement and flow:** Traffic patterns, pedestrian movement, dynamic elements
+- **Buildings and architecture:** When relevant, but don't always describe in the same detail
+- **Signs and text:** Only mention if particularly prominent, interesting, or relevant to understanding the scene. Don't try to read every sign - focus on the most visible or significant ones, or note that signs are present without reading them all.
+
+SOCIAL AND EMOTIONAL CONTEXT (make reasonable inferences based on what you see):
+- Relationships: Do people appear to be together? Are they walking in pairs or groups? Do their positions, proximity, or body language suggest they know each other? Are they strangers?
+- Emotional tone: What's the mood of the scene? Based on body language, posture, and interactions, do people seem relaxed, hurried, excited, contemplative, etc.?
+- Social dynamics: Are people interacting? Do they seem to be in conversation? Are they waiting for something? Do they appear to be part of a larger group or event?
+- Purpose/Intent: Based on their positioning, direction, and context, what might people be doing or where might they be going?
 
 CRITICAL RULES:
-- Describe ONLY what you can clearly see. Do NOT invent details.
-- Do NOT make assumptions about what people are thinking, feeling, or planning.
-- Do NOT describe things that are not visible (sounds, smells, future events).
-- Be specific and concrete: "A man in a blue jacket walking on the left side of the street" not "A person moving through the scene"
+- PRIORITIZE dynamic elements (people, movement, lighting, weather) over static elements (buildings, signs)
+- Base all observations on what is clearly visible. Be specific and concrete.
+- For social/emotional context, make REASONABLE inferences based on visible cues (proximity, body language, positioning, direction of movement, etc.)
+- Clearly mark inferences: Use phrases like "appear to be", "seem to", "might be", "suggests" when making inferences
+- Do NOT read every sign - only mention signs if they're particularly prominent, interesting, or relevant
+- Do NOT invent specific details that aren't supported by visible evidence
+- Do NOT describe things that are not visible (sounds, smells, future events, specific thoughts)
 - If something is unclear or partially obscured, say so explicitly.
+- VARY your descriptions - don't use the same formula every time. Sometimes focus more on people, sometimes on lighting, sometimes on weather effects.
 
-Provide a comprehensive, factual description that another system could use to write about this scene accurately."""
+Provide a comprehensive description that emphasizes dynamic elements and includes reasonable social/emotional inferences, so another system can write about this scene with both accuracy and personable warmth."""
 
         try:
             response = self.client.chat.completions.create(
