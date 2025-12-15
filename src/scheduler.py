@@ -75,17 +75,45 @@ def get_next_observation_time(current_time: datetime,
     # Morning is 7:30-9:30, so if it's before 9:30, we might need morning
     # If it's after 9:30, we definitely need evening (or next day's morning)
     
+    morning_start = time(7, 30)
     morning_end = time(9, 30)
     evening_start_weekday = time(16, 0)
     evening_start_weekend = time(18, 0)
+    
+    # If we know the last scheduled time, avoid scheduling multiple observations
+    # in the same window (e.g., multiple morning runs in one day).
+    if last_scheduled_time is not None:
+        last_local = last_scheduled_time.astimezone(LOCATION_TZ)
+        last_date = last_local.date()
+        last_time_only = last_local.time()
+
+        if last_date == current_date:
+            # If we already had a morning observation today and we're still within
+            # the morning window, skip scheduling another morning and move on to evening.
+            if morning_start <= last_time_only <= morning_end and morning_start <= current_time_only <= morning_end:
+                # Force logic to treat this as "after morning window"
+                current_time_only = morning_end
+
+            # If we already had an evening observation today, schedule the next
+            # observation for tomorrow morning instead of another evening today.
+            evening_end_weekday = time(18, 0)  # 6:00 PM
+            evening_end_weekend = time(23, 59)  # 11:59 PM
+            evening_end = evening_end_weekend if is_weekend else evening_end_weekday
+
+            if is_weekend:
+                evening_start = evening_start_weekend
+            else:
+                evening_start = evening_start_weekday
+
+            if evening_start <= last_time_only <= evening_end:
+                # Force logic to treat this as "after evening window"
+                current_time_only = time(23, 59)
     
     # Check if we should schedule morning or evening
     if current_time_only < morning_end:
         # It's before 9:30 AM - could be early morning (before 7:30) or between 7:30-9:30
         # If it's very early (before 7:30), schedule morning for today
         # If it's between 7:30-9:30, check if we can still schedule morning for today
-        
-        morning_start = time(7, 30)
         if current_time_only < morning_start:
             # Very early morning (before 7:30 AM) - schedule morning for today
             morning_time = get_random_morning_time()
