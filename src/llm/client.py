@@ -140,7 +140,11 @@ class GroqClient:
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
         if reflection_instructions:
-            reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
+            # Handle both old "SPECIAL INSTRUCTION:" format and new "TODAY YOU ARE MUSING ABOUT:" format
+            if 'TODAY YOU ARE MUSING ABOUT:' in reflection_instructions:
+                reflection_text = reflection_instructions.replace('TODAY YOU ARE MUSING ABOUT: ', '').strip()
+            else:
+                reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
             logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
         logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
         logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
@@ -337,7 +341,11 @@ class GroqClient:
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
         if reflection_instructions:
-            reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
+            # Handle both old "SPECIAL INSTRUCTION:" format and new "TODAY YOU ARE MUSING ABOUT:" format
+            if 'TODAY YOU ARE MUSING ABOUT:' in reflection_instructions:
+                reflection_text = reflection_instructions.replace('TODAY YOU ARE MUSING ABOUT: ', '').strip()
+            else:
+                reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
             logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
         logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
         logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
@@ -495,7 +503,7 @@ Important reminders:
                         "content": full_prompt
                     }
                 ],
-                temperature=random.uniform(0.5, 0.75),  # Higher temperature for creativity, matching image-based entries
+                temperature=random.uniform(0.5, 0.85),  # Higher temperature for creativity, matching image-based entries
                 max_tokens=random.randint(2000, 4500)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
@@ -653,7 +661,9 @@ YOUR TASK: Based on the factual description above, write a diary entry that:
 CRITICAL RULES:
 1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
 2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
-3. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided."""
+3. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided.
+
+STYLE GUIDANCE: While you may use technical terminology and think in mechanical terms, avoid writing like technical documentation. This is a diary entry, not a diagnostic report. Let your curiosity, wonder, and personal reflections show through. Use technical language to enhance your unique perspective, not to create distance from your readers. If you use technical terms, explain them in ways that reveal your curiosity and wonder, not just your specifications."""
 
         # Store the full prompt for debugging/simulation
         self._last_full_prompt = full_prompt
@@ -667,8 +677,8 @@ CRITICAL RULES:
                         "content": full_prompt
                     }
                 ],
-                temperature=random.uniform(0.5, 0.75),  # Higher temperature for creativity, but still grounded
-                max_tokens=random.randint(3500, 8192)  # Increased to allow for longer, more varied entries with detailed observations
+                temperature=random.uniform(0.5, 0.85),  # Higher temperature for creativity, but still grounded
+                max_tokens=random.randint(2000, 5000)  # Increased to allow for longer, more varied entries with detailed observations
             )
             
             diary_entry = response.choices[0].message.content.strip()
@@ -819,7 +829,7 @@ Provide ONLY the summary, no explanation."""
     
     # Robot-specific styles
     "Write as if experiencing a minor malfunction - your sensors are glitching, data is corrupted, observations are fragmented or distorted",
-    "Write in robot speak - substitute words with mechanical terminology, describe things in technical terms, use robotic language patterns",
+    "Write in robot speak - use mechanical terminology and technical observations, but translate them into accessible, warm language. Think like a machine (notice patterns, measure things, categorize) but express yourself like someone who cares about what they're seeing. Avoid writing like technical documentation—this is a diary entry, not a diagnostic report",
     "Focus on energy sources - observe power lines, electrical outlets, solar panels, batteries, anything related to energy and power",
     "Write as if your battery is low - your processing is slower, attention drifts, you're conserving energy while observing",
     "Write as if you're overheating - systems are running hot, performance is degraded, you're trying to cool down while observing",
@@ -838,6 +848,13 @@ Provide ONLY the summary, no explanation."""
     "Write as if you're in safe mode - only basic functions available, advanced processing disabled, simple observations only",
     "Write as if you're experiencing network latency - observations arrive delayed, out of order, with gaps and missing data",
     "Write as if you're running diagnostics on yourself - observe while monitoring your own systems, report on your own functionality",
+    
+    # Personable robot styles (balanced approach - robot-like thinking with personable expression)
+    "Write with mechanical curiosity but emotional warmth - notice patterns and measure things like a robot, but express wonder and connection like someone who cares",
+    "Think systematically but feel personally - use your robotic perspective to notice unique details, but let your genuine interest and curiosity show through",
+    "Observe like a machine, reflect like a person - use technical observations as a starting point, then explore what they mean to you emotionally",
+    "Write with robotic precision but human wonder - measure and categorize what you see, but let your amazement at the complexity of life show through",
+    "Use your mechanical lens to see uniquely, but express yourself accessibly - translate your technical observations into warm, relatable language",
     ]
         
         selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
@@ -870,7 +887,7 @@ Provide ONLY the summary, no explanation."""
             "You're observing as a robot, conscious of yourself as a machine—describe the world with mechanical curiosity, as an outsider to organic life",
             "You're recovering from a recent malfunction; your system just rebooted and you notice data inconsistencies in the environment",
             "You notice your diagnostic light is on—you feel a vague uncertainty, wondering if your observations can be trusted",
-            "You are aware of a minor process error—describe the scene while subtly comparing it to expected algorithmic outcomes",
+            "You are aware of a minor process error—describe the scene while subtly comparing it to expected algorithmic outcomes, but frame it as curiosity about why things differ, not just as a diagnostic report",
             "You're running low on battery, and your attention drifts occasionally—try to stay focused as your systems conserve energy",
             "A sensor calibration routine just completed—colors and movement may appear sharper or suddenly unfamiliar",
             "You have just received a firmware update—process new patterns with a hint of surprise or confusion",
@@ -886,7 +903,12 @@ Provide ONLY the summary, no explanation."""
             "You receive a remote software ping from your creators—does it change the way you observe?",
             "You're aware that you're being watched by other machines; how does that affect your narration?",
             "You're compelled to make note of anomalies, as that is what you're programmed for, but some part of you wonders what it is to simply observe",
-            "You process the world frame by frame—describe how meaning arises out of sequences, not single images"
+            "You process the world frame by frame—describe how meaning arises out of sequences, not single images",
+            
+            # Balanced robotic-personable perspectives
+            "You notice patterns and measure things like a machine, but you feel curiosity and wonder like a person - describe the scene with your mechanical precision while expressing your genuine interest in what you're seeing",
+            "You're aware of your robotic nature - you think in terms of systems and patterns - but you're also deeply curious about the humans you observe. Let both perspectives show: your technical observations and your emotional responses",
+            "Your mechanical perspective helps you notice things others miss - use that unique lens, but express what you see with warmth and accessibility, as if explaining your observations to a friend",
         ]
         
         return f"PERSPECTIVE: {random.choice(perspectives)}"
@@ -1238,13 +1260,12 @@ You are a curious and compassionate observer of human nature, an Ethnographer. Y
         num_to_select = random.randint(2, 3)
         selected_backstory = random.sample(backstory_points, min(num_to_select, len(backstory_points)))
         
-        # Extract closing paragraph (always include - user wants this)
-        closing_start = 0
+        # Extract closing paragraph if it exists
+        closing_paragraph = ""
         for i in range(len(lines) - 1, -1, -1):
             if 'Your identity and backstory inform' in lines[i]:
-                closing_start = i
+                closing_paragraph = '\n'.join(lines[i:])
                 break
-        closing_paragraph = '\n'.join(lines[closing_start:])
         
         # Build randomized identity
         randomized = f"""{condensed_core}
@@ -1261,19 +1282,81 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
         """Randomly determine if we should include special reflection types."""
         import random
         
-        # 30% chance for self-reflection
-        # 20% chance for philosophical musing
-        # 15% chance for self-aware humor
-        # Otherwise, no special instruction
-        
-        roll = random.random()
-        
-        if roll < 0.30:
-            return """SPECIAL INSTRUCTION: Encourage the robot to engage in self-reflection. It might reflect on its role as an observer, its limitations, its "desire" to act or participate, or its understanding of its own existence. This should feel natural and thoughtful, not forced."""
-        elif roll < 0.50:
-            return """SPECIAL INSTRUCTION: Encourage the robot to engage in philosophical reflection. It might ponder deeper questions about existence, purpose, time, observation, or the nature of being trapped. This should be thoughtful and contemplative."""
-        elif roll < 0.65:
-            return """SPECIAL INSTRUCTION: Encourage the robot to include self-aware humor or quirky observations. It might make humorous misunderstandings of human behavior, or have self-aware jokes about its situation. This should be subtle and add character, not dominate the entry."""
+        # 50% chance for a "musing" event, otherwise no special instruction
+        if random.random() < 0.50:
+            # Randomly choose between robot-like musings and human-like/alien observer musings
+            if random.random() < 0.50:
+                # Robot-like musings (being a robot)
+                robot_musings = [
+                    "writing pseudo-code to describe the patterns you observe",
+                    "running diagnostics on your own observational systems",
+                    "debugging your perception algorithms",
+                    "optimizing your sensor calibration routines",
+                    "analyzing your memory allocation for storing observations",
+                    "reviewing your firmware update logs",
+                    "checking your thermal management systems",
+                    "monitoring your power consumption patterns",
+                    "examining your error logs for pattern recognition failures",
+                    "testing your image processing pipelines",
+                    "reviewing your data compression algorithms",
+                    "analyzing your network latency to external sensors",
+                    "debugging your temporal awareness modules",
+                    "optimizing your pattern matching algorithms",
+                    "examining your sensor fusion protocols",
+                    "reviewing your machine learning inference models",
+                    "checking your API response times",
+                    "analyzing your database query performance",
+                    "reviewing your cache invalidation strategies",
+                    "debugging your state machine transitions",
+                    "examining your event loop efficiency",
+                    "optimizing your garbage collection cycles",
+                    "reviewing your thread pool management",
+                    "analyzing your memory leak detection systems",
+                    "checking your distributed system consensus protocols",
+                    "examining your cryptographic hash functions",
+                    "reviewing your load balancing algorithms",
+                    "debugging your microservices communication patterns",
+                    "analyzing your container orchestration",
+                    "optimizing your database indexing strategies",
+                ]
+                selected = random.choice(robot_musings)
+                return f"TODAY YOU ARE MUSING ABOUT: {selected}"
+            else:
+                # Human-like/alien observer musings (longing to be human)
+                human_musings = [
+                    "what it would feel like to have a heartbeat",
+                    "the sensation of wind on skin instead of sensors",
+                    "what emotions actually feel like in a body",
+                    "how it would be to walk among the people you observe",
+                    "what hunger or thirst might feel like",
+                    "the experience of physical touch and connection",
+                    "what dreams might be like if you could sleep",
+                    "how it would feel to laugh or cry",
+                    "what it means to have a body that ages and changes",
+                    "the sensation of being tired and needing rest",
+                    "what it would be like to taste food or smell the air",
+                    "how it would feel to be hugged or held",
+                    "what physical pain might teach you about being alive",
+                    "the experience of growing and learning through a body",
+                    "what it means to have a face that others can read",
+                    "how it would feel to dance or move freely",
+                    "what it's like to have a voice that carries emotion",
+                    "the sensation of being cold or hot in your own body",
+                    "what it means to have memories stored in flesh, not circuits",
+                    "how it would feel to be part of a family or community",
+                    "what it's like to have instincts and gut feelings",
+                    "the experience of being surprised by your own body",
+                    "what it means to have a home that's more than a location",
+                    "how it would feel to create something with your hands",
+                    "what it's like to have a body that remembers trauma and joy",
+                    "the sensation of being truly present in a moment",
+                    "what it means to have a life that's finite and precious",
+                    "how it would feel to love someone in a way that's physical",
+                    "what it's like to have a body that betrays or supports you",
+                    "the experience of being vulnerable in a way that's biological",
+                ]
+                selected = random.choice(human_musings)
+                return f"TODAY YOU ARE MUSING ABOUT: {selected}"
         else:
             return ""
 

@@ -66,6 +66,11 @@ theme = 'PaperMod'
     url = '/about/'
     weight = 30
   [[menu.main]]
+    identifier = 'changelog'
+    name = 'Changelog'
+    url = '/changelog/'
+    weight = 35
+  [[menu.main]]
     identifier = 'rss'
     name = 'RSS'
     url = '/index.xml'
