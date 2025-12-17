@@ -148,6 +148,59 @@ def get_random_articles(count: int = 2) -> List[Dict]:
     return get_cluster_articles(cluster_id, limit=count)
 
 
+def get_articles_from_multiple_clusters(num_clusters: int = 3, articles_per_cluster: int = 1) -> List[Dict]:
+    """
+    Fetch articles from multiple different clusters to provide variety.
+    
+    Args:
+        num_clusters: Number of different clusters to fetch from (default: 3)
+        articles_per_cluster: Number of articles to fetch from each cluster (default: 1)
+        
+    Returns:
+        List of article dictionaries with full metadata, each tagged with its cluster_id
+    """
+    clusters = get_clusters_list()
+    if not clusters or len(clusters) < num_clusters:
+        logger.warning(f"Not enough clusters available (need {num_clusters}, got {len(clusters) if clusters else 0})")
+        # Fallback to single cluster if not enough available
+        if clusters:
+            cluster = random.choice(clusters)
+            cluster_id = cluster.get('cluster_id')
+            if cluster_id:
+                return get_cluster_articles(cluster_id, limit=articles_per_cluster * num_clusters)
+        return []
+    
+    # Select unique random clusters
+    selected_clusters = random.sample(clusters, min(num_clusters, len(clusters)))
+    
+    all_articles = []
+    cluster_info = []
+    
+    for cluster in selected_clusters:
+        cluster_id = cluster.get('cluster_id')
+        if not cluster_id:
+            continue
+        
+        articles = get_cluster_articles(cluster_id, limit=articles_per_cluster)
+        if articles:
+            # Tag each article with its cluster info for reference
+            for article in articles:
+                article['_cluster_id'] = cluster_id
+                article['_cluster_topic'] = cluster.get('topic_label', 'Unknown Topic')
+            all_articles.extend(articles)
+            cluster_info.append({
+                'cluster_id': cluster_id,
+                'topic_label': cluster.get('topic_label', 'Unknown Topic'),
+                'article_count': len(articles)
+            })
+    
+    logger.info(f"✅ Fetched {len(all_articles)} articles from {len(cluster_info)} clusters")
+    for info in cluster_info:
+        logger.info(f"   - {info['cluster_id']}: {info['topic_label']} ({info['article_count']} articles)")
+    
+    return all_articles
+
+
 class PulseClient:
     """Client for Pulse API news integration."""
     

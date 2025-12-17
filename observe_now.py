@@ -51,7 +51,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.simulate:
-        print("🧪 Running SIMULATION mode (no memory/Hugo saving)...")
+        if args.news_only:
+            print("🧪 Running SIMULATION mode (NEWS-ONLY, no memory/Hugo saving)...")
+        else:
+            print("🧪 Running SIMULATION mode (no memory/Hugo saving)...")
     elif args.news_only:
         print("📡 Triggering NEWS-BASED observation (text-only, no image)...")
     elif args.use_cache:
@@ -74,7 +77,8 @@ if __name__ == '__main__':
             sim_path = run_simulation_cycle(
                 force_image_refresh=force_refresh,
                 observation_type=observation_type,
-                is_unscheduled=True  # Manual observations are always unscheduled
+                is_unscheduled=True,  # Manual observations are always unscheduled
+                news_only=args.news_only  # Pass news_only flag
             )
             print(f"✅ Simulation completed successfully!")
             print(f"📄 Markdown saved to: {sim_path}")

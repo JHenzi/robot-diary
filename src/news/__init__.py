@@ -6,7 +6,8 @@ from .pulse_client import (
     get_clusters_list,
     get_random_cluster,
     get_cluster_headlines,
-    get_cluster_articles
+    get_cluster_articles,
+    get_articles_from_multiple_clusters
 )
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     'get_clusters_list',
     'get_random_cluster',
     'get_cluster_headlines',
-    'get_cluster_articles'
+    'get_cluster_articles',
+    'get_articles_from_multiple_clusters'
 ]
 

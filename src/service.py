@@ -31,7 +31,7 @@ from .llm import GroqClient, generate_dynamic_prompt, create_diary_entry
 from .memory import MemoryManager
 from .hugo import HugoGenerator
 from .weather import PirateWeatherClient
-from .news import get_random_headlines, get_random_articles, get_random_cluster, get_cluster_articles
+from .news import get_random_headlines, get_random_articles, get_random_cluster, get_cluster_articles, get_articles_from_multiple_clusters
 from .context import get_context_metadata
 
 # Configure logging
@@ -93,28 +93,32 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         llm_client = GroqClient()
         hugo_generator = HugoGenerator()
         
-        # Step 1: Fetch random cluster and articles with full metadata
-        logger.info("Step 1: Fetching news cluster and articles...")
-        cluster = get_random_cluster()
-        if not cluster:
-            raise Exception("Failed to fetch news cluster")
-        
-        cluster_id = cluster.get('cluster_id')
-        topic_label = cluster.get('topic_label', 'Unknown Topic')
-        cluster_created_at = cluster.get('created_at')
-        cluster_updated_at = cluster.get('updated_at')
-        sentiment_dist = cluster.get('sentiment_distribution', {})
-        
-        articles = get_cluster_articles(cluster_id, limit=3)
+        # Step 1: Fetch articles from multiple clusters for variety
+        logger.info("Step 1: Fetching articles from multiple news clusters...")
+        articles = get_articles_from_multiple_clusters(num_clusters=3, articles_per_cluster=1)
         
         if not articles:
-            raise Exception(f"Failed to fetch articles from cluster {cluster_id}")
+            raise Exception("Failed to fetch articles from news clusters")
         
         # Extract headlines for logging/display
         headlines = [article.get('title', '') for article in articles if article.get('title')]
         
-        logger.info(f"Selected cluster: {cluster_id} - {topic_label}")
-        logger.info(f"Articles: {len(articles)} (cluster created: {cluster_created_at}, updated: {cluster_updated_at})")
+        # Group articles by cluster for context metadata
+        clusters_info = {}
+        for article in articles:
+            cluster_id = article.get('_cluster_id', 'unknown')
+            cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+            if cluster_id not in clusters_info:
+                clusters_info[cluster_id] = {
+                    'cluster_id': cluster_id,
+                    'topic_label': cluster_topic,
+                    'articles': []
+                }
+            clusters_info[cluster_id]['articles'].append(article)
+        
+        logger.info(f"Fetched {len(articles)} articles from {len(clusters_info)} clusters")
+        for cluster_id, info in clusters_info.items():
+            logger.info(f"   - {cluster_id}: {info['topic_label']} ({len(info['articles'])} articles)")
         logger.info(f"Headlines: {headlines}")
         
         # Step 2: Load recent memory
@@ -150,15 +154,9 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
                 weather_data = {}  # Continue without weather
         
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
-        # Add news cluster info to context with full metadata
-        context_metadata['news_cluster'] = {
-            'cluster_id': cluster_id,
-            'topic_label': topic_label,
-            'created_at': cluster_created_at,
-            'updated_at': cluster_updated_at,
-            'sentiment_distribution': sentiment_dist,
-            'articles': articles  # Full article objects with published_at, source, sentiment_label, etc.
-        }
+        # Add news clusters info to context with full metadata (multiple clusters)
+        context_metadata['news_clusters'] = list(clusters_info.values())  # List of cluster info dicts
+        context_metadata['news_articles'] = articles  # All articles with cluster tags
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
@@ -170,40 +168,55 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         # Identity context (informs perspective, mention when relevant)
         news_identity_context = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
-        # Format articles with dates and sources for the prompt
-        articles_text = []
+        # Format articles with dates and sources, grouped by cluster/topic
+        articles_by_topic = {}
         for article in articles:
-            title = article.get('title', '')
-            published_at = article.get('published_at', '')
-            source = article.get('source', '')
-            sentiment = article.get('sentiment_label', '')
-            
-            # Format date if available
-            date_str = ""
-            if published_at:
-                try:
-                    # Parse ISO format: "2025-12-12T17:33:20+00:00"
-                    dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                    date_str = f" (published {dt.strftime('%B %d, %Y at %I:%M %p')})"
-                except Exception:
-                    date_str = f" (published {published_at})"
-            
-            source_str = f" from {source}" if source else ""
-            sentiment_str = f" [{sentiment}]" if sentiment else ""
-            
-            articles_text.append(f"- {title}{source_str}{date_str}{sentiment_str}")
+            cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+            if cluster_topic not in articles_by_topic:
+                articles_by_topic[cluster_topic] = []
+            articles_by_topic[cluster_topic].append(article)
+        
+        # Format articles text grouped by topic
+        articles_text = []
+        topic_labels = []
+        for topic_label, topic_articles in articles_by_topic.items():
+            topic_labels.append(topic_label)
+            articles_text.append(f"\n**{topic_label}:**")
+            for article in topic_articles:
+                title = article.get('title', '')
+                published_at = article.get('published_at', '')
+                source = article.get('source', '')
+                sentiment = article.get('sentiment_label', '')
+                
+                # Format date if available
+                date_str = ""
+                if published_at:
+                    try:
+                        # Parse ISO format: "2025-12-12T17:33:20+00:00"
+                        dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                        date_str = f" (published {dt.strftime('%B %d, %Y at %I:%M %p')})"
+                    except Exception:
+                        date_str = f" (published {published_at})"
+                
+                source_str = f" from {source}" if source else ""
+                sentiment_str = f" [{sentiment}]" if sentiment else ""
+                
+                articles_text.append(f"- {title}{source_str}{date_str}{sentiment_str}")
+        
+        topics_summary = ", ".join(topic_labels) if len(topic_labels) > 1 else topic_labels[0] if topic_labels else "various topics"
         
         # Writing instructions for news-based observations
         news_prompt_base = f"""{news_identity_context}
 
-You have picked up a transmission about "{topic_label}". The news items you've intercepted are:
+You have picked up transmissions about multiple topics: {topics_summary}. The news items you've intercepted are:
 {chr(10).join(articles_text)}
 
-Write a diary entry reflecting on this news. Focus on:
-- What you find interesting about this topic from your robotic perspective
-- How it relates to your observations of people and human nature
+Write a diary entry reflecting on these news items. You can focus on:
+- What you find interesting about these topics from your robotic perspective
+- How they relate to your observations of people and human nature
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
+- Connections between the different topics you've intercepted
 - Memory callbacks to specific past observations when relevant
 - Consider the timing of the news - when these events happened relative to your current observation
 
@@ -216,10 +229,10 @@ Be thoughtful, reflective, and write from your unique robotic perspective. Refer
 
 {optimized_prompt}
 
-Remember: You have picked up a transmission about "{topic_label}". The news items are:
+Remember: You have picked up transmissions about {topics_summary}. The news items are:
 {chr(10).join(articles_text)}
 
-Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. Focus on observation and reflection, not on explaining your identity or backstory."""
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory."""
         
         logger.debug(f"News-based prompt: {full_prompt[:200]}...")
         
@@ -481,21 +494,26 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         raise
 
 
-def run_simulation_cycle(force_image_refresh: bool = False, observation_type: str = None, is_unscheduled: bool = False):
+def run_simulation_cycle(force_image_refresh: bool = False, observation_type: str = None, is_unscheduled: bool = False, news_only: bool = False):
     """
     Run a simulation observation cycle - generates diary entry and prompt but doesn't save to memory or Hugo.
     
     Outputs a markdown file with:
     - The prompt/context at the top
     - The diary entry
-    - The image link
+    - The image link (if not news-only)
     
     Args:
         force_image_refresh: If True, force download of fresh image even if cached
         observation_type: Type of observation ('morning' or 'evening')
+        is_unscheduled: If True, mark as unscheduled observation
+        news_only: If True, create a news-based observation (text-only, no image)
     """
     logger.info("=" * 60)
-    logger.info("Starting SIMULATION observation cycle")
+    if news_only:
+        logger.info("Starting SIMULATION observation cycle (NEWS-ONLY)")
+    else:
+        logger.info("Starting SIMULATION observation cycle")
     logger.info("=" * 60)
     
     try:
@@ -503,18 +521,50 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         memory_manager = MemoryManager()
         llm_client = GroqClient()
         
-        # Step 1: Fetch latest image (with caching)
-        logger.info("Step 1: Fetching latest webcam image...")
         image_path = None
-        try:
-            image_path = fetch_latest_image(force_refresh=force_image_refresh)
-            if force_image_refresh:
-                logger.info(f"Using fresh image (force refresh): {image_path}")
-            else:
-                logger.info(f"Using image: {image_path}")
-        except Exception as e:
-            logger.error(f"Failed to fetch new image: {e}")
-            raise Exception("Simulation requires an image - cannot proceed without one")
+        cluster = None
+        articles = []
+        
+        if news_only:
+            # Step 1: Fetch articles from multiple clusters for variety
+            logger.info("Step 1: Fetching articles from multiple news clusters...")
+            articles = get_articles_from_multiple_clusters(num_clusters=3, articles_per_cluster=1)
+            
+            if not articles:
+                raise Exception("Failed to fetch articles from news clusters")
+            
+            # Extract headlines for logging/display
+            headlines = [article.get('title', '') for article in articles if article.get('title')]
+            
+            # Group articles by cluster for context metadata
+            clusters_info = {}
+            for article in articles:
+                cluster_id = article.get('_cluster_id', 'unknown')
+                cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+                if cluster_id not in clusters_info:
+                    clusters_info[cluster_id] = {
+                        'cluster_id': cluster_id,
+                        'topic_label': cluster_topic,
+                        'articles': []
+                    }
+                clusters_info[cluster_id]['articles'].append(article)
+            
+            logger.info(f"Fetched {len(articles)} articles from {len(clusters_info)} clusters")
+            for cluster_id, info in clusters_info.items():
+                logger.info(f"   - {cluster_id}: {info['topic_label']} ({len(info['articles'])} articles)")
+            logger.info(f"Headlines: {headlines}")
+        else:
+            # Step 1: Fetch latest image (with caching)
+            logger.info("Step 1: Fetching latest webcam image...")
+            try:
+                image_path = fetch_latest_image(force_refresh=force_image_refresh)
+                if force_image_refresh:
+                    logger.info(f"Using fresh image (force refresh): {image_path}")
+                else:
+                    logger.info(f"Using image: {image_path}")
+            except Exception as e:
+                logger.error(f"Failed to fetch new image: {e}")
+                raise Exception("Simulation requires an image - cannot proceed without one")
         
         # Step 2: Load recent memory
         logger.info("Step 2: Loading recent memory...")
@@ -548,26 +598,33 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
                 logger.warning(f"Failed to fetch weather: {e}")
                 weather_data = {}  # Continue without weather
         
-        # Fetch news articles (40% chance to include in prompt)
-        news_articles = []
-        if random.random() < 0.40:  # 40% chance
-            try:
-                news_articles = get_random_articles(count=2)
-                if news_articles:
-                    # Extract headlines for backward compatibility
-                    news_headlines = [article.get('title', '') for article in news_articles if article.get('title')]
-                    logger.info(f"Fetched news articles: {news_headlines}")
-            except Exception as e:
-                logger.warning(f"Failed to fetch news: {e}")
-                news_articles = []
-        
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
-        # Add news articles to context metadata (full objects with dates, sources, etc.)
-        context_metadata['news_articles'] = news_articles
-        # Also include headlines for backward compatibility
-        context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
         # Mark as unscheduled if this is a manual observation
         context_metadata['is_unscheduled'] = is_unscheduled
+        
+        if news_only:
+            # For news-only, add clusters info to context (multiple clusters)
+            context_metadata['news_clusters'] = list(clusters_info.values())  # List of cluster info dicts
+            context_metadata['news_articles'] = articles  # All articles with cluster tags
+        else:
+            # Fetch news articles (40% chance to include in prompt) - only for image-based observations
+            news_articles = []
+            if random.random() < 0.40:  # 40% chance
+                try:
+                    news_articles = get_random_articles(count=2)
+                    if news_articles:
+                        # Extract headlines for backward compatibility
+                        news_headlines = [article.get('title', '') for article in news_articles if article.get('title')]
+                        logger.info(f"Fetched news articles: {news_headlines}")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch news: {e}")
+                    news_articles = []
+            
+            # Add news articles to context metadata (full objects with dates, sources, etc.)
+            context_metadata['news_articles'] = news_articles
+            # Also include headlines for backward compatibility
+            context_metadata['news_headlines'] = [article.get('title', '') for article in news_articles if article.get('title')]
+        
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
@@ -580,11 +637,80 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         
         # Step 4: Create diary entry
         logger.info("Step 4: Creating diary entry...")
-        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
-        logger.info(f"Diary entry created ({len(diary_entry)} characters)")
+        if news_only:
+            # Use news-based prompt logic (similar to run_news_based_observation)
+            # Format articles with dates and sources, grouped by cluster/topic
+            articles_by_topic = {}
+            for article in articles:
+                cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+                if cluster_topic not in articles_by_topic:
+                    articles_by_topic[cluster_topic] = []
+                articles_by_topic[cluster_topic].append(article)
+            
+            # Format articles text grouped by topic
+            articles_text = []
+            topic_labels = []
+            for topic_label, topic_articles in articles_by_topic.items():
+                topic_labels.append(topic_label)
+                articles_text.append(f"\n**{topic_label}:**")
+                for article in topic_articles:
+                    title = article.get('title', '')
+                    published_at = article.get('published_at', '')
+                    source = article.get('source', '')
+                    sentiment = article.get('sentiment_label', '')
+                    
+                    # Format date if available
+                    date_str = ""
+                    if published_at:
+                        try:
+                            dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                            date_str = f" (published {dt.strftime('%B %d, %Y at %I:%M %p')})"
+                        except Exception:
+                            date_str = f" (published {published_at})"
+                    
+                    source_str = f" from {source}" if source else ""
+                    sentiment_str = f" [{sentiment}]" if sentiment else ""
+                    
+                    articles_text.append(f"- {title}{source_str}{date_str}{sentiment_str}")
+            
+            topics_summary = ", ".join(topic_labels) if len(topic_labels) > 1 else topic_labels[0] if topic_labels else "various topics"
+            
+            # Create news-based prompt
+            news_identity_context = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
+
+            news_prompt_base = f"""{news_identity_context}
+
+You have picked up transmissions about multiple topics: {topics_summary}. The news items you've intercepted are:
+{chr(10).join(articles_text)}
+
+Write a diary entry reflecting on these news items. You can focus on:
+- What you find interesting about these topics from your robotic perspective
+- How they relate to your observations of people and human nature
+- Patterns or behaviors you notice in the news that connect to your window observations
+- Reflections on human activities and motivations
+- Connections between the different topics you've intercepted
+- Memory callbacks to specific past observations when relevant
+- Consider the timing of the news - when these events happened relative to your current observation
+
+Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
+
+            full_prompt = f"""{news_prompt_base}
+
+{optimized_prompt}
+
+Remember: You have picked up transmissions about {topics_summary}. The news items are:
+{chr(10).join(articles_text)}
+
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory."""
+
+            diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata)
+            # full_prompt is already set above for news-only
+        else:
+            diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
+            # Get the full prompt (includes image description) if available
+            full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
         
-        # Get the full prompt (includes image description) if available
-        full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
+        logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Generate simulation markdown file
         logger.info("Step 5: Generating simulation markdown file...")
@@ -612,23 +738,31 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             summary = weather_data.get('summary', 'Unknown')
             context_display.append(f"**Weather:** {summary}, {temp}°F")
         
-        if news_articles:
-            context_display.append(f"**News Articles:** {len(news_articles)} articles included")
+        if news_only:
+            if clusters_info:
+                cluster_summary = ", ".join([f"{info['cluster_id']}: {info['topic_label']}" for info in clusters_info.values()])
+                context_display.append(f"**News Clusters:** {len(clusters_info)} clusters ({cluster_summary})")
+                context_display.append(f"**News Articles:** {len(articles)} articles from multiple topics")
+        else:
+            if context_metadata.get('news_articles'):
+                context_display.append(f"**News Articles:** {len(context_metadata.get('news_articles', []))} articles included")
         
         context_display.append(f"**Memory Count:** {memory_count} total observations")
         context_display.append(f"**Days Since First:** {days_since_first}")
         
-        # Get relative image path for markdown (from simulations/ directory)
-        # Simulations are in PROJECT_ROOT/simulations/, images are in PROJECT_ROOT/images/
-        # So we need ../images/ relative path
-        try:
-            # Get relative path from PROJECT_ROOT
-            image_rel_to_root = image_path.relative_to(PROJECT_ROOT)
-            # Convert to relative path from simulations/ directory
-            image_rel_path = f"../{image_rel_to_root}"
-        except ValueError:
-            # Path is not relative to PROJECT_ROOT, use relative path assuming images/ directory
-            image_rel_path = f"../images/{image_path.name}"
+        # Get relative image path for markdown (from simulations/ directory) - only if not news-only
+        image_rel_path = None
+        if not news_only and image_path:
+            # Simulations are in PROJECT_ROOT/simulations/, images are in PROJECT_ROOT/images/
+            # So we need ../images/ relative path
+            try:
+                # Get relative path from PROJECT_ROOT
+                image_rel_to_root = image_path.relative_to(PROJECT_ROOT)
+                # Convert to relative path from simulations/ directory
+                image_rel_path = f"../{image_rel_to_root}"
+            except ValueError:
+                # Path is not relative to PROJECT_ROOT, use relative path assuming images/ directory
+                image_rel_path = f"../images/{image_path.name}"
         
         # Write markdown file
         with open(sim_path, 'w', encoding='utf-8') as f:
@@ -646,9 +780,12 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             f.write("## Diary Entry\n\n")
             f.write(diary_entry)
             f.write("\n\n")
-            f.write("---\n\n")
-            f.write("## Image\n\n")
-            f.write(f"![Observation Image]({image_rel_path})\n\n")
+            
+            # Only include image section if not news-only
+            if not news_only and image_rel_path:
+                f.write("---\n\n")
+                f.write("## Image\n\n")
+                f.write(f"![Observation Image]({image_rel_path})\n\n")
         
         logger.info(f"✅ Simulation markdown saved to: {sim_path}")
         logger.info("=" * 60)
