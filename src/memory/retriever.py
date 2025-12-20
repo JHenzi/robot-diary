@@ -264,8 +264,17 @@ class HybridMemoryRetriever:
             mem_id = str(memory.get('id'))
             existing = self.collection.get(ids=[mem_id])
             if existing and existing.get('ids') and len(existing['ids']) > 0:
-                logger.debug(f"Memory {mem_id} already exists in ChromaDB, skipping")
-                return True
+                # Check if the existing document is just a placeholder (like "Entry X")
+                existing_docs = existing.get('documents', [])
+                if existing_docs and len(existing_docs) > 0:
+                    existing_doc = existing_docs[0]
+                    # If it's a placeholder, delete and re-add
+                    if existing_doc.strip().startswith("Entry ") and len(existing_doc.strip()) < 20:
+                        logger.debug(f"Memory {mem_id} has placeholder text, updating...")
+                        self.collection.delete(ids=[mem_id])
+                    else:
+                        logger.debug(f"Memory {mem_id} already exists in ChromaDB, skipping")
+                        return True
             
             # Generate embedding
             emb = self.embedding_model.encode(text)

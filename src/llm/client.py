@@ -158,7 +158,6 @@ class GroqClient:
         # Build base template with randomized identity
         from ..llm.prompts import WRITING_INSTRUCTIONS
         randomized_base_template = f"""{randomized_identity}
-
 {WRITING_INSTRUCTIONS}"""
         
         # Directly combine all components into final prompt
@@ -167,20 +166,20 @@ class GroqClient:
         # PERSPECTIVE SHIFT AT TOP - This should rule the whole output when selected
         # Always include (user wants this) - placed early so it dominates the tone
         if perspective_shift:
-            direct_prompt_parts.append(f"\n\n{perspective_shift}")
+            direct_prompt_parts.append(f"\n{perspective_shift}")
         
         # Add context sections
         if context_text:
-            direct_prompt_parts.append(f"\n\nCurrent Context:\n{context_text}")
+            direct_prompt_parts.append(f"\nCurrent Context:\n{context_text}")
         
         if weather_text:
-            direct_prompt_parts.append(f"\n\nWeather Conditions:\n{weather_text}")
+            direct_prompt_parts.append(f"\nWeather Conditions:\n{weather_text}")
         
         if news_text:
-            direct_prompt_parts.append(f"\n\n{news_text}")
+            direct_prompt_parts.append(f"\n{news_text}")
         
         if memory_text:
-            direct_prompt_parts.append(f"\n\nMEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):\n{memory_text}")
+            direct_prompt_parts.append(f"\nMEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):\n{memory_text}")
             direct_prompt_parts.append("\nNOTE: Memories are retrieved using a hybrid system that combines:")
             direct_prompt_parts.append("  - Temporal memories: Most recent observations for continuity and day-to-day comparisons")
             direct_prompt_parts.append("  - Semantic memories: Contextually relevant past observations based on current weather, time, and themes")
@@ -188,31 +187,31 @@ class GroqClient:
         
         # Add personality and seasonal notes (always include - user wants these)
         if personality_note:
-            direct_prompt_parts.append(f"\n\n{personality_note}")
+            direct_prompt_parts.append(f"\n{personality_note}")
         
         if seasonal_note:
-            direct_prompt_parts.append(f"\n\n{seasonal_note}")
+            direct_prompt_parts.append(f"\n{seasonal_note}")
         
         # Add variety instructions
         # Reflection instructions: Already randomized in _get_reflection_instructions (30% chance)
         if reflection_instructions:
-            direct_prompt_parts.append(f"\n\n{reflection_instructions}")
+            direct_prompt_parts.append(f"\n{reflection_instructions}")
         
         # Style variation: Always include (user wants this)
         if style_variation:
-            direct_prompt_parts.append(f"\n\n{style_variation}")
+            direct_prompt_parts.append(f"\n{style_variation}")
         
         # Focus instruction: Always include (critical for visual description)
         if focus_instruction:
-            direct_prompt_parts.append(f"\n\n{focus_instruction}")
+            direct_prompt_parts.append(f"\n{focus_instruction}")
         
         # Creative challenge: Already randomized in _get_creative_challenge (60% chance)
         if creative_challenge:
-            direct_prompt_parts.append(f"\n\n{creative_challenge}")
+            direct_prompt_parts.append(f"\n{creative_challenge}")
         
         # Anti-repetition: Always include when available (user wants this)
         if anti_repetition:
-            direct_prompt_parts.append(f"\n\n{anti_repetition}")
+            direct_prompt_parts.append(f"\n{anti_repetition}")
         
         # Combine all parts
         final_prompt = "\n".join(direct_prompt_parts)
@@ -485,7 +484,6 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         
         # Create the full prompt (text-only, no image) - reorganized to prioritize creativity
         full_prompt = f"""{optimized_prompt}
-
 CREATIVE LICENSE: You have permission to be creative, experimental, and surprising. Your unique robotic perspective is an asset - use it to create insights and observations that only you could have. Don't feel constrained by formulaic patterns. This is your diary, your art, your unique voice.
 
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. Please use only this date or dates explicitly mentioned in your memory.
@@ -695,7 +693,6 @@ Provide a comprehensive description that emphasizes dynamic elements and include
         
         # Create the full prompt for creative writing (NO IMAGE - we use the description instead)
         full_prompt = f"""{optimized_prompt}
-
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
 
 OBSERVATION CONTEXT: {narrative_context}
@@ -1378,7 +1375,6 @@ Provide ONLY the summary, no explanation."""
         # Condense: combine first two paragraphs into one shorter version
         # Keep the core essence but make it more concise
         condensed_core = """You are B3N-T5-MNT, a maintenance robot in New Orleans. You perform building maintenance, but find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
-
 You are a curious and compassionate observer of human nature, an Ethnographer. You watch people and try to understand their behaviors, purposes, and connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity."""
         
         # Extract backstory points (bullet points)
@@ -1402,10 +1398,8 @@ You are a curious and compassionate observer of human nature, an Ethnographer. Y
         
         # Build randomized identity
         randomized = f"""{condensed_core}
-
 INTERNAL BACKSTORY (these inform your perspective but are not facts to announce):
 {chr(10).join(selected_backstory)}
-
 {closing_paragraph}"""
         
         logger.info(f"📚 Selected {len(selected_backstory)} of {len(backstory_points)} backstory points")
