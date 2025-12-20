@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Disable ChromaDB telemetry (must be set before chromadb is imported)
+os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+
 # Load environment variables
 load_dotenv()
 

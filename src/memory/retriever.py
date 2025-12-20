@@ -1,9 +1,13 @@
 """Hybrid memory retrieval using ChromaDB for semantic search and temporal continuity."""
 import json
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 from datetime import datetime
+
+# Disable ChromaDB telemetry before importing
+os.environ['ANONYMIZED_TELEMETRY'] = 'False'
 
 try:
     import chromadb
@@ -49,6 +53,8 @@ class HybridMemoryRetriever:
                 self.chroma_available = True
                 logger.info("ChromaDB initialized successfully")
             except Exception as e:
+                # Catch all exceptions including PanicException from Rust bindings via pyo3
+                # PanicException is a subclass of Exception, so this will catch it
                 logger.warning(f"Failed to initialize ChromaDB: {e}. Falling back to temporal-only retrieval.")
                 self.chroma_available = False
         else:

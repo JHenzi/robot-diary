@@ -30,7 +30,10 @@ class MemoryManager:
                 from .retriever import HybridMemoryRetriever
                 self._hybrid_retriever = HybridMemoryRetriever(memory_file=self.memory_file)
             except Exception as e:
+                # Catch all exceptions (including PanicException from Rust bindings via pyo3)
+                # This ensures fallback always works even if ChromaDB fails catastrophically
                 logger.warning(f"Failed to initialize hybrid retriever: {e}")
+                logger.info("Falling back to temporal-only memory retrieval (ChromaDB unavailable)")
                 self._hybrid_retriever = None
         return self._hybrid_retriever
     

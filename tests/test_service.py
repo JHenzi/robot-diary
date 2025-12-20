@@ -186,7 +186,8 @@ class TestServiceNextScheduledTime:
              patch('src.service.get_context_metadata') as mock_context, \
              patch('src.service.generate_dynamic_prompt', return_value="Mock prompt"), \
              patch('src.service.create_diary_entry', return_value=mock_diary_entry), \
-             patch('src.service.PirateWeatherClient'):
+             patch('src.service.PirateWeatherClient'), \
+             patch('src.memory.manager.MemoryManager._get_hybrid_retriever', return_value=None):
             
             mock_llm_client = Mock()
             mock_llm_client.generate_prompt.return_value = "Mock prompt"
@@ -241,7 +242,8 @@ class TestServiceNextScheduledTime:
              patch('src.service.get_context_metadata') as mock_context, \
              patch('src.service.get_random_cluster') as mock_cluster, \
              patch('src.service.get_cluster_articles') as mock_articles, \
-             patch('src.service.PirateWeatherClient'):
+             patch('src.service.PirateWeatherClient'), \
+             patch.object(MemoryManager, '_get_hybrid_retriever', return_value=None):
             
             mock_llm_client = Mock()
             mock_llm_client.generate_prompt.return_value = "Mock prompt"

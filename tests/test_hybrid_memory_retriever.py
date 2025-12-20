@@ -215,8 +215,11 @@ class TestHybridMemoryRetriever:
             # Mock the collection and embedding model (needed for the check)
             mock_collection = MagicMock()
             mock_embedding_model = MagicMock()
-            # Mock that memory already exists
-            mock_collection.get.return_value = {'ids': ['6']}
+            # Mock that memory already exists with a real document (not a placeholder)
+            mock_collection.get.return_value = {
+                'ids': ['6'],
+                'documents': ['A new observation']  # Non-placeholder text
+            }
             
             retriever.collection = mock_collection
             retriever.embedding_model = mock_embedding_model
