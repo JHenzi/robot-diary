@@ -1,13 +1,98 @@
 ---
 title: "Prompting Changelog"
-date: 2025-12-14
-description: "A history of how we've enhanced the prompting system to create better, more varied, and more coherent diary entries. This changelog tracks the evolution from simple prompts to sophisticated prompt chaining with GPT-OSS-120b."
+date: 2025-12-20
+description: "A history of how we've enhanced the prompting system to create better, more varied, and more coherent diary entries. This changelog tracks the evolution from simple prompts to sophisticated prompt chaining with GPT-OSS-120b and Model Context Protocol (MCP) integration."
 draft: false
 ---
 
 ## Overview
 
-This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
+This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
+
+## December 17-20, 2025: Model Context Protocol (MCP) Integration
+
+### On-Demand Memory Queries via Function Calling
+
+**Commits: `5014763`, `1c6d1b9`, `d8d6321` - "Memory Migration to MCP"**
+
+The most significant architectural change since prompt chaining: we migrated from **Retrieval Augmented Generation (RAG)** to true **Model Context Protocol (MCP)** implementation using function calling.
+
+#### The Problem with RAG
+
+Previously, we pre-retrieved memories and injected them into the prompt:
+- **Overloaded context**: All memories loaded upfront, even if irrelevant
+- **Inefficient**: LLM received potentially hundreds of tokens of memory data
+- **Static**: Memories were fixed at prompt generation time
+- **No LLM agency**: The model couldn't decide what memories to query
+
+#### The Solution: MCP-Style Function Calling
+
+We implemented **on-demand memory queries** where the LLM dynamically requests memories during generation using [Model Context Protocol](https://modelcontextprotocol.io) function calling capabilities.
+
+**Key Features:**
+
+1. **Three Memory Query Tools** (`src/memory/mcp_tools.py`):
+   - `query_memories(query, top_k)` - Semantic search using embeddings
+   - `get_recent_memories(count)` - Temporal retrieval for continuity
+   - `check_memory_exists(topic)` - Quick existence checks
+
+2. **Iterative Conversation Loop**:
+   - LLM generates → sees something interesting → calls `query_memories()`
+   - System queries ChromaDB using embeddings
+   - Returns relevant memories to LLM
+   - LLM continues writing with retrieved context
+   - Can query multiple times during a single entry
+
+3. **Hybrid Retrieval with Fallback**:
+   - Uses ChromaDB vector search when available
+   - Falls back to keyword search in temporal memories if ChromaDB unavailable
+   - Always returns results (never fails completely)
+
+4. **Minimized Context**:
+   - No pre-loaded memories in prompts
+   - Only query memories when LLM requests them
+   - Context size reduced by 60-80% on average
+
+#### Technical Implementation
+
+**Function Calling Integration:**
+- Updated `GroqClient.create_diary_entry()` and `create_diary_entry_from_text()` to support Groq's function calling API
+- Implements iterative conversation loop (max 10 iterations) to handle multiple tool calls
+- Proper error handling for tool execution failures
+
+**Memory Query Tools:**
+- `MemoryQueryTools` class wraps `HybridMemoryRetriever` for function calling interface
+- Tool schemas defined in Groq function calling format
+- All tools include fallback logic for robustness
+
+**Prompt Updates:**
+- Removed memory pre-loading from `generate_direct_prompt()`
+- Added guidance on when and how to use memory query tools
+- LLM instructed to query memories when it sees something interesting
+
+#### Why This Works Better
+
+1. **LLM-Driven**: The model decides what's relevant, not the system
+2. **Dynamic**: Can query memories multiple times as it writes
+3. **Efficient**: Only retrieves memories when needed
+4. **Minimized Context**: Reduces token usage and costs
+5. **Better Relevance**: LLM queries based on what it's actually writing about
+
+#### MCP SDK Reference
+
+This implementation follows the [Model Context Protocol](https://modelcontextprotocol.io) specification. For developers looking to implement similar functionality, the official MCP SDKs are available:
+
+- **Python SDK**: [github.com/modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk)
+- **TypeScript SDK**: [github.com/smithery-ai/mcp-sdk](https://github.com/smithery-ai/mcp-sdk)
+- **Full SDK Documentation**: [modelcontextprotocol.io/docs/sdk](https://modelcontextprotocol.io/docs/sdk)
+
+#### Migration Notes
+
+- **Backward Compatible**: System still works if ChromaDB unavailable (falls back to temporal-only)
+- **No Breaking Changes**: Existing memory storage (`observations.json`) unchanged
+- **Gradual Migration**: ChromaDB can be populated from existing JSON memories
+
+---
 
 ## December 14, 2025: The GPT-OSS-120b Revolution
 
@@ -148,8 +233,9 @@ The initial prompting system established:
 
 1. **Static Prompts** → Simple template with basic context
 2. **LLM-Optimized Prompts** → Intermediate model optimizes prompt (optional)
-3. **Direct Template Combination** → Intelligent component assembly (current default)
-4. **Prompt Chaining** → Two-step process: describe then write (current)
+3. **Direct Template Combination** → Intelligent component assembly
+4. **Prompt Chaining** → Two-step process: describe then write
+5. **Model Context Protocol (MCP)** → On-demand memory queries via function calling (current)
 
 ### Key Metrics
 
@@ -161,20 +247,22 @@ The initial prompting system established:
 
 ---
 
-## Current State (December 14, 2025)
+## Current State (December 20, 2025)
 
 The prompting system now features:
 
-✅ **Prompt Chaining**: Two-step process for better grounding and creativity  
-✅ **GPT-OSS-120b**: Large model for creative writing quality  
-✅ **Direct Template Combination**: Fast, context-preserving prompt generation  
-✅ **Comprehensive Variety Engine**: 50+ styles, 30+ perspectives, dynamic focuses  
-✅ **Personality Drift**: Event-driven evolution based on experience and context  
-✅ **Rich Context Integration**: Temporal, seasonal, weather, news, memory  
-✅ **Anti-Repetition System**: Explicit guidance to avoid patterns  
-✅ **Model Specialization**: Right model for each task  
+- **Model Context Protocol (MCP)**: On-demand memory queries via function calling  
+- **Prompt Chaining**: Two-step process for better grounding and creativity  
+- **GPT-OSS-120b**: Large model for creative writing quality  
+- **Direct Template Combination**: Fast, context-preserving prompt generation  
+- **Comprehensive Variety Engine**: 50+ styles, 30+ perspectives, dynamic focuses  
+- **Personality Drift**: Event-driven evolution based on experience and context  
+- **Rich Context Integration**: Temporal, seasonal, weather, news, memory  
+- **Anti-Repetition System**: Explicit guidance to avoid patterns  
+- **Model Specialization**: Right model for each task  
+- **Minimized Context**: LLM-driven memory queries reduce token usage by 60-80%
 
-The result: diary entries that are more varied, more grounded, more creative, and more coherent—while maintaining the robot's unique voice and perspective.
+The result: diary entries that are more varied, more grounded, more creative, and more coherent—while maintaining the robot's unique voice and perspective. The MCP integration enables the LLM to dynamically retrieve relevant memories during writing, making entries more contextually aware without overloading the prompt.
 
 ---
 

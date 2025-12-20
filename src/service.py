@@ -904,12 +904,17 @@ def main():
                     current_time = datetime.now(LOCATION_TZ)
                     current_hour = current_time.hour
                     manual_obs_type = "morning" if 5 <= current_hour < 12 else "evening"
-                    run_observation_cycle(observation_type=manual_obs_type)
+                    # Pass is_unscheduled=True so the schedule is preserved
+                    run_observation_cycle(observation_type=manual_obs_type, is_unscheduled=True)
                     
-                    # Schedule next observation
-                    next_time, obs_type = get_next_observation_time(current_time)
-                    memory_manager.save_next_scheduled_time(next_time, obs_type)
-                    logger.info(f"✅ Manual observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
+                    # Preserve existing schedule - don't recalculate for manual observations
+                    scheduled_info = memory_manager.get_next_scheduled_time()
+                    if scheduled_info and scheduled_info.get('datetime'):
+                        next_time = datetime.fromisoformat(scheduled_info['datetime']).astimezone(LOCATION_TZ)
+                        obs_type = scheduled_info.get('type', 'evening')
+                        logger.info(f"✅ Manual observation completed. Next scheduled: {get_observation_schedule_summary(next_time, obs_type)}")
+                    else:
+                        logger.info("✅ Manual observation completed. (No scheduled observation set)")
                 except Exception as e:
                     logger.error(f"Manual observation failed: {e}", exc_info=True)
                 continue
