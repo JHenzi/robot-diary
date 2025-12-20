@@ -264,17 +264,6 @@ The prompting system now features:
 
 The result: diary entries that are more varied, more grounded, more creative, and more coherent—while maintaining the robot's unique voice and perspective. The MCP integration enables the LLM to dynamically retrieve relevant memories during writing, making entries more contextually aware without overloading the prompt.
 
----
-
-## Future Enhancements
-
-Potential areas for further improvement:
-
-- **Multi-turn refinement**: Allow the writing model to refine its output
-- **Style consistency**: Track and maintain style preferences over time
-- **Thematic continuity**: Better tracking of recurring themes and motifs
-- **Interactive elements**: Allow the robot to "remember" reader feedback
-- **Advanced memory**: More sophisticated memory retrieval and integration
 
 ---
 
