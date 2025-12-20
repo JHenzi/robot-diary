@@ -38,7 +38,7 @@ The robot remembers past observations using a **Model Context Protocol (MCP)** i
   - `get_recent_memories(count)`: Temporal retrieval for continuity and day-to-day comparisons
   - `check_memory_exists(topic)`: Quick existence checks before full queries
 - **Hybrid Retrieval**: Uses ChromaDB vector search when available, with fallback to temporal keyword search
-- **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)) into 200-400 character summaries that preserve:
+- **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant)) into 200-400 character summaries that preserve:
   - Key visual details
   - Emotional tone
   - Notable events or patterns
@@ -67,10 +67,10 @@ To prevent repetitive, formulaic entries, each prompt includes randomly selected
 
 We use a **two-step, multi-model approach** for efficiency and quality:
 
-1. **Image Description** ([`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/)): Vision model provides a detailed, factual description of what's in the image (Step 1)
-2. **Memory Summarization** ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)): Cheap model distills each observation into a context-preserving summary
+1. **Image Description** ([`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct)): Vision model provides a detailed, factual description of what's in the image (Step 1)
+2. **Memory Summarization** ([`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant)): Cheap model distills each observation into a context-preserving summary
 3. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
-4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/), but can be upgraded to [`openai/gpt-oss-120b`](https://groq.com/models/openai/gpt-oss-120b/) for richer, more nuanced storytelling (Step 2)
+4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct), but can be upgraded to [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) for richer, more nuanced storytelling (Step 2)
 
 **Why Two Steps?** By separating image description from creative writing, we:
 - **Reduce Hallucination**: The writing model works from concrete facts, not trying to interpret images directly
@@ -187,9 +187,9 @@ The output is diary entries that:
 
 - **[Python](https://www.python.org/)**: Core automation
 - **[Groq API](https://groq.com/)**: Multi-model LLM inference
-  - [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/): Vision model for image description (Step 1)
-  - [`openai/gpt-oss-120b`](https://groq.com/models/openai/gpt-oss-120b/) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
-  - [`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/): Memory summarization
+  - [`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct): Vision model for image description (Step 1)
+  - [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
+  - [`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant): Memory summarization
 - **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: On-demand memory queries via function calling
   - Memory MCP: Semantic and temporal memory retrieval
   - Additional MCPs in development (Bible MCP and others)
