@@ -20,7 +20,7 @@ class TestServiceNextScheduledTime:
             yield Path(tmpdir)
     
     @pytest.fixture
-    def mock_memory_manager(self, temp_dir):
+    def mock_memory_manager(self, temp_dir, monkeypatch):
         """Create a MemoryManager with temp directory."""
         memory_file = temp_dir / 'observations.json'
         schedule_file = temp_dir / 'schedule.json'
@@ -29,6 +29,8 @@ class TestServiceNextScheduledTime:
         with patch('src.memory.manager.MEMORY_FILE', memory_file), \
              patch('src.memory.manager.SCHEDULE_FILE', schedule_file):
             manager = MemoryManager()
+            # Mock hybrid retriever to prevent ChromaDB initialization in tests
+            monkeypatch.setattr(manager, '_get_hybrid_retriever', lambda: None)
             yield manager
     
     @pytest.fixture
@@ -61,7 +63,8 @@ class TestServiceNextScheduledTime:
              patch('src.service.get_context_metadata') as mock_context, \
              patch('src.service.generate_dynamic_prompt', return_value="Mock prompt"), \
              patch('src.service.create_diary_entry', return_value=mock_diary_entry), \
-             patch('src.service.PirateWeatherClient'):
+             patch('src.service.PirateWeatherClient'), \
+             patch('src.memory.manager.MemoryManager._get_hybrid_retriever', return_value=None):
             
             # Set up mocks
             mock_llm_client = Mock()

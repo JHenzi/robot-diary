@@ -194,15 +194,17 @@ class MemoryManager:
             logger.debug("Hybrid retriever not available, using temporal memories only")
             recent = self.get_recent_memory(count=recent_count)
             # Format to match hybrid retriever output format
-            return [
+            # Reverse to get most recent first (get_recent_memory returns oldest to newest in slice)
+            formatted = [
                 {
                     'id': m.get('id'),
                     'date': m.get('date'),
                     'text': m.get('llm_summary') or m.get('summary') or m.get('content', ''),
                     'source': 'temporal'
                 }
-                for m in recent
+                for m in reversed(recent)  # Reverse to get most recent first
             ]
+            return formatted
     
     def _clean_old_entries(self, memory: List[Dict]) -> List[Dict]:
         """Remove entries older than retention period."""

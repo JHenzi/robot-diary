@@ -659,7 +659,7 @@ def get_context_metadata(weather_data: Dict = None, observation_type: str = None
 def format_context_for_prompt(metadata: Dict) -> str:
     """
     Format context metadata as a readable string for prompts.
-    Intelligently includes relevant context (holidays, moon events, etc.).
+    Streamlined to avoid repetition - combines date, season, and time context efficiently.
     
     Args:
         metadata: Context metadata dictionary
@@ -669,8 +669,13 @@ def format_context_for_prompt(metadata: Dict) -> str:
     """
     parts = []
     
-    # Date/Time
-    parts.append(f"Today is {metadata['day_of_week']}, {metadata['date']} at {metadata['time']} {metadata['timezone']}")
+    # Streamlined date/time/season (combined to avoid repetition)
+    date_time_season = f"{metadata['day_of_week']}, {metadata['date']} at {metadata['time']} {metadata['timezone']} - {metadata['season']} {metadata['time_of_day']}"
+    if metadata['is_weekend']:
+        date_time_season += " (weekend)"
+    else:
+        date_time_season += " (weekday)"
+    parts.append(date_time_season)
     
     # Holidays (high priority - include if present)
     if metadata.get('is_holiday') and metadata.get('holidays'):
@@ -694,17 +699,12 @@ def format_context_for_prompt(metadata: Dict) -> str:
             weeks = days // 7
             parts.append(f"{name} is in {days} days (about {weeks} weeks away)")
     
-    # Season
-    parts.append(f"It is {metadata['season']} ({metadata['time_of_day']})")
-    
     # Moon phase - only include key events (full/new moon) or if it's a special event
     moon = metadata.get('moon')
     if moon and moon.get('is_key_event'):
         moon_event = moon.get('moon_event')
         if moon_event:
             parts.append(f"A {moon_event} is visible")
-        else:
-            parts.append(f"The moon is in {moon.get('phase_name')} phase")
     
     # Astronomical events (solstices, equinoxes)
     if metadata.get('is_equinox') or metadata.get('is_solstice'):
@@ -712,47 +712,30 @@ def format_context_for_prompt(metadata: Dict) -> str:
         if event_name:
             parts.append(f"Today is the {event_name}")
     
-    # Sunrise/Sunset context (if available and relevant)
+    # Sunrise/Sunset context (if available and relevant) - only notable times
     sun = metadata.get('sun')
     if sun:
         if sun.get('is_daytime'):
             hours_since = sun.get('hours_since_sunrise')
             if hours_since is not None and hours_since < 2:
                 parts.append("The sun rose recently")
-            elif hours_since is not None and hours_since > 10:
-                parts.append("The sun has been up for many hours")
         else:
-            # It's nighttime - check hours since sunset
             hours_since_sunset = sun.get('hours_since_sunset')
-            if hours_since_sunset is not None:
-                if hours_since_sunset < 2:
-                    parts.append("The sun set recently")
-                elif hours_since_sunset < 6:
-                    parts.append(f"The sun set {int(hours_since_sunset)} hours ago")
+            if hours_since_sunset is not None and hours_since_sunset < 2:
+                parts.append("The sun set recently")
     
-    # Seasonal progress (if in middle or late season)
+    # Seasonal progress (only if notable - late season approaching next)
     season_progress = metadata.get('season_progress')
     days_until_next = metadata.get('days_until_next_season')
-    if season_progress in ['middle', 'late'] and days_until_next is not None:
-        if days_until_next < 30:
-            weeks = days_until_next // 7
-            if weeks > 0:
-                parts.append(f"We're in the {season_progress} of {metadata['season']}, with the next season {weeks} weeks away")
-            else:
-                parts.append(f"We're in the {season_progress} of {metadata['season']}, with the next season {days_until_next} days away")
-    
-    # Weekend/Weekday
-    if metadata['is_weekend']:
-        parts.append("It is a weekend")
-    else:
-        parts.append("It is a weekday")
+    if season_progress == 'late' and days_until_next is not None and days_until_next < 14:
+        parts.append(f"Late {metadata['season']}, next season in {days_until_next} days")
     
     # Observation type context
     obs_type = metadata.get('observation_type', 'evening')
     if obs_type == 'morning':
-        parts.append("This is a morning observation - the robot is performing its scheduled health scan and looking out the window, excited to see people starting their day")
+        parts.append("Morning observation - scheduled health scan")
     else:
-        parts.append("This is an evening observation - the robot is reflecting on what people have been doing throughout the day or what they are doing this night")
+        parts.append("Evening observation - reflecting on the day")
     
     return ". ".join(parts) + "."
 

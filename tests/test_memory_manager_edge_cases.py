@@ -18,7 +18,7 @@ class TestMemoryManagerEdgeCases:
             yield Path(tmpdir)
     
     @pytest.fixture
-    def memory_manager(self, temp_memory_dir):
+    def memory_manager(self, temp_memory_dir, monkeypatch):
         """Create MemoryManager with temp directory."""
         memory_file = temp_memory_dir / 'observations.json'
         schedule_file = temp_memory_dir / 'schedule.json'
@@ -26,6 +26,9 @@ class TestMemoryManagerEdgeCases:
         from src.memory.manager import MemoryManager
         manager = MemoryManager()
         manager.memory_file = memory_file
+        
+        # Mock hybrid retriever to prevent ChromaDB initialization in tests
+        monkeypatch.setattr(manager, '_get_hybrid_retriever', lambda: None)
         
         with patch('src.memory.manager.SCHEDULE_FILE', schedule_file):
             yield manager

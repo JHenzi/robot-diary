@@ -7,11 +7,15 @@ from datetime import datetime
 
 try:
     import chromadb
-    from chromadb.config import Settings
+    try:
+        from chromadb.config import Settings  # Old API
+    except ImportError:
+        Settings = None  # New API doesn't need Settings
     from sentence_transformers import SentenceTransformer
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
+    Settings = None
     logging.warning("ChromaDB or sentence-transformers not available. Semantic search will be disabled.")
 
 from ..config import MEMORY_DIR
@@ -58,12 +62,21 @@ class HybridMemoryRetriever:
         # Ensure chroma_db directory exists
         CHROMA_DB_PATH.mkdir(parents=True, exist_ok=True)
         
-        # Initialize ChromaDB client with persistent storage
-        settings = Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=str(CHROMA_DB_PATH)
-        )
-        self.client = chromadb.Client(settings)
+        # Initialize ChromaDB client with persistent storage (new API)
+        try:
+            # Try new API first (ChromaDB 0.4+)
+            self.client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+        except (AttributeError, TypeError):
+            # Fallback to old API for compatibility
+            try:
+                settings = Settings(
+                    chroma_db_impl="duckdb+parquet",
+                    persist_directory=str(CHROMA_DB_PATH)
+                )
+                self.client = chromadb.Client(settings)
+            except Exception as e:
+                logger.error(f"Failed to initialize ChromaDB with either API: {e}")
+                raise
         
         # Get or create collection
         self.collection = self.client.get_or_create_collection(
@@ -255,7 +268,12 @@ class HybridMemoryRetriever:
                 return True
             
             # Generate embedding
-            emb = self.embedding_model.encode(text).tolist()
+            emb = self.embedding_model.encode(text)
+            # Convert to list if it's a numpy array
+            if hasattr(emb, 'tolist'):
+                emb = emb.tolist()
+            elif not isinstance(emb, list):
+                emb = list(emb)
             
             # Add to ChromaDB
             self.collection.add(

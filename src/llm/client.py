@@ -180,7 +180,11 @@ class GroqClient:
             direct_prompt_parts.append(f"\n\n{news_text}")
         
         if memory_text:
-            direct_prompt_parts.append(f"\n\nRecent observations from the robot's memory:\n{memory_text}")
+            direct_prompt_parts.append(f"\n\nMEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):\n{memory_text}")
+            direct_prompt_parts.append("\nNOTE: Memories are retrieved using a hybrid system that combines:")
+            direct_prompt_parts.append("  - Temporal memories: Most recent observations for continuity and day-to-day comparisons")
+            direct_prompt_parts.append("  - Semantic memories: Contextually relevant past observations based on current weather, time, and themes")
+            direct_prompt_parts.append("  - Use both types to enrich your observations and maintain narrative continuity")
         
         # Add personality and seasonal notes (always include - user wants these)
         if personality_note:
@@ -372,8 +376,13 @@ Weather Conditions:
 
 {news_text}
 
-Recent observations from the robot's memory:
+MEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):
 {memory_text}
+
+NOTE: These memories are retrieved using a hybrid system that combines:
+- Temporal memories: Most recent observations for continuity and day-to-day comparisons
+- Semantic memories: Contextually relevant past observations based on current weather, time, and themes
+- Use both types to enrich your observations and maintain narrative continuity
 
 {personality_note}
 
@@ -396,7 +405,7 @@ Base prompt template:
 
 Your task: Generate an optimized, context-aware prompt that focuses on WRITING INSTRUCTIONS and OBSERVATION GUIDANCE, not on explaining the robot's identity:
 
-1. References the current date, time, and season when relevant
+1. References the current date, time, and season when relevant (streamlined - avoid repeating the same information)
 2. Incorporates weather observations (especially notable conditions like high winds, precipitation, etc.)
 3. References specific recent observations when relevant - encourage the robot to call back to previous diary entries by observation number or date
 4. Maintains narrative continuity and builds on previous observations
@@ -408,6 +417,8 @@ Your task: Generate an optimized, context-aware prompt that focuses on WRITING I
 10. Incorporates the personality traits and seasonal mood noted above
 11. If news headlines are provided, encourage the robot to casually reference them as if it overheard them on a news broadcast or from people passing by - this should feel natural and contextual, not forced
 12. Focuses on WHAT to observe and HOW to reflect, not on explaining who the robot is or what its job is
+13. Guides the robot to use temporal memories for continuity comparisons (morning vs night, day-to-day changes) and semantic memories for contextually relevant connections
+14. If MCP tools or function calling capabilities are available, the robot can use them to dynamically retrieve additional memories or context as needed during writing
 
 Note: 
 - The robot should avoid inventing or hallucinating dates. The robot should only reference the current date (provided in the context above) or dates explicitly mentioned in its memory.
@@ -486,8 +497,21 @@ Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked
 - How the news relates to your observations of people and human nature
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
-- Memory callbacks to specific past observations when relevant
+- Memory callbacks to specific past observations when relevant (use observation numbers or dates)
 - Creative insights and unexpected perspectives only you could have
+- Temporal comparisons: if you have both morning and evening observations, compare how things change throughout the day
+
+TEMPORAL COMPARISON GUIDANCE:
+- Compare this observation with recent temporal memories to notice changes over time
+- If you have both morning and evening observations, note how the scene transforms
+- Reference specific observation numbers or dates when making comparisons
+- Look for patterns, cycles, or notable differences from previous observations
+
+MEMORY RETRIEVAL NOTES:
+- Memories are provided from a hybrid retrieval system combining temporal (recent) and semantic (contextually relevant) sources
+- Temporal memories marked [Temporal] are for continuity and day-to-day comparisons
+- Semantic memories marked [Semantic] are retrieved based on current context (weather, time, themes)
+- If MCP tools or function calling capabilities are available, you can use them to dynamically retrieve additional memories during writing
 
 Important reminders:
 1. Please avoid making up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory.
@@ -687,6 +711,20 @@ YOUR TASK: Based on the factual description above, write a diary entry that:
 - Adds your robotic perspective, reflections, and interpretations
 - Connects what you see to your memories, the news, weather, and context
 - Maintains your unique voice and personality
+- Uses temporal memories for continuity comparisons (compare morning vs night observations, day-to-day changes)
+- Uses semantic memories for contextually relevant connections (similar weather, themes, activities)
+
+TEMPORAL COMPARISON GUIDANCE:
+- If you have both morning and evening observations in your memory, compare how the scene transforms throughout the day
+- Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
+- Look for patterns, cycles, or notable differences from previous observations
+- Note how weather, lighting, or activity levels change between observations
+
+MEMORY RETRIEVAL NOTES:
+- Memories are provided from a hybrid retrieval system combining temporal (recent) and semantic (contextually relevant) sources
+- Temporal memories marked [Temporal] are for continuity and day-to-day comparisons
+- Semantic memories marked [Semantic] are retrieved based on current context (weather, time, themes)
+- If MCP tools or function calling capabilities are available, you can use them to dynamically retrieve additional memories during writing
 
 CRITICAL RULES:
 1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
@@ -784,12 +822,18 @@ Provide ONLY the summary, no explanation."""
             return observation_content[:200] + '...' if len(observation_content) > 200 else observation_content
     
     def _format_memory_for_prompt_gen(self, recent_memory: list[dict]) -> str:
-        """Format memory entries for prompt generation with better context for callbacks."""
+        """
+        Format memory entries for prompt generation with annotations for temporal vs semantic retrieval.
+        Helps the robot understand which memories are for continuity vs relevance.
+        """
         if not recent_memory:
             return "No recent observations. This is the robot's first observation."
 
         formatted = []
-        for entry in recent_memory[-5:]:  # Last 5 entries
+        temporal_memories = []
+        semantic_memories = []
+        
+        for entry in recent_memory:
             entry_id = entry.get('id', '?')
             date = entry.get('date', 'Unknown date')
             # Try to parse ISO date for better formatting
@@ -806,9 +850,40 @@ Provide ONLY the summary, no explanation."""
             else:
                 # Old format: prefer llm_summary if available, fallback to summary, then content
                 summary = entry.get('llm_summary') or entry.get('summary') or entry.get('content', '')[:200]
-            # Include key details that might be referenced
-            formatted.append(f"Observation #{entry_id} ({formatted_date}):\n{summary}")
-
+            
+            # Annotate by source (temporal vs semantic)
+            source = entry.get('source', 'temporal')  # Default to temporal for backward compatibility
+            memory_entry = {
+                'id': entry_id,
+                'date': formatted_date,
+                'summary': summary,
+                'source': source
+            }
+            
+            if source == 'semantic':
+                semantic_memories.append(memory_entry)
+            else:
+                temporal_memories.append(memory_entry)
+        
+        # Format with clear annotations
+        if temporal_memories:
+            formatted.append("RECENT TEMPORAL MEMORIES (for continuity and temporal comparisons - morning vs night, day-to-day changes):")
+            for mem in temporal_memories:
+                formatted.append(f"  [Temporal] Observation #{mem['id']} ({mem['date']}):\n  {mem['summary']}")
+        
+        if semantic_memories:
+            formatted.append("\nSEMANTICALLY RELEVANT MEMORIES (retrieved based on current context - weather, time, similar themes):")
+            for mem in semantic_memories:
+                formatted.append(f"  [Semantic] Observation #{mem['id']} ({mem['date']}):\n  {mem['summary']}")
+        
+        # Add guidance for temporal comparisons
+        if len(temporal_memories) >= 2:
+            formatted.append("\nTEMPORAL COMPARISON GUIDANCE:")
+            formatted.append("  - Compare this observation with recent temporal memories to notice changes over time")
+            formatted.append("  - If you have both morning and evening observations, note how the scene transforms")
+            formatted.append("  - Reference specific observation numbers or dates when making comparisons")
+            formatted.append("  - Look for patterns, cycles, or notable differences from previous observations")
+        
         return "\n".join(formatted)
     
     def _get_style_variation(self) -> str:

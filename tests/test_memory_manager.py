@@ -17,7 +17,7 @@ class TestMemoryManager:
             yield Path(tmpdir)
     
     @pytest.fixture
-    def memory_manager(self, temp_memory_dir):
+    def memory_manager(self, temp_memory_dir, monkeypatch):
         """Create a MemoryManager instance with temp directory."""
         # Create file paths in temp directory
         memory_file = temp_memory_dir / 'observations.json'
@@ -29,6 +29,9 @@ class TestMemoryManager:
         # Create manager and directly set its file paths
         manager = MemoryManager()
         manager.memory_file = memory_file
+        
+        # Mock hybrid retriever to prevent ChromaDB initialization in tests
+        monkeypatch.setattr(manager, '_get_hybrid_retriever', lambda: None)
         
         # Also patch SCHEDULE_FILE for schedule operations
         with patch('src.memory.manager.SCHEDULE_FILE', schedule_file):
@@ -127,3 +130,28 @@ class TestMemoryManager:
             assert schedule_info is not None
             assert schedule_info['type'] == 'morning'
             assert 'datetime' in schedule_info
+    
+    def test_get_hybrid_memories_fallback(self, memory_manager, temp_memory_dir):
+        """Test that get_hybrid_memories falls back to temporal when ChromaDB unavailable."""
+        # Add multiple observations
+        for i in range(5):
+            image_path = temp_memory_dir / f'test_image_{i}.jpg'
+            image_path.touch()
+            memory_manager.add_observation(image_path, f"Entry {i}")
+        
+        # Get hybrid memories (should fallback to temporal since ChromaDB likely unavailable in tests)
+        memories = memory_manager.get_hybrid_memories(recent_count=3)
+        
+        # Should return memories in expected format
+        assert len(memories) == 3
+        assert all('id' in m for m in memories)
+        assert all('date' in m for m in memories)
+        assert all('text' in m for m in memories)
+        assert all('source' in m for m in memories)
+        
+        # Should be sorted by date (most recent first)
+        # Parse dates and compare as datetime objects for reliable sorting
+        from datetime import datetime
+        dates = [datetime.fromisoformat(m['date'].replace('Z', '+00:00')) for m in memories]
+        sorted_dates = sorted(dates, reverse=True)
+        assert dates == sorted_dates, f"Dates not sorted correctly. Got: {[d.isoformat() for d in dates]}, Expected: {[d.isoformat() for d in sorted_dates]}"
