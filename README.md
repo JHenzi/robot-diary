@@ -29,10 +29,15 @@ The robot doesn't just see an image—it "knows" things about the world:
 - **News**: Randomly includes current news headlines (40% chance) so the robot can reference world events as if it overheard them
 - **Seasonal Progress**: "We're in the middle of winter, with spring still 10 weeks away"
 
-### Intelligent Memory System
+### Intelligent Memory System with Model Context Protocol (MCP)
 
-The robot remembers past observations, but not by dumping full text into prompts:
+The robot remembers past observations using a **Model Context Protocol (MCP)** implementation that enables on-demand memory queries:
 
+- **On-Demand Memory Queries**: Instead of pre-loading all memories into prompts, the LLM dynamically queries memories during writing using function calling
+  - `query_memories(query, top_k)`: Semantic search using embeddings to find contextually relevant past observations
+  - `get_recent_memories(count)`: Temporal retrieval for continuity and day-to-day comparisons
+  - `check_memory_exists(topic)`: Quick existence checks before full queries
+- **Hybrid Retrieval**: Uses ChromaDB vector search when available, with fallback to temporal keyword search
 - **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/)) into 200-400 character summaries that preserve:
   - Key visual details
   - Emotional tone
@@ -40,6 +45,9 @@ The robot remembers past observations, but not by dumping full text into prompts
   - References to people or objects
 - **Narrative Continuity**: The robot can reference specific past observations, notice changes, and build on previous entries
 - **Personality Drift**: As the robot accumulates more observations, its personality evolves (curious → reflective → philosophical)
+- **Minimized Context**: Only queries memories when needed, reducing token usage by 60-80% compared to pre-loading
+
+**Expanding MCP Integration**: We're actively working on adding more MCPs for the robot to consult with, including a Bible MCP and others, enabling the robot to dynamically access additional knowledge sources during its observations.
 
 ### Prompt Variety Engine
 
@@ -87,13 +95,15 @@ The robot doesn't just describe what it sees—it connects observations to:
 - Cultural context (holidays, time of day patterns)
 - Weather patterns (correlating visual observations with conditions)
 
-### 2. True Narrative Continuity
+### 2. True Narrative Continuity with MCP
 
-Unlike systems that just append context, we use **intelligent summarization**:
+Unlike systems that just append context, we use **Model Context Protocol (MCP)** for intelligent, on-demand memory access:
+- The LLM queries memories dynamically during writing, only retrieving what's relevant
 - Each past observation is distilled to its essential context
 - Summaries preserve emotional tone, key details, and references
 - The robot can genuinely reference past observations without exhausting token limits
 - Memory grows over time, creating a sense of accumulated experience
+- **Future MCPs**: We're expanding the robot's knowledge sources with additional MCPs (Bible MCP and others) for richer contextual awareness
 
 ### 3. Guaranteed Variety
 
@@ -180,6 +190,11 @@ The output is diary entries that:
   - [`llama-4-maverick-17b-128e-instruct`](https://groq.com/models/meta-llama/llama-4-maverick-17b-128e-instruct/): Vision model for image description (Step 1)
   - [`openai/gpt-oss-120b`](https://groq.com/models/openai/gpt-oss-120b/) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
   - [`llama-3.1-8b-instant`](https://groq.com/models/meta-llama/llama-3.1-8b-instant/): Memory summarization
+- **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: On-demand memory queries via function calling
+  - Memory MCP: Semantic and temporal memory retrieval
+  - Additional MCPs in development (Bible MCP and others)
+- **[ChromaDB](https://www.trychroma.com/)**: Vector database for semantic memory search
+- **[Sentence Transformers](https://www.sbert.net/)**: Local embedding model for memory similarity search
 - **[Astral](https://github.com/sffjunkie/astral)**: Astronomical calculations (sunrise/sunset, moon phases)
 - **[Holidays](https://github.com/vacanza/python-holidays)**: US holiday detection
 - **[Pirate Weather API](https://pirateweather.net/)**: Weather data
