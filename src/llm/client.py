@@ -787,7 +787,7 @@ Provide ONLY the summary, no explanation."""
         """Format memory entries for prompt generation with better context for callbacks."""
         if not recent_memory:
             return "No recent observations. This is the robot's first observation."
-        
+
         formatted = []
         for entry in recent_memory[-5:]:  # Last 5 entries
             entry_id = entry.get('id', '?')
@@ -799,11 +799,16 @@ Provide ONLY the summary, no explanation."""
                 formatted_date = dt.strftime('%B %d, %Y')
             except:
                 formatted_date = date
-            # Prefer llm_summary if available, fallback to summary, then content
-            summary = entry.get('llm_summary') or entry.get('summary') or entry.get('content', '')[:200]
+            # Handle both hybrid retriever format (has 'text') and old format
+            if 'text' in entry:
+                # Hybrid retriever format
+                summary = entry.get('text', '')
+            else:
+                # Old format: prefer llm_summary if available, fallback to summary, then content
+                summary = entry.get('llm_summary') or entry.get('summary') or entry.get('content', '')[:200]
             # Include key details that might be referenced
             formatted.append(f"Observation #{entry_id} ({formatted_date}):\n{summary}")
-        
+
         return "\n".join(formatted)
     
     def _get_style_variation(self) -> str:

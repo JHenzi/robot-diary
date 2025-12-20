@@ -121,11 +121,9 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
             logger.info(f"   - {cluster_id}: {info['topic_label']} ({len(info['articles'])} articles)")
         logger.info(f"Headlines: {headlines}")
         
-        # Step 2: Load recent memory
-        logger.info("Step 2: Loading recent memory...")
-        recent_memory = memory_manager.get_recent_memory(count=10)
+        # Step 2: Get memory statistics (before loading full memories)
+        logger.info("Step 2: Getting memory statistics...")
         memory_count = memory_manager.get_total_count()
-        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
         # Calculate days since first observation
         days_since_first = 0
@@ -160,6 +158,15 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
+        
+        # Step 2.6: Load hybrid memories (temporal + semantic)
+        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
+        recent_memory = memory_manager.get_hybrid_memories(
+            recent_count=5,  # Always include 5 most recent for continuity
+            semantic_top_k=5,  # Plus 5 semantically relevant
+            context_metadata=context_metadata
+        )
+        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
         
         # Step 3: Generate dynamic prompt with news context
         logger.info("Step 3: Generating dynamic prompt for news-based observation...")
@@ -351,11 +358,9 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
             # Fall back to news-based observation
             return run_news_based_observation(dry_run=False, observation_type=observation_type)
         
-        # Step 2: Load recent memory
-        logger.info("Step 2: Loading recent memory...")
-        recent_memory = memory_manager.get_recent_memory(count=10)
+        # Step 2: Get memory statistics (before loading full memories)
+        logger.info("Step 2: Getting memory statistics...")
         memory_count = memory_manager.get_total_count()
-        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
         # Calculate days since first observation
         days_since_first = 0
@@ -406,6 +411,15 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         logger.info(f"Context: {context_metadata['day_of_week']}, {context_metadata['date']} at {context_metadata['time']} ({context_metadata['season']} {context_metadata['time_of_day']}, {context_metadata['observation_type']} observation)")
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
+        
+        # Step 2.6: Load hybrid memories (temporal + semantic)
+        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
+        recent_memory = memory_manager.get_hybrid_memories(
+            recent_count=5,  # Always include 5 most recent for continuity
+            semantic_top_k=5,  # Plus 5 semantically relevant
+            context_metadata=context_metadata
+        )
+        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
         
         # Step 3: Generate dynamic prompt
         logger.info("Step 3: Generating dynamic prompt...")
@@ -566,11 +580,9 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
                 logger.error(f"Failed to fetch new image: {e}")
                 raise Exception("Simulation requires an image - cannot proceed without one")
         
-        # Step 2: Load recent memory
-        logger.info("Step 2: Loading recent memory...")
-        recent_memory = memory_manager.get_recent_memory(count=10)
+        # Step 2: Get memory statistics (before loading full memories)
+        logger.info("Step 2: Getting memory statistics...")
         memory_count = memory_manager.get_total_count()
-        logger.info(f"Loaded {len(recent_memory)} recent observations (total: {memory_count})")
         
         # Calculate days since first observation
         days_since_first = 0
@@ -601,6 +613,15 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         context_metadata = get_context_metadata(weather_data, observation_type=observation_type)
         # Mark as unscheduled if this is a manual observation
         context_metadata['is_unscheduled'] = is_unscheduled
+        
+        # Step 2.6: Load hybrid memories (temporal + semantic)
+        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
+        recent_memory = memory_manager.get_hybrid_memories(
+            recent_count=5,  # Always include 5 most recent for continuity
+            semantic_top_k=5,  # Plus 5 semantically relevant
+            context_metadata=context_metadata
+        )
+        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
         
         if news_only:
             # For news-only, add clusters info to context (multiple clusters)

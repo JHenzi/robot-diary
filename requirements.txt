@@ -17,6 +17,10 @@ holidays>=0.36
 # YouTube stream access
 yt-dlp>=2024.1.0
 
+# Vector database and embeddings for memory retrieval
+chromadb>=0.4.22
+sentence-transformers>=2.2.2
+
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0

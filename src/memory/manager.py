@@ -20,6 +20,19 @@ class MemoryManager:
     def __init__(self):
         self.memory_file = MEMORY_FILE
         self._ensure_memory_file()
+        # Initialize hybrid retriever (lazy initialization)
+        self._hybrid_retriever = None
+    
+    def _get_hybrid_retriever(self):
+        """Lazy initialization of hybrid retriever."""
+        if self._hybrid_retriever is None:
+            try:
+                from .retriever import HybridMemoryRetriever
+                self._hybrid_retriever = HybridMemoryRetriever(memory_file=self.memory_file)
+            except Exception as e:
+                logger.warning(f"Failed to initialize hybrid retriever: {e}")
+                self._hybrid_retriever = None
+        return self._hybrid_retriever
     
     def _ensure_memory_file(self):
         """Ensure memory file exists."""
@@ -130,6 +143,11 @@ class MemoryManager:
         
         self._save_memory(memory)
         logger.info(f"✅ Observation added to memory (ID: {observation['id']})")
+        
+        # Also add to ChromaDB if hybrid retriever is available
+        retriever = self._get_hybrid_retriever()
+        if retriever:
+            retriever.add_memory_to_chroma(observation)
     
     def get_recent_memory(self, count: int = 10) -> List[Dict]:
         """
@@ -143,6 +161,48 @@ class MemoryManager:
         """
         memory = self._load_memory()
         return memory[-count:] if memory else []
+    
+    def get_hybrid_memories(
+        self,
+        query_text: Optional[str] = None,
+        recent_count: int = 5,
+        semantic_top_k: int = 5,
+        context_metadata: Optional[Dict] = None
+    ) -> List[Dict]:
+        """
+        Get hybrid memories: combines recent temporal memories with semantically relevant ones.
+        
+        Args:
+            query_text: Optional query text for semantic search
+            recent_count: Number of most recent temporal memories to always include
+            semantic_top_k: Number of top semantically relevant memories to retrieve
+            context_metadata: Optional context (date, time, weather) to build query
+        
+        Returns:
+            List of memory dictionaries with 'id', 'date', 'text', 'source' fields
+        """
+        retriever = self._get_hybrid_retriever()
+        if retriever:
+            return retriever.get_hybrid_memories(
+                query_text=query_text,
+                recent_count=recent_count,
+                semantic_top_k=semantic_top_k,
+                context_metadata=context_metadata
+            )
+        else:
+            # Fallback to recent temporal memories only
+            logger.debug("Hybrid retriever not available, using temporal memories only")
+            recent = self.get_recent_memory(count=recent_count)
+            # Format to match hybrid retriever output format
+            return [
+                {
+                    'id': m.get('id'),
+                    'date': m.get('date'),
+                    'text': m.get('llm_summary') or m.get('summary') or m.get('content', ''),
+                    'source': 'temporal'
+                }
+                for m in recent
+            ]
     
     def _clean_old_entries(self, memory: List[Dict]) -> List[Dict]:
         """Remove entries older than retention period."""
