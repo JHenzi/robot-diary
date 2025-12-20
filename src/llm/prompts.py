@@ -66,20 +66,21 @@ def generate_dynamic_prompt(recent_memory: List[Dict], client,
                                  context_metadata, weather_data, memory_count, days_since_first)
 
 
-def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None) -> str:
+def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None, memory_manager=None) -> str:
     """
-    Create a diary entry from an image using the optimized prompt.
+    Create a diary entry from an image using the optimized prompt with on-demand memory queries.
     
     Args:
         image_path: Path to the image
         optimized_prompt: Optimized prompt from generate_dynamic_prompt
         client: GroqClient instance
         context_metadata: Dictionary with date/time and other context (optional)
+        memory_manager: MemoryManager instance for memory query tools (optional)
         
     Returns:
         Diary entry text
     """
-    result = client.create_diary_entry(image_path, optimized_prompt, context_metadata)
+    result = client.create_diary_entry(image_path, optimized_prompt, context_metadata, memory_manager=memory_manager)
     # Store reference to client so we can access the full prompt later
     create_diary_entry._last_client = client
     return result

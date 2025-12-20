@@ -87,3 +87,4 @@ def test_fallback():
 if __name__ == "__main__":
     success = test_fallback()
     sys.exit(0 if success else 1)
+

@@ -1,5 +1,6 @@
 """Groq API client for LLM interactions."""
 import base64
+import json
 from pathlib import Path
 import logging
 import random
@@ -40,8 +41,10 @@ class GroqClient:
         # Build randomized identity prompt (core + random subset of backstory)
         randomized_identity = self._build_randomized_identity()
         
-        # Format recent memory for prompt
-        memory_text = self._format_memory_for_prompt_gen(recent_memory)
+        # NOTE: We no longer pre-load memories into the prompt
+        # LLM will query memories on-demand using function calling tools
+        # memory_text is kept for backward compatibility but not used
+        memory_text = None
         
         # Format context information
         context_text = ""
@@ -178,12 +181,8 @@ class GroqClient:
         if news_text:
             direct_prompt_parts.append(f"\n{news_text}")
         
-        if memory_text:
-            direct_prompt_parts.append(f"\nMEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):\n{memory_text}")
-            direct_prompt_parts.append("\nNOTE: Memories are retrieved using a hybrid system that combines:")
-            direct_prompt_parts.append("  - Temporal memories: Most recent observations for continuity and day-to-day comparisons")
-            direct_prompt_parts.append("  - Semantic memories: Contextually relevant past observations based on current weather, time, and themes")
-            direct_prompt_parts.append("  - Use both types to enrich your observations and maintain narrative continuity")
+        # NOTE: Memory pre-loading removed - LLM queries memories on-demand via function calling
+        # Memory query tools will be provided separately in create_diary_entry()
         
         # Add personality and seasonal notes (always include - user wants these)
         if personality_note:
@@ -244,8 +243,9 @@ class GroqClient:
         # Use LLM-based optimization if flag is enabled
         logger.info(f"Generating dynamic prompt using {PROMPT_GENERATION_MODEL}...")
         
-        # Format recent memory for prompt generation
-        memory_text = self._format_memory_for_prompt_gen(recent_memory)
+        # NOTE: We no longer pre-load memories into the prompt
+        # LLM will query memories on-demand using function calling tools
+        memory_text = None
         
         # Format context information
         context_text = ""
@@ -375,13 +375,7 @@ Weather Conditions:
 
 {news_text}
 
-MEMORY RETRIEVAL (from hybrid memory system - temporal + semantic):
-{memory_text}
-
-NOTE: These memories are retrieved using a hybrid system that combines:
-- Temporal memories: Most recent observations for continuity and day-to-day comparisons
-- Semantic memories: Contextually relevant past observations based on current weather, time, and themes
-- Use both types to enrich your observations and maintain narrative continuity
+NOTE: Memory query tools will be available during diary writing - the robot can query its memories on-demand when it sees something interesting or wants to compare with past observations.
 
 {personality_note}
 
@@ -446,18 +440,19 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             logger.warning("Falling back to base prompt template")
             return base_prompt_template
     
-    def create_diary_entry_from_text(self, optimized_prompt: str, context_metadata: dict = None) -> str:
+    def create_diary_entry_from_text(self, optimized_prompt: str, context_metadata: dict = None, memory_manager=None) -> str:
         """
-        Create a diary entry from text-only prompt (no image).
+        Create a diary entry from text-only prompt (no image) with on-demand memory queries.
         
         Args:
             optimized_prompt: The optimized prompt from generate_prompt
             context_metadata: Dictionary with date/time and other context (optional)
+            memory_manager: MemoryManager instance for memory query tools (optional)
             
         Returns:
             Diary entry text
         """
-        logger.info(f"Creating text-only diary entry using {DIARY_WRITING_MODEL}...")
+        logger.info(f"Creating text-only diary entry using {DIARY_WRITING_MODEL} with on-demand memory queries...")
         
         # Get current date context for explicit inclusion
         if context_metadata:
@@ -482,7 +477,16 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         else:
             narrative_context = "This is your evening observation. You're reflecting on transmissions you've picked up throughout the day."
         
-        # Create the full prompt (text-only, no image) - reorganized to prioritize creativity
+        # Initialize memory query tools if memory_manager provided
+        memory_tools = None
+        tools = None
+        if memory_manager:
+            from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
+            memory_tools = MemoryQueryTools(memory_manager)
+            tools = get_memory_tool_schemas()
+            logger.info(f"Memory query tools available: {len(tools)} functions")
+        
+        # Create the full prompt (text-only, no image) - NOTE: No pre-loaded memories
         full_prompt = f"""{optimized_prompt}
 CREATIVE LICENSE: You have permission to be creative, experimental, and surprising. Your unique robotic perspective is an asset - use it to create insights and observations that only you could have. Don't feel constrained by formulaic patterns. This is your diary, your art, your unique voice.
 
@@ -495,42 +499,143 @@ Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked
 - How the news relates to your observations of people and human nature
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
-- Memory callbacks to specific past observations when relevant (use observation numbers or dates)
 - Creative insights and unexpected perspectives only you could have
-- Temporal comparisons: if you have both morning and evening observations, compare how things change throughout the day
 
-TEMPORAL COMPARISON GUIDANCE:
-- Compare this observation with recent temporal memories to notice changes over time
-- If you have both morning and evening observations, note how the scene transforms
-- Reference specific observation numbers or dates when making comparisons
-- Look for patterns, cycles, or notable differences from previous observations
-
-MEMORY RETRIEVAL NOTES:
-- Memories are provided from a hybrid retrieval system combining temporal (recent) and semantic (contextually relevant) sources
-- Temporal memories marked [Temporal] are for continuity and day-to-day comparisons
-- Semantic memories marked [Semantic] are retrieved based on current context (weather, time, themes)
-- If MCP tools or function calling capabilities are available, you can use them to dynamically retrieve additional memories during writing
+MEMORY QUERY GUIDANCE:
+- You have access to memory query tools to check your past observations on-demand
+- When you want to reference past observations, use query_memories() to find relevant memories
+- Use get_recent_memories() to compare current observation with recent ones (especially for morning vs evening comparisons)
+- Use check_memory_exists() for quick checks before doing full queries
+- Query memories when you want to: compare current scene with past observations, find similar weather/events, check for patterns or cycles
+- Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
 
 Important reminders:
 1. Please avoid making up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory.
 2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature.
-3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
+3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry.
+4. Use memory query tools to check your past observations - don't guess or make up what you've seen before."""
 
+        # Build messages list for iterative conversation
+        messages = [
+            {
+                "role": "user",
+                "content": full_prompt
+            }
+        ]
+        
         try:
-            response = self.client.chat.completions.create(
-                model=DIARY_WRITING_MODEL,  # Use configurable writing model (can be GPT-OSS-120b for testing)
-                messages=[
-                    {
-                        "role": "user",
-                        "content": full_prompt
-                    }
-                ],
-                temperature=random.uniform(0.5, 0.85),  # Higher temperature for creativity, matching image-based entries
-                max_tokens=random.randint(2000, 4500)  # Increased to allow for longer, more varied entries with detailed observations
-            )
+            # Iterative conversation loop to handle function calls
+            max_iterations = 10  # Prevent infinite loops
+            iteration = 0
             
-            diary_entry = response.choices[0].message.content.strip()
-            logger.info("✅ Text-only diary entry created")
+            while iteration < max_iterations:
+                iteration += 1
+                
+                # Call LLM with current messages and tools
+                response = self.client.chat.completions.create(
+                    model=DIARY_WRITING_MODEL,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    tool_choice="auto" if tools else None,
+                    temperature=random.uniform(0.5, 0.85),
+                    max_tokens=random.randint(2000, 4500)
+                )
+                
+                message = response.choices[0].message
+                
+                # Add assistant's response to conversation
+                # Groq message objects can be converted to dict for API calls
+                assistant_message = {
+                    "role": "assistant",
+                    "content": message.content if message.content else None
+                }
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    assistant_message["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
+                messages.append(assistant_message)
+                
+                # Check if LLM wants to call functions
+                if hasattr(message, 'tool_calls') and message.tool_calls and memory_tools:
+                    logger.info(f"LLM requested {len(message.tool_calls)} memory query(ies)")
+                    
+                    # Execute each tool call
+                    for tool_call in message.tool_calls:
+                        function_name = tool_call.function.name
+                        try:
+                            function_args = json.loads(tool_call.function.arguments)
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse function arguments: {e}")
+                            result = f"Error parsing function arguments: {str(e)}"
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": result
+                            })
+                            continue
+                        
+                        logger.info(f"Executing {function_name} with args: {function_args}")
+                        
+                        # Execute the function
+                        try:
+                            if function_name == "query_memories":
+                                result = memory_tools.query_memories(
+                                    query=function_args.get("query", ""),
+                                    top_k=function_args.get("top_k", 5)
+                                )
+                            elif function_name == "get_recent_memories":
+                                result = memory_tools.get_recent_memories(
+                                    count=function_args.get("count", 5)
+                                )
+                            elif function_name == "check_memory_exists":
+                                result = memory_tools.check_memory_exists(
+                                    topic=function_args.get("topic", "")
+                                )
+                            else:
+                                result = f"Unknown function: {function_name}"
+                                logger.warning(result)
+                        except Exception as e:
+                            logger.error(f"Error executing {function_name}: {e}")
+                            result = f"Error executing {function_name}: {str(e)}"
+                        
+                        # Add tool result to conversation
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result
+                        })
+                    
+                    # Continue loop - LLM will process tool results and continue writing
+                    continue
+                elif hasattr(message, 'tool_calls') and message.tool_calls and not memory_tools:
+                    # LLM requested tools but they're not available
+                    logger.warning("LLM requested memory tools but memory_manager not provided")
+                    # Add error message for each tool call
+                    for tool_call in message.tool_calls:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": "Memory query tools are not available in this context."
+                        })
+                    continue
+                else:
+                    # No tool calls - LLM has finished writing
+                    diary_entry = message.content.strip()
+                    logger.info(f"✅ Text-only diary entry created (after {iteration} iteration(s))")
+                    break
+            
+            if iteration >= max_iterations:
+                logger.warning(f"Reached max iterations ({max_iterations}), using last response")
+                diary_entry = messages[-1].get("content", "").strip()
+            
             return diary_entry
             
         except Exception as e:
@@ -632,21 +737,22 @@ Provide a comprehensive description that emphasizes dynamic elements and include
             logger.error(f"Error describing image: {e}")
             raise
     
-    def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None) -> str:
+    def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None, memory_manager=None) -> str:
         """
-        Create a diary entry using two-step process:
+        Create a diary entry using two-step process with on-demand memory queries:
         1. Get factual image description
-        2. Write creative diary entry from description
+        2. Write creative diary entry from description (LLM can query memories on-demand)
         
         Args:
             image_path: Path to the image file
             optimized_prompt: The optimized prompt from generate_prompt
             context_metadata: Dictionary with date/time and other context (optional)
+            memory_manager: MemoryManager instance for memory query tools (optional)
             
         Returns:
             Diary entry text
         """
-        logger.info(f"Creating diary entry using two-step process...")
+        logger.info(f"Creating diary entry using two-step process with on-demand memory queries...")
         
         # Step 1: Get factual image description
         image_description = self.describe_image(image_path)
@@ -688,10 +794,20 @@ Provide a comprehensive description that emphasizes dynamic elements and include
             else:
                 narrative_context = "This is your evening observation. Reflect on what people have been doing throughout the day or what they are doing this night. Notice how the day has changed, how people's activities differ from morning, how the evening light transforms the scene. What stories can you infer from what you see?"
         
-        # Step 2: Write creative diary entry from the factual description
-        logger.info(f"✍️  Step 2: Writing diary entry from description using {DIARY_WRITING_MODEL}...")
+        # Step 2: Write creative diary entry from the factual description with on-demand memory queries
+        logger.info(f"✍️  Step 2: Writing diary entry from description using {DIARY_WRITING_MODEL} with on-demand memory queries...")
+        
+        # Initialize memory query tools if memory_manager provided
+        memory_tools = None
+        tools = None
+        if memory_manager:
+            from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
+            memory_tools = MemoryQueryTools(memory_manager)
+            tools = get_memory_tool_schemas()
+            logger.info(f"Memory query tools available: {len(tools)} functions")
         
         # Create the full prompt for creative writing (NO IMAGE - we use the description instead)
+        # NOTE: We do NOT pre-load memories here - LLM will query on-demand
         full_prompt = f"""{optimized_prompt}
 CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
 
@@ -708,46 +824,146 @@ YOUR TASK: Based on the factual description above, write a diary entry that:
 - Adds your robotic perspective, reflections, and interpretations
 - Connects what you see to your memories, the news, weather, and context
 - Maintains your unique voice and personality
-- Uses temporal memories for continuity comparisons (compare morning vs night observations, day-to-day changes)
-- Uses semantic memories for contextually relevant connections (similar weather, themes, activities)
 
-TEMPORAL COMPARISON GUIDANCE:
-- If you have both morning and evening observations in your memory, compare how the scene transforms throughout the day
+MEMORY QUERY GUIDANCE:
+- You have access to memory query tools to check your past observations on-demand
+- When you see something interesting (weather, people, activities, patterns), use query_memories() to check if you've observed it before
+- Use get_recent_memories() to compare current observation with recent ones (especially for morning vs evening comparisons)
+- Use check_memory_exists() for quick checks before doing full queries
+- Query memories when you want to: compare current scene with past observations, find similar weather/events, check for patterns or cycles
 - Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
-- Look for patterns, cycles, or notable differences from previous observations
-- Note how weather, lighting, or activity levels change between observations
-
-MEMORY RETRIEVAL NOTES:
-- Memories are provided from a hybrid retrieval system combining temporal (recent) and semantic (contextually relevant) sources
-- Temporal memories marked [Temporal] are for continuity and day-to-day comparisons
-- Semantic memories marked [Semantic] are retrieved based on current context (weather, time, themes)
-- If MCP tools or function calling capabilities are available, you can use them to dynamically retrieve additional memories during writing
 
 CRITICAL RULES:
 1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
 2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
 3. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided.
+4. Use memory query tools to check your past observations - don't guess or make up what you've seen before.
 
 STYLE GUIDANCE: While you may use technical terminology and think in mechanical terms, avoid writing like technical documentation. This is a diary entry, not a diagnostic report. Let your curiosity, wonder, and personal reflections show through. Use technical language to enhance your unique perspective, not to create distance from your readers. If you use technical terms, explain them in ways that reveal your curiosity and wonder, not just your specifications."""
 
         # Store the full prompt for debugging/simulation
         self._last_full_prompt = full_prompt
 
+        # Build messages list for iterative conversation
+        messages = [
+            {
+                "role": "user",
+                "content": full_prompt
+            }
+        ]
+        
         try:
-            response = self.client.chat.completions.create(
-                model=DIARY_WRITING_MODEL,  # Use configurable writing model (can be GPT-OSS-120b for testing)
-                messages=[
-                    {
-                        "role": "user",
-                        "content": full_prompt
-                    }
-                ],
-                temperature=random.uniform(0.5, 0.85),  # Higher temperature for creativity, but still grounded
-                max_tokens=random.randint(2000, 5000)  # Increased to allow for longer, more varied entries with detailed observations
-            )
+            # Iterative conversation loop to handle function calls
+            max_iterations = 10  # Prevent infinite loops
+            iteration = 0
             
-            diary_entry = response.choices[0].message.content.strip()
-            logger.info("✅ Diary entry created")
+            while iteration < max_iterations:
+                iteration += 1
+                
+                # Call LLM with current messages and tools
+                response = self.client.chat.completions.create(
+                    model=DIARY_WRITING_MODEL,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
+                    temperature=random.uniform(0.5, 0.85),
+                    max_tokens=random.randint(2000, 5000)
+                )
+                
+                message = response.choices[0].message
+                
+                # Add assistant's response to conversation
+                # Groq message objects can be converted to dict for API calls
+                assistant_message = {
+                    "role": "assistant",
+                    "content": message.content if message.content else None
+                }
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    assistant_message["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
+                messages.append(assistant_message)
+                
+                # Check if LLM wants to call functions
+                if hasattr(message, 'tool_calls') and message.tool_calls and memory_tools:
+                    logger.info(f"LLM requested {len(message.tool_calls)} memory query(ies)")
+                    
+                    # Execute each tool call
+                    for tool_call in message.tool_calls:
+                        function_name = tool_call.function.name
+                        try:
+                            function_args = json.loads(tool_call.function.arguments)
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse function arguments: {e}")
+                            result = f"Error parsing function arguments: {str(e)}"
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": result
+                            })
+                            continue
+                        
+                        logger.info(f"Executing {function_name} with args: {function_args}")
+                        
+                        # Execute the function
+                        try:
+                            if function_name == "query_memories":
+                                result = memory_tools.query_memories(
+                                    query=function_args.get("query", ""),
+                                    top_k=function_args.get("top_k", 5)
+                                )
+                            elif function_name == "get_recent_memories":
+                                result = memory_tools.get_recent_memories(
+                                    count=function_args.get("count", 5)
+                                )
+                            elif function_name == "check_memory_exists":
+                                result = memory_tools.check_memory_exists(
+                                    topic=function_args.get("topic", "")
+                                )
+                            else:
+                                result = f"Unknown function: {function_name}"
+                                logger.warning(result)
+                        except Exception as e:
+                            logger.error(f"Error executing {function_name}: {e}")
+                            result = f"Error executing {function_name}: {str(e)}"
+                        
+                        # Add tool result to conversation
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result
+                        })
+                    
+                    # Continue loop - LLM will process tool results and continue writing
+                    continue
+                elif hasattr(message, 'tool_calls') and message.tool_calls and not memory_tools:
+                    # LLM requested tools but they're not available
+                    logger.warning("LLM requested memory tools but memory_manager not provided")
+                    # Add error message for each tool call
+                    for tool_call in message.tool_calls:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": "Memory query tools are not available in this context."
+                        })
+                    continue
+                else:
+                    # No tool calls - LLM has finished writing
+                    diary_entry = message.content.strip()
+                    logger.info(f"✅ Diary entry created (after {iteration} iteration(s))")
+                    break
+            
+            if iteration >= max_iterations:
+                logger.warning(f"Reached max iterations ({max_iterations}), using last response")
+                diary_entry = messages[-1].get("content", "").strip()
             
             # Store the full prompt for debugging/simulation purposes
             self._last_full_prompt = full_prompt

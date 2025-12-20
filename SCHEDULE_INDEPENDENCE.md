@@ -72,3 +72,4 @@ All scheduler tests pass with ChromaDB mocked - proving independence:
 ### Conclusion
 
 **The schedule system is 100% independent and safe.** The SQLite reference in errors is from ChromaDB's internal storage, which is completely separate from the scheduler.
+

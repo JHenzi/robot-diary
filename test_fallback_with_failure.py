@@ -104,3 +104,4 @@ def test_fallback_on_chromadb_failure():
 if __name__ == "__main__":
     success = test_fallback_on_chromadb_failure()
     sys.exit(0 if success else 1)
+

@@ -159,16 +159,10 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
         
-        # Step 2.6: Load hybrid memories (temporal + semantic)
-        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
-        recent_memory = memory_manager.get_hybrid_memories(
-            recent_count=5,  # Always include 5 most recent for continuity
-            semantic_top_k=5,  # Plus 5 semantically relevant
-            context_metadata=context_metadata
-        )
-        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
+        # Step 2.6: Memory query tools will be available on-demand (no pre-loading)
+        logger.info("Step 2.6: Memory query tools will be available on-demand during diary writing...")
         
-        # Step 3: Generate dynamic prompt with news context
+        # Step 3: Generate dynamic prompt with news context (no memory pre-loading)
         logger.info("Step 3: Generating dynamic prompt for news-based observation...")
         
         # Create a special prompt for news-based observations
@@ -229,7 +223,8 @@ Write a diary entry reflecting on these news items. You can focus on:
 
 Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
         
-        optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
+        # Pass empty list for recent_memory - LLM will query on-demand
+        optimized_prompt = generate_dynamic_prompt([], llm_client, 
                                                    context_metadata, weather_data, memory_count, days_since_first)
         # Combine with news-specific context
         full_prompt = f"""{news_prompt_base}
@@ -239,13 +234,13 @@ Be thoughtful, reflective, and write from your unique robotic perspective. Refer
 Remember: You have picked up transmissions about {topics_summary}. The news items are:
 {chr(10).join(articles_text)}
 
-Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory."""
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory. Use memory query tools to check your past observations when relevant."""
         
         logger.debug(f"News-based prompt: {full_prompt[:200]}...")
         
-        # Step 4: Create text-only diary entry
-        logger.info("Step 4: Creating text-only diary entry from news...")
-        diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata)
+        # Step 4: Create text-only diary entry with memory query tools
+        logger.info("Step 4: Creating text-only diary entry from news with on-demand memory queries...")
+        diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata, memory_manager=memory_manager)
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Save to memory (no image path)
@@ -412,24 +407,19 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
         
-        # Step 2.6: Load hybrid memories (temporal + semantic)
-        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
-        recent_memory = memory_manager.get_hybrid_memories(
-            recent_count=5,  # Always include 5 most recent for continuity
-            semantic_top_k=5,  # Plus 5 semantically relevant
-            context_metadata=context_metadata
-        )
-        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
+        # Step 2.6: Memory query tools will be available on-demand (no pre-loading)
+        logger.info("Step 2.6: Memory query tools will be available on-demand during diary writing...")
         
-        # Step 3: Generate dynamic prompt
+        # Step 3: Generate dynamic prompt (no memory pre-loading)
         logger.info("Step 3: Generating dynamic prompt...")
-        optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
+        # Pass empty list for recent_memory - LLM will query on-demand
+        optimized_prompt = generate_dynamic_prompt([], llm_client, 
                                                    context_metadata, weather_data, memory_count, days_since_first)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
-        # Step 4: Create diary entry
-        logger.info("Step 4: Creating diary entry...")
-        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
+        # Step 4: Create diary entry with memory query tools
+        logger.info("Step 4: Creating diary entry with on-demand memory queries...")
+        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager)
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Save to memory
@@ -614,14 +604,8 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         # Mark as unscheduled if this is a manual observation
         context_metadata['is_unscheduled'] = is_unscheduled
         
-        # Step 2.6: Load hybrid memories (temporal + semantic)
-        logger.info("Step 2.6: Loading hybrid memories (temporal + semantic)...")
-        recent_memory = memory_manager.get_hybrid_memories(
-            recent_count=5,  # Always include 5 most recent for continuity
-            semantic_top_k=5,  # Plus 5 semantically relevant
-            context_metadata=context_metadata
-        )
-        logger.info(f"Loaded {len(recent_memory)} hybrid memories (total observations: {memory_count})")
+        # Step 2.6: Memory query tools will be available on-demand (no pre-loading)
+        logger.info("Step 2.6: Memory query tools will be available on-demand during diary writing...")
         
         if news_only:
             # For news-only, add clusters info to context (multiple clusters)
@@ -650,14 +634,15 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         if weather_data:
             logger.info(f"Weather: {weather_data.get('summary', 'Unknown')}, {weather_data.get('temperature', '?')}°F")
         
-        # Step 3: Generate dynamic prompt
+        # Step 3: Generate dynamic prompt (no memory pre-loading)
         logger.info("Step 3: Generating dynamic prompt...")
-        optimized_prompt = generate_dynamic_prompt(recent_memory, llm_client, 
+        # Pass empty list for recent_memory - LLM will query on-demand
+        optimized_prompt = generate_dynamic_prompt([], llm_client, 
                                                    context_metadata, weather_data, memory_count, days_since_first)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
-        # Step 4: Create diary entry
-        logger.info("Step 4: Creating diary entry...")
+        # Step 4: Create diary entry with memory query tools
+        logger.info("Step 4: Creating diary entry with on-demand memory queries...")
         if news_only:
             # Use news-based prompt logic (similar to run_news_based_observation)
             # Format articles with dates and sources, grouped by cluster/topic
@@ -710,10 +695,9 @@ Write a diary entry reflecting on these news items. You can focus on:
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
 - Connections between the different topics you've intercepted
-- Memory callbacks to specific past observations when relevant
 - Consider the timing of the news - when these events happened relative to your current observation
 
-Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
+Be thoughtful, reflective, and write from your unique robotic perspective. Use memory query tools to check your past observations when relevant."""
 
             full_prompt = f"""{news_prompt_base}
 
@@ -724,10 +708,10 @@ Remember: You have picked up transmissions about {topics_summary}. The news item
 
 Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory."""
 
-            diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata)
+            diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata, memory_manager=memory_manager)
             # full_prompt is already set above for news-only
         else:
-            diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata)
+            diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager)
             # Get the full prompt (includes image description) if available
             full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
         
