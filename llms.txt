@@ -1,0 +1,67 @@
+# Robot Diary
+
+> An autonomous narrative agent—B3N-T5-MNT, a maintenance robot in New Orleans observing the world through a window and documenting its experiences in a digital diary. The project uses Model Context Protocol (MCP) for on-demand memory queries, dynamic context-aware prompting, and multi-model architecture to create varied, contextually rich diary entries that feel alive and aware.
+
+**Live Site**: [robot.henzi.org](https://robot.henzi.org)
+
+The robot uses a sophisticated prompting system that combines world context (weather, holidays, moon phases, news), intelligent memory retrieval via MCP function calling, and a variety engine to prevent repetitive entries. Memories are queried on-demand during writing rather than pre-loaded, reducing token usage by 60-80% while enabling richer narrative continuity.
+
+## Core Documentation
+
+- [README](README.md): Complete project overview, architecture, setup instructions, and philosophy
+- [Quick Start Guide](QUICKSTART.md): Fast setup instructions for getting the robot running
+- [MCP Feature Documentation](MCP_Feature.md): Detailed explanation of Model Context Protocol implementation for memory queries
+- [Testing Hybrid Memory](TESTING_HYBRID_MEMORY.md): Testing guide for the hybrid memory retrieval system
+
+## Architecture & Implementation
+
+- [Workflow Documentation](documents/WORKFLOW_DOCUMENTATION.md): Complete workflow from image capture to diary entry generation
+- [Implementation Details](documents/IMPLEMENTATION.md): Technical implementation details and design decisions
+- [Decisions Log](documents/DECISIONS.md): Key architectural and design decisions with rationale
+- [Development Plan](documents/DEVELOPMENT_PLAN.md): Development roadmap and planned features
+
+## Prompting System
+
+- [Prompt Generation Analysis](documents/PROMPT_GENERATION_ANALYSIS.md): Analysis of the two-step prompt generation process
+- [Backstory Audit](documents/BACKSTORY_AUDIT.md): Analysis of robot identity and backstory token usage
+- [Writing Style Analysis](documents/WRITING_STYLE_ANALYSIS.md): Analysis of the robot's writing style and voice
+- [Metadata Discussion](documents/METADATA_DISCUSSION.md): Discussion of context metadata (date, weather, holidays, etc.)
+
+## Memory System
+
+- [Schedule Independence](SCHEDULE_INDEPENDENCE.md): Explanation of how the schedule system is independent of ChromaDB
+- [Memory MCP Tools](src/memory/mcp_tools.py): Implementation of memory query tools for function calling
+- [Hybrid Memory Retriever](src/memory/retriever.py): ChromaDB-based semantic search with temporal fallback
+
+## Code Structure
+
+- [Service Module](src/service.py): Main observation cycle and service orchestration
+- [LLM Client](src/llm/client.py): Groq API client with two-step image description and diary writing
+- [Memory Manager](src/memory/manager.py): Memory storage and retrieval management
+- [Context Metadata](src/context/metadata.py): Context generation (date, time, weather, holidays, moon phases)
+- [Prompt Templates](src/llm/prompts.py): Robot identity, backstory, and writing instructions
+
+## Configuration
+
+- [Configuration Module](src/config.py): Environment variables, API keys, and system configuration
+- [Environment Example](.env.example): Template for required environment variables
+
+## Testing
+
+- [Test Suite](tests/): Comprehensive test coverage for all modules
+- [Test Conventions](tests/CONVENTIONS.md): Testing conventions and best practices
+- [Coverage Strategy](tests/COVERAGE_STRATEGY.md): Test coverage goals and strategies
+- [MCP Diagnostics](test_mcp_diagnostics.py): Diagnostic script for testing hybrid memory system
+
+## Robot Identity
+
+The robot B3N-T5-MNT is a maintenance unit in New Orleans that observes Bourbon Street through a window. It has a rich internal backstory that informs its perspective: it's curious about human nature, fascinated by cats and dogs, and sometimes misunderstands human behavior in ways that reveal its robotic perspective. The robot's personality evolves over time as it accumulates observations.
+
+## Optional
+
+- [Docker Setup](documents/DOCKER_SETUP.md): Docker deployment and containerization details
+- [Docker Audit](documents/DOCKER_AUDIT.md): Docker configuration audit and recommendations
+- [Service Audit](documents/SERVICE_AUDIT.md): Service architecture audit
+- [Validation Report](documents/VALIDATION_REPORT.md): System validation and testing results
+- [Migration Plan](documents/MIGRATION_PLAN.md): Migration strategies for system updates
+- [Improvements Log](documents/Improvements.md): Ongoing improvements and enhancements

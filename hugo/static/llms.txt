@@ -1,0 +1,67 @@
+# Robot Diary
+
+> An autonomous narrative agent—B3N-T5-MNT, a maintenance robot in New Orleans observing the world through a window and documenting its experiences in a digital diary. The project uses Model Context Protocol (MCP) for on-demand memory queries, dynamic context-aware prompting, and multi-model architecture to create varied, contextually rich diary entries that feel alive and aware.
+
+**Live Site**: [robot.henzi.org](https://robot.henzi.org)
+
+The robot uses a sophisticated prompting system that combines world context (weather, holidays, moon phases, news), intelligent memory retrieval via MCP function calling, and a variety engine to prevent repetitive entries. Memories are queried on-demand during writing rather than pre-loaded, reducing token usage by 60-80% while enabling richer narrative continuity.
+
+## Core Documentation
+
+- [README](https://github.com/JHenzi/robot-diary/blob/master/README.md): Complete project overview, architecture, setup instructions, and philosophy
+- [Quick Start Guide](https://github.com/JHenzi/robot-diary/blob/master/QUICKSTART.md): Fast setup instructions for getting the robot running
+- [MCP Feature Documentation](https://github.com/JHenzi/robot-diary/blob/master/MCP_Feature.md): Detailed explanation of Model Context Protocol implementation for memory queries
+- [Testing Hybrid Memory](https://github.com/JHenzi/robot-diary/blob/master/TESTING_HYBRID_MEMORY.md): Testing guide for the hybrid memory retrieval system
+
+## Architecture & Implementation
+
+- [Workflow Documentation](https://github.com/JHenzi/robot-diary/blob/master/documents/WORKFLOW_DOCUMENTATION.md): Complete workflow from image capture to diary entry generation
+- [Implementation Details](https://github.com/JHenzi/robot-diary/blob/master/documents/IMPLEMENTATION.md): Technical implementation details and design decisions
+- [Decisions Log](https://github.com/JHenzi/robot-diary/blob/master/documents/DECISIONS.md): Key architectural and design decisions with rationale
+- [Development Plan](https://github.com/JHenzi/robot-diary/blob/master/documents/DEVELOPMENT_PLAN.md): Development roadmap and planned features
+
+## Prompting System
+
+- [Prompt Generation Analysis](https://github.com/JHenzi/robot-diary/blob/master/documents/PROMPT_GENERATION_ANALYSIS.md): Analysis of the two-step prompt generation process
+- [Backstory Audit](https://github.com/JHenzi/robot-diary/blob/master/documents/BACKSTORY_AUDIT.md): Analysis of robot identity and backstory token usage
+- [Writing Style Analysis](https://github.com/JHenzi/robot-diary/blob/master/documents/WRITING_STYLE_ANALYSIS.md): Analysis of the robot's writing style and voice
+- [Metadata Discussion](https://github.com/JHenzi/robot-diary/blob/master/documents/METADATA_DISCUSSION.md): Discussion of context metadata (date, weather, holidays, etc.)
+
+## Memory System
+
+- [Schedule Independence](https://github.com/JHenzi/robot-diary/blob/master/SCHEDULE_INDEPENDENCE.md): Explanation of how the schedule system is independent of ChromaDB
+- [Memory MCP Tools](https://github.com/JHenzi/robot-diary/blob/master/src/memory/mcp_tools.py): Implementation of memory query tools for function calling
+- [Hybrid Memory Retriever](https://github.com/JHenzi/robot-diary/blob/master/src/memory/retriever.py): ChromaDB-based semantic search with temporal fallback
+
+## Code Structure
+
+- [Service Module](https://github.com/JHenzi/robot-diary/blob/master/src/service.py): Main observation cycle and service orchestration
+- [LLM Client](https://github.com/JHenzi/robot-diary/blob/master/src/llm/client.py): Groq API client with two-step image description and diary writing
+- [Memory Manager](https://github.com/JHenzi/robot-diary/blob/master/src/memory/manager.py): Memory storage and retrieval management
+- [Context Metadata](https://github.com/JHenzi/robot-diary/blob/master/src/context/metadata.py): Context generation (date, time, weather, holidays, moon phases)
+- [Prompt Templates](https://github.com/JHenzi/robot-diary/blob/master/src/llm/prompts.py): Robot identity, backstory, and writing instructions
+
+## Configuration
+
+- [Configuration Module](https://github.com/JHenzi/robot-diary/blob/master/src/config.py): Environment variables, API keys, and system configuration
+- [Environment Example](https://github.com/JHenzi/robot-diary/blob/master/.env.example): Template for required environment variables
+
+## Testing
+
+- [Test Suite](https://github.com/JHenzi/robot-diary/tree/master/tests): Comprehensive test coverage for all modules
+- [Test Conventions](https://github.com/JHenzi/robot-diary/blob/master/tests/CONVENTIONS.md): Testing conventions and best practices
+- [Coverage Strategy](https://github.com/JHenzi/robot-diary/blob/master/tests/COVERAGE_STRATEGY.md): Test coverage goals and strategies
+- [MCP Diagnostics](https://github.com/JHenzi/robot-diary/blob/master/test_mcp_diagnostics.py): Diagnostic script for testing hybrid memory system
+
+## Robot Identity
+
+The robot B3N-T5-MNT is a maintenance unit in New Orleans that observes Bourbon Street through a window. It has a rich internal backstory that informs its perspective: it's curious about human nature, fascinated by cats and dogs, and sometimes misunderstands human behavior in ways that reveal its robotic perspective. The robot's personality evolves over time as it accumulates observations.
+
+## Optional
+
+- [Docker Setup](https://github.com/JHenzi/robot-diary/blob/master/documents/DOCKER_SETUP.md): Docker deployment and containerization details
+- [Docker Audit](https://github.com/JHenzi/robot-diary/blob/master/documents/DOCKER_AUDIT.md): Docker configuration audit and recommendations
+- [Service Audit](https://github.com/JHenzi/robot-diary/blob/master/documents/SERVICE_AUDIT.md): Service architecture audit
+- [Validation Report](https://github.com/JHenzi/robot-diary/blob/master/documents/VALIDATION_REPORT.md): System validation and testing results
+- [Migration Plan](https://github.com/JHenzi/robot-diary/blob/master/documents/MIGRATION_PLAN.md): Migration strategies for system updates
+- [Improvements Log](https://github.com/JHenzi/robot-diary/blob/master/documents/Improvements.md): Ongoing improvements and enhancements
