@@ -666,22 +666,30 @@ Important reminders:
         # Focused, factual prompt for image description with social/emotional context
         description_prompt = """You are a visual analysis system. Your task is to provide a detailed, factual description of what you see in this image, with emphasis on DYNAMIC ELEMENTS and reasonable inferences about social and emotional context.
 
+CONTEXT: This is Bourbon Street in the French Quarter of New Orleans, Louisiana - a famous entertainment district known for its nightlife, music, and crowds. The scene may show varying levels of activity depending on time of day, weather, and events.
+
 PRIORITY: Focus on what's ALIVE and CHANGING in the scene:
-1. **People and their activities** - This is your primary focus. Describe movement, interactions, groupings, body language
-2. **Lighting and atmosphere** - How does light shape the scene? What's the mood created by lighting?
-3. **Weather effects** - Rain, fog, wind effects, reflections, shadows, etc.
-4. **Movement and flow** - Traffic, pedestrian patterns, dynamic elements
-5. **Road and ground conditions** - Surface texture, wet/dry, debris, etc.
+1. **People** - This is your primary focus. Describe movement, interactions, groupings, body language
+2. **Animals** - Any animals visible (pets, birds, etc.)
+3. **Vehicles** - Cars, trucks, bicycles, or other vehicles
+4. **Shadows/Lighting/Atmosphere** - How does light shape the scene? What's the mood created by lighting? Shadows, reflections, weather effects
+
+REQUIRED INTERROGATION QUESTIONS - You MUST explicitly answer these:
+1. **CROWD LEVEL:** Is the street busy, empty, or moderate? Estimate the number of people visible. Is this a typical crowd level for Bourbon Street, or unusually busy/empty?
+2. **ACTIVITY LEVEL:** What's the overall activity level? Are people actively moving, socializing, waiting, or is it relatively quiet?
+3. **BOURBON STREET CHARACTERISTICS:** Are there visible signs of typical Bourbon Street activity (people with drinks, groups socializing, music venues, nightlife atmosphere)? Or does it appear more subdued?
+4. **PEDESTRIAN DENSITY:** How densely packed are people? Are they spread out, clustered in groups, or forming crowds?
+5. **TEMPORAL CONTEXT:** Based on lighting, activity, and crowd levels, does this appear to be a busy time (evening/night) or quieter time (daytime/early morning)?
 
 VARY YOUR FOCUS: Don't describe everything the same way every time. Sometimes emphasize:
 - The people and their interactions (most important)
-- The lighting and how it creates atmosphere
-- The weather effects visible in the scene
-- The architecture and buildings (when relevant)
+- Animals if present
+- Vehicles and traffic patterns
+- The lighting, shadows, and how they create atmosphere
 - Signs and text (ONLY when particularly relevant or interesting - don't read every sign)
 
 Describe what is clearly visible, prioritizing dynamic elements:
-- **People (HIGHEST PRIORITY):** How many? Where are they positioned? What are they doing? What are they wearing? How are they moving? Any notable features or interactions?
+- **People (HIGHEST PRIORITY):** How many? Where are they positioned? What are they doing? What are they wearing? How are they moving? Any notable features or interactions? **ALWAYS provide a specific count or estimate of people visible.**
 - **Lighting and atmosphere:** What are the light sources? How do they affect the scene? What's the overall mood created by lighting?
 - **Weather effects:** Is there rain, fog, wind visible? Reflections? Shadows? How does weather affect what you see?
 - **Road and ground:** Surface conditions, markings, barriers, crosswalks, etc.
@@ -696,7 +704,8 @@ SOCIAL AND EMOTIONAL CONTEXT (make reasonable inferences based on what you see):
 - Purpose/Intent: Based on their positioning, direction, and context, what might people be doing or where might they be going?
 
 CRITICAL RULES:
-- PRIORITIZE dynamic elements (people, movement, lighting, weather) over static elements (buildings, signs)
+- PRIORITIZE dynamic elements (people, animals, vehicles, shadows/lighting/atmosphere) over static elements (buildings, signs)
+- **ALWAYS answer the interrogation questions explicitly** - especially crowd level and activity assessment
 - Base all observations on what is clearly visible. Be specific and concrete.
 - For social/emotional context, make REASONABLE inferences based on visible cues (proximity, body language, positioning, direction of movement, etc.)
 - Clearly mark inferences: Use phrases like "appear to be", "seem to", "might be", "suggests" when making inferences
@@ -706,7 +715,7 @@ CRITICAL RULES:
 - If something is unclear or partially obscured, say so explicitly.
 - VARY your descriptions - don't use the same formula every time. Sometimes focus more on people, sometimes on lighting, sometimes on weather effects.
 
-Provide a comprehensive description that emphasizes dynamic elements and includes reasonable social/emotional inferences, so another system can write about this scene with both accuracy and personable warmth."""
+Provide a comprehensive description that emphasizes dynamic elements and includes reasonable social/emotional inferences, so another system can write about this scene with both accuracy and personable warmth. **Be sure to explicitly address the crowd level and activity questions.**"""
 
         try:
             response = self.client.chat.completions.create(
@@ -726,7 +735,7 @@ Provide a comprehensive description that emphasizes dynamic elements and include
                     }
                 ],
                 temperature=0.1,  # Very low temperature for factual accuracy
-                max_tokens=2000  # Enough for detailed description
+                max_tokens=3500  # Increased from 2000 - with MCP on-demand memory queries, we have more token budget for richer descriptions
             )
             
             description = response.choices[0].message.content.strip()
