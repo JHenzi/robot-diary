@@ -555,7 +555,7 @@ Important reminders:
                             "id": tc.id,
                             "type": tc.type,
                             "function": {
-                                "name": tc.function.name,
+                                "name": tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name,
                                 "arguments": tc.function.arguments
                             }
                         }
@@ -570,6 +570,11 @@ Important reminders:
                     # Execute each tool call
                     for tool_call in message.tool_calls:
                         function_name = tool_call.function.name
+                        # Normalize function name - some models add "functions/" prefix
+                        if function_name.startswith("functions/"):
+                            function_name = function_name.replace("functions/", "", 1)
+                            logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
+                        
                         try:
                             function_args = json.loads(tool_call.function.arguments)
                         except json.JSONDecodeError as e:
@@ -870,14 +875,32 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                 iteration += 1
                 
                 # Call LLM with current messages and tools
-                response = self.client.chat.completions.create(
-                    model=DIARY_WRITING_MODEL,
-                    messages=messages,
-                    tools=tools if tools else None,
-                    tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
-                    temperature=random.uniform(0.5, 0.85),
-                    max_tokens=random.randint(2000, 5000)
-                )
+                try:
+                    response = self.client.chat.completions.create(
+                        model=DIARY_WRITING_MODEL,
+                        messages=messages,
+                        tools=tools if tools else None,
+                        tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
+                        temperature=random.uniform(0.5, 0.85),
+                        max_tokens=random.randint(2000, 5000)
+                    )
+                except Exception as e:
+                    error_str = str(e)
+                    # Handle tool call validation errors (e.g., GPT-OSS-120b adding "functions/" prefix)
+                    if "tool call validation failed" in error_str.lower() or "functions/" in error_str:
+                        logger.warning(f"Tool call validation error detected: {e}")
+                        logger.warning("This may be due to model generating incorrect tool names. Retrying without tools...")
+                        # Retry without tools as fallback
+                        response = self.client.chat.completions.create(
+                            model=DIARY_WRITING_MODEL,
+                            messages=messages,
+                            tools=None,  # Disable tools for this request
+                            temperature=random.uniform(0.5, 0.85),
+                            max_tokens=random.randint(2000, 5000)
+                        )
+                        logger.warning("Retry without tools succeeded. Continuing without memory queries for this entry.")
+                    else:
+                        raise  # Re-raise if it's a different error
                 
                 message = response.choices[0].message
                 
@@ -893,7 +916,7 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                             "id": tc.id,
                             "type": tc.type,
                             "function": {
-                                "name": tc.function.name,
+                                "name": tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name,
                                 "arguments": tc.function.arguments
                             }
                         }
@@ -908,6 +931,11 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                     # Execute each tool call
                     for tool_call in message.tool_calls:
                         function_name = tool_call.function.name
+                        # Normalize function name - some models add "functions/" prefix
+                        if function_name.startswith("functions/"):
+                            function_name = function_name.replace("functions/", "", 1)
+                            logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
+                        
                         try:
                             function_args = json.loads(tool_call.function.arguments)
                         except json.JSONDecodeError as e:
