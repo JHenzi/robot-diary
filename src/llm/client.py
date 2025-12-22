@@ -841,10 +841,13 @@ YOUR TASK: Based on the factual description above, write a diary entry that:
 
 MEMORY QUERY GUIDANCE:
 - You have access to memory query tools to check your past observations on-demand
-- When you see something interesting (weather, people, activities, patterns), use query_memories() to check if you've observed it before
+- When you notice a KEY DETAIL in what you see, search for similar past observations with that same detail
+- Pattern matching: If you see a man in red shirt, search for "men in red shirts". If you see 10 people, search for "10 people" or similar group sizes. If it's Tuesday night, search for "tuesday night"
+- Vary what you search for - don't always query the same things. Look for different key details each time: specific objects, vehicles, clothing, group sizes, time patterns, or notable details
+- Be specific enough to find matches: focus on concrete elements that would appear in similar stories (e.g., "bikes", "white SUV", "group of 5 people", "tuesday night", "person with umbrella")
 - Use get_recent_memories() to compare current observation with recent ones (especially for morning vs evening comparisons)
 - Use check_memory_exists() for quick checks before doing full queries
-- Query memories when you want to: compare current scene with past observations, find similar weather/events, check for patterns or cycles
+- Query memories when you want to: find similar past observations with the same specific details, compare similar concrete scenes
 - Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
 
 CRITICAL RULES:

@@ -204,13 +204,13 @@ def get_memory_tool_schemas() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "query_memories",
-                "description": "Query your memory for observations related to a specific topic, theme, or event. Use this when you see something interesting and want to check if you've observed it before, or when you want to find similar past experiences. Examples: 'rainy weather observations', 'people walking in groups', 'morning quiet scenes', 'holiday decorations'",
+                "description": "Query your memory for similar past observations by searching for specific, concrete details you see. When you notice a key detail (like a man in red shirt, 10 people, bikes, Tuesday night), search for similar observations with that same detail. Vary what you search for - don't always query the same things. Focus on concrete elements that would appear in similar stories: specific objects, vehicles, clothing, group sizes, time patterns, or notable details.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Natural language query describing what you want to find in your memories. Be specific about the topic, theme, or event you're looking for."
+                            "description": "Specific, concrete detail to search for in past observations. If you see a man in red shirt, search for 'men in red shirts'. If you see 10 people, search for '10 people' or similar group sizes. If it's Tuesday night, search for 'tuesday night'. Be specific enough to find matches, but vary what you search for across different observations. Focus on key details that would appear in similar stories."
                         },
                         "top_k": {
                             "type": "integer",
