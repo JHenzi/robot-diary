@@ -1,8 +1,8 @@
 {
-  "latest_hash": "f7bcc5ae59a1a733d7db88972c2453de",
-  "latest_path": "youtube_20251223_215307.jpg",
-  "stream_url": "https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1766566387/ei/k1VLaby5BLqkzLUPhpy4...",
-  "fetched_at": "2025-12-23T21:53:10.321218",
+  "latest_hash": "085c97bb3a7ae98d7b9111bf248f0806",
+  "latest_path": "youtube_20251224_144045.jpg",
+  "stream_url": "https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1766608845/ei/bftLaZWcA6zYy_sP1MTL...",
+  "fetched_at": "2025-12-24T14:40:49.255700",
   "source": "youtube_live_stream",
   "youtube_url": "https://www.youtube.com/watch?v=qHW8srS0ylo"
 }

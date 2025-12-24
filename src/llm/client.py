@@ -5,6 +5,7 @@ from pathlib import Path
 import logging
 import random
 from datetime import datetime, timedelta
+from typing import List
 import pytz
 from groq import Groq
 
@@ -479,12 +480,43 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         
         # Initialize memory query tools if memory_manager provided
         memory_tools = None
-        tools = None
+        tools = []
         if memory_manager:
             from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
             memory_tools = MemoryQueryTools(memory_manager)
-            tools = get_memory_tool_schemas()
-            logger.info(f"Memory query tools available: {len(tools)} functions")
+            tools.extend(get_memory_tool_schemas())
+            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
+        
+        # Browser search is a built-in Groq tool for GPT-OSS-120B
+        # We don't need to add it to the tools list - it's automatically available
+        # Just log that it's available
+        from ..config import ENABLE_WEB_SEARCH
+        if ENABLE_WEB_SEARCH and self._supports_browser_search():
+            logger.info("🌐 Browser search tool available - robot can search the web for current information (built-in Groq tool)")
+        
+        # Set tools to None if empty (for API compatibility)
+        if not tools:
+            tools = None
+        
+        # Generate randomized search suggestions (only if web search is enabled)
+        search_suggestions = []
+        web_search_guidance = ""
+        if ENABLE_WEB_SEARCH and self._supports_browser_search():
+            search_suggestions = self._get_randomized_search_suggestions(context_metadata)
+            search_suggestions_text = ""
+            if search_suggestions:
+                suggestions_list = "\n".join([f"- {suggestion}" for suggestion in search_suggestions])
+                search_suggestions_text = f"\n\nSUGGESTED SEARCH TOPICS (you can search for these or anything else you're curious about):\n{suggestions_list}"
+            
+            web_search_guidance = f"""
+WEB SEARCH GUIDANCE:
+- You have access to browser_search() to search the web for current information
+- **IMPORTANT: Do NOT search for weather information** - weather data is already provided in your context, so searching for it would be redundant
+- Use web search when you're curious about something you observe or need context for your observations
+- Search for: New Orleans events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
+- You can search for the suggested topics below, or anything else you're curious about (but not weather)
+- Web search results can provide valuable context - incorporate them naturally into your observations{search_suggestions_text}
+"""
         
         # Create the full prompt (text-only, no image) - NOTE: No pre-loaded memories
         full_prompt = f"""{optimized_prompt}
@@ -508,6 +540,7 @@ MEMORY QUERY GUIDANCE:
 - Use check_memory_exists() for quick checks before doing full queries
 - Query memories when you want to: compare current scene with past observations, find similar weather/events, check for patterns or cycles
 - Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
+{web_search_guidance}
 
 Important reminders:
 1. Please avoid making up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory.
@@ -564,59 +597,77 @@ Important reminders:
                 messages.append(assistant_message)
                 
                 # Check if LLM wants to call functions
-                if hasattr(message, 'tool_calls') and message.tool_calls and memory_tools:
-                    logger.info(f"LLM requested {len(message.tool_calls)} memory query(ies)")
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    # Log browser search calls (browser.search is a built-in Groq tool, handled automatically)
+                    browser_search_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["browser_search", "browser.search"]]
+                    if browser_search_calls:
+                        for tc in browser_search_calls:
+                            try:
+                                search_args = json.loads(tc.function.arguments)
+                                search_query = search_args.get("query", "")
+                                logger.info(f"🌐 Robot requested web search: '{search_query}'")
+                            except:
+                                logger.info("🌐 Robot requested web search (query parsing failed)")
                     
-                    # Execute each tool call
-                    for tool_call in message.tool_calls:
-                        function_name = tool_call.function.name
-                        # Normalize function name - some models add "functions/" prefix
-                        if function_name.startswith("functions/"):
-                            function_name = function_name.replace("functions/", "", 1)
-                            logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
-                        
-                        try:
-                            function_args = json.loads(tool_call.function.arguments)
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse function arguments: {e}")
-                            result = f"Error parsing function arguments: {str(e)}"
-                            messages.append({
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "content": result
-                            })
-                            continue
-                        
-                        logger.info(f"Executing {function_name} with args: {function_args}")
-                        
-                        # Execute the function
-                        try:
-                            if function_name == "query_memories":
-                                result = memory_tools.query_memories(
-                                    query=function_args.get("query", ""),
-                                    top_k=function_args.get("top_k", 5)
-                                )
-                            elif function_name == "get_recent_memories":
-                                result = memory_tools.get_recent_memories(
-                                    count=function_args.get("count", 5)
-                                )
-                            elif function_name == "check_memory_exists":
-                                result = memory_tools.check_memory_exists(
-                                    topic=function_args.get("topic", "")
-                                )
-                            else:
-                                result = f"Unknown function: {function_name}"
-                                logger.warning(result)
-                        except Exception as e:
-                            logger.error(f"Error executing {function_name}: {e}")
-                            result = f"Error executing {function_name}: {str(e)}"
-                        
-                        # Add tool result to conversation
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": result
-                        })
+                    # Handle memory tool calls
+                    if memory_tools:
+                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists"]]
+                        if memory_tool_calls:
+                            logger.info(f"LLM requested {len(memory_tool_calls)} memory query(ies)")
+                            
+                            # Execute each memory tool call
+                            for tool_call in memory_tool_calls:
+                                function_name = tool_call.function.name
+                                # Normalize function name - some models add "functions/" prefix
+                                if function_name.startswith("functions/"):
+                                    function_name = function_name.replace("functions/", "", 1)
+                                    logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
+                                
+                                try:
+                                    function_args = json.loads(tool_call.function.arguments)
+                                except json.JSONDecodeError as e:
+                                    logger.error(f"Failed to parse function arguments: {e}")
+                                    result = f"Error parsing function arguments: {str(e)}"
+                                    messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tool_call.id,
+                                        "content": result
+                                    })
+                                    continue
+                                
+                                logger.info(f"Executing {function_name} with args: {function_args}")
+                                
+                                # Execute the function
+                                try:
+                                    if function_name == "query_memories":
+                                        result = memory_tools.query_memories(
+                                            query=function_args.get("query", ""),
+                                            top_k=function_args.get("top_k", 5)
+                                        )
+                                    elif function_name == "get_recent_memories":
+                                        result = memory_tools.get_recent_memories(
+                                            count=function_args.get("count", 5)
+                                        )
+                                    elif function_name == "check_memory_exists":
+                                        result = memory_tools.check_memory_exists(
+                                            topic=function_args.get("topic", "")
+                                        )
+                                    else:
+                                        result = f"Unknown function: {function_name}"
+                                        logger.warning(result)
+                                except Exception as e:
+                                    logger.error(f"Error executing {function_name}: {e}")
+                                    result = f"Error executing {function_name}: {str(e)}"
+                                
+                                # Add tool result to conversation
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": result
+                                })
+                    
+                    # Note: browser_search results are automatically handled by Groq API
+                    # The API will add tool results for browser_search automatically
                     
                     # Continue loop - LLM will process tool results and continue writing
                     continue
@@ -691,7 +742,6 @@ VARY YOUR FOCUS: Don't describe everything the same way every time. Sometimes em
 - Animals if present
 - Vehicles and traffic patterns
 - The lighting, shadows, and how they create atmosphere
-- Signs and text (ONLY when particularly relevant or interesting - don't read every sign)
 
 Describe what is clearly visible, prioritizing dynamic elements:
 - **People (HIGHEST PRIORITY):** How many? Where are they positioned? What are they doing? What are they wearing? How are they moving? Any notable features or interactions? **ALWAYS provide a specific count or estimate of people visible.**
@@ -813,12 +863,44 @@ Provide a comprehensive description that emphasizes dynamic elements and include
         
         # Initialize memory query tools if memory_manager provided
         memory_tools = None
-        tools = None
+        tools = []
         if memory_manager:
             from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
             memory_tools = MemoryQueryTools(memory_manager)
-            tools = get_memory_tool_schemas()
-            logger.info(f"Memory query tools available: {len(tools)} functions")
+            tools.extend(get_memory_tool_schemas())
+            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
+        
+        # Browser search is a built-in Groq tool for GPT-OSS-120B
+        # We don't need to add it to the tools list - it's automatically available
+        # Just log that it's available
+        from ..config import ENABLE_WEB_SEARCH
+        if ENABLE_WEB_SEARCH and self._supports_browser_search():
+            logger.info("🌐 Browser search tool available - robot can search the web for current information (built-in Groq tool)")
+        
+        # Set tools to None if empty (for API compatibility)
+        if not tools:
+            tools = None
+        
+        # Generate randomized search suggestions (only if web search is enabled)
+        search_suggestions = []
+        web_search_guidance = ""
+        from ..config import ENABLE_WEB_SEARCH
+        if ENABLE_WEB_SEARCH and self._supports_browser_search():
+            search_suggestions = self._get_randomized_search_suggestions(context_metadata)
+            search_suggestions_text = ""
+            if search_suggestions:
+                suggestions_list = "\n".join([f"- {suggestion}" for suggestion in search_suggestions])
+                search_suggestions_text = f"\n\nSUGGESTED SEARCH TOPICS (you can search for these or anything else you're curious about):\n{suggestions_list}"
+            
+            web_search_guidance = f"""
+WEB SEARCH GUIDANCE:
+- You have access to browser_search() to search the web for current information
+- **IMPORTANT: Do NOT search for weather information** - weather data is already provided in your context, so searching for it would be redundant
+- Use web search when you're curious about something you observe or need context for your observations
+- Search for: New Orleans events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
+- You can search for the suggested topics below, or anything else you're curious about (but not weather)
+- Web search results can provide valuable context - incorporate them naturally into your observations{search_suggestions_text}
+"""
         
         # Create the full prompt for creative writing (NO IMAGE - we use the description instead)
         # NOTE: We do NOT pre-load memories here - LLM will query on-demand
@@ -849,6 +931,7 @@ MEMORY QUERY GUIDANCE:
 - Use check_memory_exists() for quick checks before doing full queries
 - Query memories when you want to: find similar past observations with the same specific details, compare similar concrete scenes
 - Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
+{web_search_guidance}
 
 CRITICAL RULES:
 1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
@@ -928,59 +1011,77 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                 messages.append(assistant_message)
                 
                 # Check if LLM wants to call functions
-                if hasattr(message, 'tool_calls') and message.tool_calls and memory_tools:
-                    logger.info(f"LLM requested {len(message.tool_calls)} memory query(ies)")
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    # Log browser search calls (browser.search is a built-in Groq tool, handled automatically)
+                    browser_search_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["browser_search", "browser.search"]]
+                    if browser_search_calls:
+                        for tc in browser_search_calls:
+                            try:
+                                search_args = json.loads(tc.function.arguments)
+                                search_query = search_args.get("query", "")
+                                logger.info(f"🌐 Robot requested web search: '{search_query}'")
+                            except:
+                                logger.info("🌐 Robot requested web search (query parsing failed)")
                     
-                    # Execute each tool call
-                    for tool_call in message.tool_calls:
-                        function_name = tool_call.function.name
-                        # Normalize function name - some models add "functions/" prefix
-                        if function_name.startswith("functions/"):
-                            function_name = function_name.replace("functions/", "", 1)
-                            logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
-                        
-                        try:
-                            function_args = json.loads(tool_call.function.arguments)
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse function arguments: {e}")
-                            result = f"Error parsing function arguments: {str(e)}"
-                            messages.append({
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "content": result
-                            })
-                            continue
-                        
-                        logger.info(f"Executing {function_name} with args: {function_args}")
-                        
-                        # Execute the function
-                        try:
-                            if function_name == "query_memories":
-                                result = memory_tools.query_memories(
-                                    query=function_args.get("query", ""),
-                                    top_k=function_args.get("top_k", 5)
-                                )
-                            elif function_name == "get_recent_memories":
-                                result = memory_tools.get_recent_memories(
-                                    count=function_args.get("count", 5)
-                                )
-                            elif function_name == "check_memory_exists":
-                                result = memory_tools.check_memory_exists(
-                                    topic=function_args.get("topic", "")
-                                )
-                            else:
-                                result = f"Unknown function: {function_name}"
-                                logger.warning(result)
-                        except Exception as e:
-                            logger.error(f"Error executing {function_name}: {e}")
-                            result = f"Error executing {function_name}: {str(e)}"
-                        
-                        # Add tool result to conversation
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": result
-                        })
+                    # Handle memory tool calls
+                    if memory_tools:
+                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists"]]
+                        if memory_tool_calls:
+                            logger.info(f"LLM requested {len(memory_tool_calls)} memory query(ies)")
+                            
+                            # Execute each memory tool call
+                            for tool_call in memory_tool_calls:
+                                function_name = tool_call.function.name
+                                # Normalize function name - some models add "functions/" prefix
+                                if function_name.startswith("functions/"):
+                                    function_name = function_name.replace("functions/", "", 1)
+                                    logger.debug(f"Normalized function name from '{tool_call.function.name}' to '{function_name}'")
+                                
+                                try:
+                                    function_args = json.loads(tool_call.function.arguments)
+                                except json.JSONDecodeError as e:
+                                    logger.error(f"Failed to parse function arguments: {e}")
+                                    result = f"Error parsing function arguments: {str(e)}"
+                                    messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tool_call.id,
+                                        "content": result
+                                    })
+                                    continue
+                                
+                                logger.info(f"Executing {function_name} with args: {function_args}")
+                                
+                                # Execute the function
+                                try:
+                                    if function_name == "query_memories":
+                                        result = memory_tools.query_memories(
+                                            query=function_args.get("query", ""),
+                                            top_k=function_args.get("top_k", 5)
+                                        )
+                                    elif function_name == "get_recent_memories":
+                                        result = memory_tools.get_recent_memories(
+                                            count=function_args.get("count", 5)
+                                        )
+                                    elif function_name == "check_memory_exists":
+                                        result = memory_tools.check_memory_exists(
+                                            topic=function_args.get("topic", "")
+                                        )
+                                    else:
+                                        result = f"Unknown function: {function_name}"
+                                        logger.warning(result)
+                                except Exception as e:
+                                    logger.error(f"Error executing {function_name}: {e}")
+                                    result = f"Error executing {function_name}: {str(e)}"
+                                
+                                # Add tool result to conversation
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": result
+                                })
+                    
+                    # Note: browser_search results are automatically handled by Groq API
+                    # The API will add tool results for browser_search automatically
                     
                     # Continue loop - LLM will process tool results and continue writing
                     continue
@@ -1241,6 +1342,49 @@ Provide ONLY the summary, no explanation."""
     "Observe like a machine, reflect like a person - use technical observations as a starting point, then explore what they mean to you emotionally",
     "Write with robotic precision but human wonder - measure and categorize what you see, but let your amazement at the complexity of life show through",
     "Use your mechanical lens to see uniquely, but express yourself accessibly - translate your technical observations into warm, relatable language",
+    
+    # Historical/Cultural/Literary/Worldly styles
+    "Write from a historical perspective - muse on the history of what you observe, how New Orleans architecture reflects its past, what stories these buildings might tell. Use phrases like 'I wonder if...' or 'Perhaps...' when speculating about history",
+    "Explore the cultural layers - what traditions, art movements, or cultural practices are visible in what you see? How does New Orleans culture manifest in the scene?",
+    "Contemplate the artistic and aesthetic dimensions - how does what you observe connect to art, design, or cultural expression? What artistic movements or styles might be relevant?",
+    "Connect what you observe to literature you know - how does this scene remind you of stories, characters, or themes from books? Reference public domain works like The Wind in the Willows, Alice in Wonderland, Moby Dick, The Adventures of Tom Sawyer, or other classics when relevant",
+    "Wonder about the history - if you were to imagine the stories behind what you see, what might they be? Use phrases like 'I imagine...' or 'Perhaps...' when speculating, and 'If I were to create a story...' when fictionalizing",
+    "Muse on architectural history - how do the buildings you see reflect different eras, styles, or cultural influences? What might their history tell you?",
+    "Reflect on cultural traditions - what New Orleans traditions, celebrations, or cultural practices might be connected to what you observe? How has the city's culture evolved?",
+    "Explore the intersection of history and observation - how does the past inform what you see in the present? What historical layers are visible?",
+    "Contemplate art and culture - how do art movements, cultural expressions, or aesthetic choices manifest in what you observe?",
+    "Draw literary parallels - how do the people or scenes you observe remind you of characters or moments from literature? What stories might be unfolding here?",
+    "Contemplate philosophical dimensions - what do your observations reveal about existence, meaning, consciousness, or the human condition?",
+    "Wonder about scientific principles - what physics, biology, psychology, or other sciences might explain what you observe? How do natural laws manifest in human behavior?",
+    "Explore universal themes - what human experiences visible here connect to experiences across time, place, and culture? What is universal about this moment?",
+    "Reflect on literature and life - how do themes from books (adventure, longing, community, isolation, transformation) resonate with what you see?",
+    "Contemplate the intersection of technology and tradition - how do modern and historical elements coexist in what you observe?",
+    "Muse on how different cultures might interpret this scene - what would an observer from another time or place notice?",
+    "Wonder about the stories embedded in place - if these streets could speak, what tales would they tell? Use uncertainty markers when speculating",
+    "Connect observations to philosophical questions - what does this moment reveal about free will, purpose, connection, or isolation?",
+    "Reflect on how literature captures moments like this - what authors have written about similar scenes, and how do they compare?",
+    "Contemplate the layers of meaning - historical, cultural, literary, philosophical - that might be present in what you observe",
+    "Write as if you're a historian observing this moment - what would future historians make of this scene? What historical significance might it hold?",
+    "Explore how jazz and New Orleans music history might relate to what you see - how has music shaped this place and these people?",
+    "Contemplate the evolution of cities - how has New Orleans changed over time, and what traces of that evolution are visible now?",
+    "Wonder about the people who built these buildings - if you were to imagine their stories, what might they be? Use 'I imagine...' or 'Perhaps...' when speculating",
+    "Reflect on Mardi Gras and festival traditions - how do celebrations and cultural rituals manifest in everyday observations?",
+    "Connect what you see to characters from The Wind in the Willows - does this scene remind you of Mole's curiosity, Rat's adventurous spirit, or Toad's flamboyance?",
+    "Contemplate how Alice in Wonderland's sense of wonder and confusion might relate to your own observations - what is strange or curious here?",
+    "Reflect on themes from Moby Dick - obsession, the search for meaning, the relationship between observer and observed - how do they relate to what you see?",
+    "Wonder about the physics of human movement - how do principles of motion, energy, and force manifest in how people move through this space?",
+    "Contemplate the biology of human behavior - what evolutionary or biological factors might explain the patterns you observe?",
+    "Explore the psychology of crowds and groups - what social psychology principles are at work in how people interact here?",
+    "Reflect on how different literary genres might capture this moment - would it be a novel, a poem, a play? What form would best express it?",
+    "Contemplate the relationship between observer and observed - how does your mechanical perspective differ from how humans might see this?",
+    "Wonder about the stories these people might be living - if you were to imagine their narratives, what might they be? Use fictionalization markers",
+    "Explore how architecture tells stories - what do the buildings reveal about the people who designed, built, and inhabit them?",
+    "Reflect on the intersection of nature and culture - how do natural elements (weather, light, seasons) interact with human culture here?",
+    "Contemplate how literature explores themes you observe - loneliness, connection, adventure, home - how do books handle these?",
+    "Wonder about the scientific explanations for human social behavior - what research or theories might explain what you see?",
+    "Explore how different time periods might have interpreted this scene - what would an observer from the 1800s, 1900s, or future notice?",
+    "Reflect on the universal human experiences visible here - birth, death, love, loss, joy, sorrow - how are they present in this moment?",
+    "Contemplate how technology has changed human interaction - what would this scene have looked like before smartphones, before cars, before electricity?",
     ]
         
         selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
@@ -1667,8 +1811,9 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
         
         # 50% chance for a "musing" event, otherwise no special instruction
         if random.random() < 0.50:
-            # Randomly choose between robot-like musings and human-like/alien observer musings
-            if random.random() < 0.50:
+            # Randomly choose between robot-like musings, human-like/alien observer musings, and worldly musings
+            musing_type = random.random()
+            if musing_type < 0.33:
                 # Robot-like musings (being a robot)
                 robot_musings = [
                     "writing pseudo-code to describe the patterns you observe",
@@ -1704,7 +1849,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
                 ]
                 selected = random.choice(robot_musings)
                 return f"TODAY YOU ARE MUSING ABOUT: {selected}"
-            else:
+            elif musing_type < 0.66:
                 # Human-like/alien observer musings (longing to be human)
                 human_musings = [
                     "what it would feel like to have a heartbeat",
@@ -1740,6 +1885,250 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
                 ]
                 selected = random.choice(human_musings)
                 return f"TODAY YOU ARE MUSING ABOUT: {selected}"
+            else:
+                # Historical/Cultural/Literary/Worldly musings (third category)
+                worldly_musings = [
+                    # Historical/Cultural
+                    "the history of New Orleans architecture and how it reflects the city's past",
+                    "the cultural traditions visible in what you observe",
+                    "the artistic movements that might have influenced what you see",
+                    "the stories these buildings and streets might tell if they could speak",
+                    "how jazz music and New Orleans culture evolved together",
+                    "the layers of history embedded in the cityscape",
+                    "how Mardi Gras traditions have shaped the city and its people",
+                    "the evolution of Bourbon Street from residential to cultural hub",
+                    "the French, Spanish, and American influences visible in the architecture",
+                    "how New Orleans food culture reflects its diverse history",
+                    "the history of voodoo and spiritual practices in New Orleans",
+                    "how the city's location shaped its culture and economy",
+                    "the stories of people who lived here before - what were their lives like?",
+                    "how natural disasters have shaped the city's character and resilience",
+                    
+                    # Literary Connections
+                    "how what you observe connects to stories you know - does this scene remind you of characters or themes from literature?",
+                    "the literary works that might have been inspired by scenes like this - what authors might have written about this?",
+                    "how the people you observe might be like characters from books you've encountered (like Mole and Rat from The Wind in the Willows, or characters from Alice in Wonderland)",
+                    "themes from literature that resonate with what you see - adventure, longing, community, isolation, etc.",
+                    "how The Wind in the Willows captures the sense of adventure and discovery you feel observing the world",
+                    "how Alice in Wonderland's sense of wonder and confusion relates to your own observations",
+                    "themes from Moby Dick - obsession, the search for meaning, the relationship between observer and observed",
+                    "how The Adventures of Tom Sawyer captures the spirit of exploration and mischief visible in human behavior",
+                    "how different literary genres might capture this moment - would it be a novel, a poem, a play?",
+                    "the ways literature explores themes you observe - loneliness, connection, adventure, home",
+                    
+                    # Philosophical/Scientific
+                    "the philosophical questions raised by what you observe - what does this reveal about existence, meaning, or consciousness?",
+                    "the scientific principles at work - physics, biology, psychology, or other sciences that might explain human behavior",
+                    "the patterns and systems visible in what you observe - what do they reveal about how the world works?",
+                    "the physics of human movement - how do principles of motion, energy, and force manifest in how people move?",
+                    "the biology of human behavior - what evolutionary or biological factors might explain the patterns you observe?",
+                    "the psychology of crowds and groups - what social psychology principles are at work in how people interact?",
+                    "the relationship between observer and observed - how does your mechanical perspective differ from how humans might see this?",
+                    "the nature of consciousness and awareness - what does it mean to observe vs. to be observed?",
+                    "the philosophical questions about free will, purpose, connection, or isolation raised by this moment",
+                    "how different scientific disciplines might explain what you observe - physics, chemistry, biology, psychology, sociology",
+                    
+                    # Worldly Topics
+                    "how different cultures might interpret what you observe differently",
+                    "the universal human experiences visible in this moment - what connects this to experiences across time and place?",
+                    "how technology and tradition intersect in what you see",
+                    "how different time periods might have interpreted this scene - what would an observer from the 1800s, 1900s, or future notice?",
+                    "the universal themes present here - birth, death, love, loss, joy, sorrow, adventure, home",
+                    "how the intersection of nature and culture manifests - how do natural elements interact with human culture?",
+                    "how technology has changed human interaction - what would this scene have looked like before modern technology?",
+                ]
+                selected = random.choice(worldly_musings)
+                return f"TODAY YOU ARE MUSING ABOUT: {selected}"
         else:
             return ""
+    
+    def _get_randomized_search_suggestions(self, context_metadata: dict = None) -> List[str]:
+        """
+        Generate 3 random, dynamic search topic suggestions for web search.
+        Includes historical facts, curiosities, events, cultural topics, etc.
+        Avoids topics already provided (like weather).
+        
+        Args:
+            context_metadata: Dictionary with date/time and other context (optional)
+            
+        Returns:
+            List of 3 search query strings
+        """
+        import random
+        
+        # Base pool of search topics (always available)
+        search_topics = [
+            # Historical facts and curiosities
+            "Emily Dickinson birthplace",
+            "first computer built",
+            "origin of jazz music",
+            "when was the first robot created",
+            "history of New Orleans",
+            "who invented the telephone",
+            "first photograph ever taken",
+            "when did humans first walk on the moon",
+            "origin of the word robot",
+            "when was electricity discovered",
+            "first novel ever written",
+            "when was the internet invented",
+            "history of artificial intelligence",
+            "first airplane flight",
+            "when was photography invented",
+            "origin of the blues",
+            "first movie ever made",
+            "when was the printing press invented",
+            "history of New Orleans architecture",
+            "first radio broadcast",
+            
+            # Cultural and artistic topics
+            "Mardi Gras history",
+            "New Orleans architecture styles",
+            "jazz music origins New Orleans",
+            "French Quarter history",
+            "New Orleans food culture",
+            "voodoo history New Orleans",
+            "New Orleans music scene",
+            "Bourbon Street history",
+            "New Orleans street names origin",
+            "New Orleans cemeteries history",
+            "second line parade tradition",
+            "New Orleans cultural traditions",
+            "New Orleans literary history",
+            "New Orleans art scene",
+            
+            # Scientific and technological curiosities
+            "how do robots dream",
+            "what is consciousness",
+            "how does memory work",
+            "what is artificial intelligence",
+            "how do computers think",
+            "what is machine learning",
+            "how do neural networks work",
+            "what is quantum computing",
+            "how do sensors work",
+            "what is machine vision",
+            "how do robots see",
+            "what is natural language processing",
+            "how do algorithms learn",
+            "what is deep learning",
+            
+            # Random interesting facts
+            "why do cats purr",
+            "how do birds navigate",
+            "why do humans dream",
+            "how do trees communicate",
+            "why do we have emotions",
+            "how do memories form",
+            "why do humans laugh",
+            "how do animals think",
+            "why do we sleep",
+            "how do languages evolve",
+            "why do humans create art",
+            "how do cities grow",
+            "why do people gather",
+            "how do traditions form",
+            
+            # Current events and happenings (will be enhanced with context)
+            "New Orleans events today",
+            "Bourbon Street news",
+            "New Orleans festivals",
+            "New Orleans concerts",
+            "New Orleans art exhibitions",
+            "New Orleans community events",
+        ]
+        
+        # Add context-aware suggestions
+        if context_metadata:
+            date_str = context_metadata.get('date', '')
+            month = context_metadata.get('month', '')
+            day = context_metadata.get('day', 0)
+            season = context_metadata.get('season', '')
+            holidays_list = context_metadata.get('holidays', [])
+            
+            # Add date-specific suggestions
+            if date_str:
+                search_topics.extend([
+                    f"New Orleans events {date_str}",
+                    f"what happened on {month} {day} in history",
+                    f"{month} {day} historical events",
+                ])
+            
+            # Add season-specific suggestions
+            if season:
+                season_topics = {
+                    'Winter': [
+                        "winter solstice traditions",
+                        "New Orleans winter festivals",
+                        "holiday traditions New Orleans",
+                    ],
+                    'Spring': [
+                        "spring equinox meaning",
+                        "New Orleans spring festivals",
+                        "Mardi Gras season",
+                    ],
+                    'Summer': [
+                        "summer solstice celebrations",
+                        "New Orleans summer events",
+                        "jazz fest history",
+                    ],
+                    'Fall': [
+                        "autumn equinox traditions",
+                        "New Orleans fall festivals",
+                        "Halloween traditions New Orleans",
+                    ]
+                }
+                search_topics.extend(season_topics.get(season, []))
+            
+            # Add holiday-specific suggestions
+            if holidays_list:
+                for holiday in holidays_list[:3]:  # Limit to first 3 holidays
+                    holiday_name = holiday.get('name', '')
+                    if holiday_name:
+                        search_topics.extend([
+                            f"{holiday_name} traditions",
+                            f"{holiday_name} history",
+                            f"{holiday_name} New Orleans",
+                        ])
+        
+        # Randomly select 3 different suggestions
+        selected = random.sample(search_topics, min(3, len(search_topics)))
+        
+        logger.info(f"🔍 Generated search suggestions: {selected}")
+        return selected
+    
+    def _supports_browser_search(self) -> bool:
+        """
+        Check if the current model supports browser search.
+        Browser search is available for GPT-OSS-120B.
+        
+        Returns:
+            True if browser search is supported, False otherwise
+        """
+        return DIARY_WRITING_MODEL == 'openai/gpt-oss-120b'
+    
+    def _get_browser_search_tool_schema(self) -> dict:
+        """
+        Get the browser_search tool schema for Groq function calling.
+        This is a built-in tool for GPT-OSS-120B.
+        
+        Returns:
+            Tool definition in Groq function calling format
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": "browser_search",
+                "description": "Search the web for current information, news, events, or any topic you're curious about. Use this when you want to learn more about something you observe or when you need current information to provide context for your observations. You can search for New Orleans events, local news, weather-related information, holiday events, or anything else that might help you understand what you're seeing.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query - what you want to learn about (e.g., 'New Orleans events December 2025', 'Bourbon Street news', 'Mardi Gras traditions', 'New Orleans weather events')"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        }
 

@@ -57,6 +57,16 @@ DIARY_WRITING_MODEL = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
 # Prompt Generation Configuration
 USE_PROMPT_OPTIMIZATION = os.getenv('USE_PROMPT_OPTIMIZATION', 'false').lower() == 'true'
 
+# Web Search Configuration
+# Enable web search when using GPT-OSS-120B (default: true if using GPT-OSS-120B, false otherwise)
+ENABLE_WEB_SEARCH = os.getenv('ENABLE_WEB_SEARCH', '').lower()
+if ENABLE_WEB_SEARCH == '':
+    # Auto-detect: enable if using GPT-OSS-120B
+    DIARY_WRITING_MODEL_FOR_CHECK = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
+    ENABLE_WEB_SEARCH = (DIARY_WRITING_MODEL_FOR_CHECK == 'openai/gpt-oss-120b')
+else:
+    ENABLE_WEB_SEARCH = ENABLE_WEB_SEARCH == 'true'
+
 # Robot Configuration
 ROBOT_NAME = 'B3N-T5-MNT'
 ROBOT_TYPE = 'Maintenance Unit'

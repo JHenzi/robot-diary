@@ -27,6 +27,7 @@ The robot doesn't just see an image—it "knows" things about the world:
 - **Sunrise/Sunset**: Knows when the sun rose or set, how long ago
 - **Weather**: Current conditions, temperature, wind, precipitation—correlated with what it sees
 - **News**: Randomly includes current news headlines (40% chance) so the robot can reference world events as if it overheard them
+- **Web Search** (optional, currently disabled): When using GPT-OSS-120B, the robot can perform on-demand web searches for New Orleans events, local news, historical facts, and curiosities. The system provides randomized search suggestions each observation to encourage varied, interesting queries. Web search is disabled by default and can be enabled via `ENABLE_WEB_SEARCH=true` in `.env`
 - **Seasonal Progress**: "We're in the middle of winter, with spring still 10 weeks away"
 
 ### Intelligent Memory System with Model Context Protocol (MCP)
@@ -253,6 +254,7 @@ Create a `.env` file in the project root with:
 
 **Context & Features:**
 - `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context (highly recommended)
+- `ENABLE_WEB_SEARCH`: Enable on-demand web search for GPT-OSS-120B (default: `true` if using GPT-OSS-120B, `false` otherwise). When enabled, the robot can search for New Orleans events, local news, historical facts, and curiosities. Currently disabled in production. Requires `DIARY_WRITING_MODEL=openai/gpt-oss-120b`
 - `USE_PROMPT_OPTIMIZATION`: Enable LLM-based prompt optimization (default: `false` - uses direct template combination)
 - `USE_SCHEDULED_OBSERVATIONS`: Enable randomized scheduling (default: `true`)
 
