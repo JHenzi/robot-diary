@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Verify that the fallback logic works correctly when ChromaDB is unavailable.
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Diagnostic script to test the hybrid memory retrieval system (MCP/ChromaDB).
 

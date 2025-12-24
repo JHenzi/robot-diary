@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Test script to output randomized prompt elements."""
 
 import sys

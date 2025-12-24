@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Audit script to analyze backstory length and usage."""
 
 import sys

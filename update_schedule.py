@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Update the schedule.json file to tomorrow morning (CST)."""
 import json
 from pathlib import Path

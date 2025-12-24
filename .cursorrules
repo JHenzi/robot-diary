@@ -1,0 +1,7 @@
+# Cursor Rules
+
+## Python Commands
+- ALWAYS use `python` not `python3` in all commands, scripts, and documentation
+- When writing shell commands, use `python` instead of `python3`
+- When writing shebang lines, use `#!/usr/bin/env python` instead of `#!/usr/bin/env python3`
+

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Migration script to populate ChromaDB from existing JSON memories.
 

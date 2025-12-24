@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Robot Diary Service
 
@@ -349,9 +349,8 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                 logger.info(f"Using image: {image_path}")
         except Exception as e:
             logger.error(f"Failed to fetch new image: {e}")
-            logger.info("🔄 Falling back to news-based observation...")
-            # Fall back to news-based observation
-            return run_news_based_observation(dry_run=False, observation_type=observation_type)
+            logger.error("Cannot proceed without a live image - observation failed")
+            raise Exception(f"Image fetch failed and we require live images: {e}")
         
         # Step 2: Get memory statistics (before loading full memories)
         logger.info("Step 2: Getting memory statistics...")
@@ -927,20 +926,19 @@ def main():
                 if is_time_for_observation(now, next_time, tolerance_minutes=5):
                     logger.info(f"⏰ Scheduled {obs_type} observation time reached!")
                     try:
-                        # Randomly decide if this should be a news-based observation (10% chance, or if it's been 3+ days)
+                        # Check if we should do a news-based observation (10% chance, but only every few days)
                         last_news_date = get_last_news_observation_date()
                         days_since_news = None
                         if last_news_date:
                             days_since_news = (now - last_news_date.replace(tzinfo=LOCATION_TZ)).days
                         
                         use_news_observation = False
+                        # Only consider news-based observations if it's been at least 3 days since last one
                         if days_since_news is None or days_since_news >= 3:
-                            # It's been 3+ days since last news observation, do one
-                            use_news_observation = True
-                            logger.info(f"Triggering news-based observation (last one was {days_since_news} days ago)")
-                        elif random.random() < 0.10:  # 10% random chance
-                            use_news_observation = True
-                            logger.info("Randomly triggering news-based observation")
+                            # Roll 10% chance only if enough time has passed
+                            if random.random() < 0.10:  # 10% chance
+                                use_news_observation = True
+                                logger.info(f"Triggering news-based observation (last one was {days_since_news} days ago, rolled 10% chance)")
                         
                         if use_news_observation:
                             run_news_based_observation(observation_type=obs_type)

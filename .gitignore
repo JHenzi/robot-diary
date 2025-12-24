@@ -11,6 +11,14 @@ venv/
 env/
 ENV/
 .venv
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.DS_Store
 
 # IDE
 .vscode/
