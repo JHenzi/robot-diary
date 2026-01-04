@@ -1,5 +1,5 @@
 """Prompt templates and generation logic."""
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pathlib import Path
 
 # Identity/Worldview Context - What the robot IS (informs perspective, can be mentioned when relevant)
@@ -45,9 +45,33 @@ BASE_PROMPT_TEMPLATE = f"""{ROBOT_IDENTITY}
 {WRITING_INSTRUCTIONS}"""
 
 
+
+
+def get_boredom_narrative_directive(boredom_factor: float) -> Optional[str]:
+    """
+    Map boredom factor to narrative directive.
+    
+    Args:
+        boredom_factor: Average cosine similarity (0.0 to 1.0)
+        
+    Returns:
+        Narrative directive string, or None if boredom_factor is None
+    """
+    if boredom_factor is None:
+        return None
+    
+    if boredom_factor > 0.85:
+        return "DISREGARD THE MUNDANE: You've seen this scene before. Look deeper. Seek the microscopic details, the subtle shifts, the existential questions. What's different in the smallest way? What would only you notice?"
+    elif boredom_factor < 0.50:
+        return "DOCUMENT THE ANOMALY: Something significant has shifted. Focus on the high-fidelity differences. What's new? What's changed? Capture the novelty with precision."
+    else:
+        return "BALANCE OBSERVATION: Notice both the familiar patterns and the subtle variations. Document what's consistent and what's changed."
+
+
 def generate_dynamic_prompt(recent_memory: List[Dict], client, 
                             context_metadata: Dict = None, weather_data: Dict = None,
-                            memory_count: int = 0, days_since_first: int = 0) -> str:
+                            memory_count: int = 0, days_since_first: int = 0, 
+                            boredom_directive: Optional[str] = None) -> str:
     """
     Generate a dynamic prompt based on recent memory, context, and weather.
     
@@ -58,15 +82,17 @@ def generate_dynamic_prompt(recent_memory: List[Dict], client,
         weather_data: Dictionary with current weather data
         memory_count: Total number of observations in memory (for personality drift)
         days_since_first: Number of days since first observation (for milestone tracking)
+        boredom_directive: Optional narrative directive based on boredom factor
         
     Returns:
         Optimized prompt string
     """
     return client.generate_prompt(recent_memory, BASE_PROMPT_TEMPLATE, 
-                                 context_metadata, weather_data, memory_count, days_since_first)
+                                 context_metadata, weather_data, memory_count, days_since_first,
+                                 boredom_directive=boredom_directive)
 
 
-def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None, memory_manager=None) -> str:
+def create_diary_entry(image_path, optimized_prompt: str, client, context_metadata: Dict = None, memory_manager=None, boredom_directive: Optional[str] = None) -> str:
     """
     Create a diary entry from an image using the optimized prompt with on-demand memory queries.
     
@@ -76,11 +102,12 @@ def create_diary_entry(image_path, optimized_prompt: str, client, context_metada
         client: GroqClient instance
         context_metadata: Dictionary with date/time and other context (optional)
         memory_manager: MemoryManager instance for memory query tools (optional)
+        boredom_directive: Optional narrative directive based on boredom factor
         
     Returns:
         Diary entry text
     """
-    result = client.create_diary_entry(image_path, optimized_prompt, context_metadata, memory_manager=memory_manager)
+    result = client.create_diary_entry(image_path, optimized_prompt, context_metadata, memory_manager=memory_manager, boredom_directive=boredom_directive)
     # Store reference to client so we can access the full prompt later
     create_diary_entry._last_client = client
     return result

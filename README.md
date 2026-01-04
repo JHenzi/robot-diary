@@ -29,6 +29,11 @@ The robot doesn't just see an image—it "knows" things about the world:
 - **News**: Randomly includes current news headlines (40% chance) so the robot can reference world events as if it overheard them
 - **Web Search** (optional, currently disabled): When using GPT-OSS-120B, the robot can perform on-demand web searches for New Orleans events, local news, historical facts, and curiosities. The system provides randomized search suggestions each observation to encourage varied, interesting queries. Web search is disabled by default and can be enabled via `ENABLE_WEB_SEARCH=true` in `.env`
 - **Seasonal Progress**: "We're in the middle of winter, with spring still 10 weeks away"
+- **Circadian Boredom Factor**: The system calculates a "boredom factor" by comparing the current observation's image embedding with the last 5 same time-slot (morning/evening) observations using cosine similarity. This enables dynamic narrative directives:
+  - **High boredom (>0.85)**: "DISREGARD THE MUNDANE" - Directs the robot to seek microscopic details, subtle shifts, and existential questions
+  - **Low boredom (<0.50)**: "DOCUMENT THE ANOMALY" - Focuses attention on high-fidelity differences and novelty
+  - **Medium boredom (0.50-0.85)**: "BALANCE OBSERVATION" - Notices both familiar patterns and subtle variations
+  The boredom directive is injected into both the image analysis prompt (to guide what the vision model focuses on) and the diary writing prompt (to influence narrative style)
 
 ### Intelligent Memory System with Model Context Protocol (MCP)
 
@@ -194,8 +199,9 @@ The output is diary entries that:
 - **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: On-demand memory queries via function calling
   - Memory MCP: Semantic and temporal memory retrieval
   - Additional MCPs in development (Bible MCP and others)
-- **[ChromaDB](https://www.trychroma.com/)**: Vector database for semantic memory search
-- **[Sentence Transformers](https://www.sbert.net/)**: Local embedding model for memory similarity search
+- **[ChromaDB](https://www.trychroma.com/)**: Vector database for semantic memory search and image embedding storage
+- **[Sentence Transformers](https://www.sbert.net/)**: Local embedding models for memory similarity search and image embeddings (CLIP)
+- **[CLIP (via Sentence Transformers)](https://huggingface.co/sentence-transformers/clip-ViT-B-32)**: Vision-language model for generating image embeddings used in boredom factor calculations
 - **[Astral](https://github.com/sffjunkie/astral)**: Astronomical calculations (sunrise/sunset, moon phases)
 - **[Holidays](https://github.com/vacanza/python-holidays)**: US holiday detection
 - **[Pirate Weather API](https://pirateweather.net/)**: Weather data

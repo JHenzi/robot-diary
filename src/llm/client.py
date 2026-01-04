@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 import random
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 import pytz
 from groq import Groq
 
@@ -22,7 +22,8 @@ class GroqClient:
     
     def generate_direct_prompt(self, recent_memory: list[dict], base_prompt_template: str,
                               context_metadata: dict = None, weather_data: dict = None,
-                              memory_count: int = 0, days_since_first: int = 0) -> str:
+                              memory_count: int = 0, days_since_first: int = 0, 
+                              boredom_directive: Optional[str] = None) -> str:
         """
         Generate a prompt by directly combining base template with context and variety instructions.
         This bypasses LLM-based optimization to preserve all information and reduce latency.
@@ -172,6 +173,10 @@ class GroqClient:
         if perspective_shift:
             direct_prompt_parts.append(f"\n{perspective_shift}")
         
+        # BOREDOM DIRECTIVE - Inject after perspective shift but before context
+        if boredom_directive:
+            direct_prompt_parts.append(f"\n{boredom_directive}")
+        
         # Add context sections
         if context_text:
             direct_prompt_parts.append(f"\nCurrent Context:\n{context_text}")
@@ -220,7 +225,8 @@ class GroqClient:
     
     def generate_prompt(self, recent_memory: list[dict], base_prompt_template: str, 
                        context_metadata: dict = None, weather_data: dict = None, 
-                       memory_count: int = 0, days_since_first: int = 0) -> str:
+                       memory_count: int = 0, days_since_first: int = 0,
+                       boredom_directive: Optional[str] = None) -> str:
         """
         Generate a dynamic prompt. Uses direct template combination by default,
         or LLM-based optimization if USE_PROMPT_OPTIMIZATION is enabled.
@@ -239,7 +245,8 @@ class GroqClient:
         # Check feature flag - default to direct prompt generation
         if not USE_PROMPT_OPTIMIZATION:
             return self.generate_direct_prompt(recent_memory, base_prompt_template, 
-                                             context_metadata, weather_data, memory_count, days_since_first)
+                                             context_metadata, weather_data, memory_count, days_since_first,
+                                             boredom_directive=boredom_directive)
         
         # Use LLM-based optimization if flag is enabled
         logger.info(f"Generating dynamic prompt using {PROMPT_GENERATION_MODEL}...")
@@ -698,7 +705,7 @@ Important reminders:
             logger.error(f"Error creating text-only diary entry: {e}")
             raise
     
-    def describe_image(self, image_path: Path) -> str:
+    def describe_image(self, image_path: Path, boredom_directive: Optional[str] = None) -> str:
         """
         Step 1: Get a detailed, factual description of what's in the image, including
         reasonable inferences about social and emotional context.
@@ -771,6 +778,12 @@ CRITICAL RULES:
 - VARY your descriptions - don't use the same formula every time. Sometimes focus more on people, sometimes on lighting, sometimes on weather effects.
 
 Provide a comprehensive description that emphasizes dynamic elements and includes reasonable social/emotional inferences, so another system can write about this scene with both accuracy and personable warmth. **Be sure to explicitly address the crowd level and activity questions.**"""
+        
+        # Inject boredom directive if provided
+        if boredom_directive:
+            # Adapt directive for image analysis context
+            image_analysis_directive = boredom_directive.replace("DISREGARD THE MUNDANE", "FOCUS ON MICROSCOPIC DETAILS").replace("DOCUMENT THE ANOMALY", "FOCUS ON NOVEL ELEMENTS")
+            description_prompt += f"\n\n{image_analysis_directive}\n"
 
         try:
             response = self.client.chat.completions.create(
@@ -801,7 +814,7 @@ Provide a comprehensive description that emphasizes dynamic elements and include
             logger.error(f"Error describing image: {e}")
             raise
     
-    def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None, memory_manager=None) -> str:
+    def create_diary_entry(self, image_path: Path, optimized_prompt: str, context_metadata: dict = None, memory_manager=None, boredom_directive: Optional[str] = None) -> str:
         """
         Create a diary entry using two-step process with on-demand memory queries:
         1. Get factual image description
@@ -819,7 +832,7 @@ Provide a comprehensive description that emphasizes dynamic elements and include
         logger.info(f"Creating diary entry using two-step process with on-demand memory queries...")
         
         # Step 1: Get factual image description
-        image_description = self.describe_image(image_path)
+        image_description = self.describe_image(image_path, boredom_directive=boredom_directive)
         
         # Get current date context for explicit inclusion
         if context_metadata:

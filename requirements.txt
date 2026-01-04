@@ -20,6 +20,7 @@ yt-dlp>=2024.1.0
 # Vector database and embeddings for memory retrieval
 chromadb>=0.4.22
 sentence-transformers>=2.2.2
+Pillow>=10.0.0
 
 # Testing
 pytest>=7.4.0

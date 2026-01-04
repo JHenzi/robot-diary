@@ -9,6 +9,72 @@ draft: false
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
 
+## January 4, 2026: Circadian Boredom Factor
+
+### Image Embedding-Based Boredom Detection
+
+**Feature: "Boredom Factor Enhancement"**
+
+We introduced a **circadian boredom factor** system that dynamically adjusts narrative directives based on visual similarity between the current observation and past same time-slot observations.
+
+#### The Concept
+
+The robot can now detect when it's seeing a scene it has observed many times before (high similarity) versus when something novel is happening (low similarity). This enables the system to inject contextually appropriate narrative directives that guide both image analysis and diary writing.
+
+#### Technical Implementation
+
+**Image Embedding System:**
+- Uses **CLIP (clip-ViT-B-32)** via Sentence Transformers to generate image embeddings
+- Stores image embeddings in a separate ChromaDB collection (`robot_image_embeddings`)
+- Embeds are generated when observations are saved and during boredom calculation
+
+**Boredom Calculation:**
+1. **Temporal Partitioning**: Filters historical observations by time slot (morning vs. evening) to prevent day/night transitions from artificially resetting boredom scores
+2. **Similarity Comparison**: Calculates cosine similarity between current image embedding and last 5 same time-slot image embeddings
+3. **Boredom Factor (Bf)**: Average of the 5 similarity scores (0.0 to 1.0)
+4. **Narrative Mapping**: Maps boredom factor to narrative directives:
+   - **High (Bf > 0.85)**: "DISREGARD THE MUNDANE" - Seek microscopic details, subtle shifts, existential questions
+   - **Medium (0.50 ≤ Bf ≤ 0.85)**: "BALANCE OBSERVATION" - Notice both familiar patterns and subtle variations
+   - **Low (Bf < 0.50)**: "DOCUMENT THE ANOMALY" - Focus on high-fidelity differences and novelty
+
+**Dual Injection:**
+- **Image Analysis Prompt**: Boredom directive influences what the vision model focuses on during image description
+- **Diary Writing Prompt**: Boredom directive influences narrative style and attention during creative writing
+
+#### Why This Works
+
+1. **Prevents Repetitive Entries**: When scenes are similar, the robot is directed to look deeper rather than repeat surface observations
+2. **Highlights Novelty**: When something changes significantly, the robot is explicitly told to document the differences
+3. **Temporal Awareness**: By filtering by time slot, we avoid false boredom signals from day/night transitions
+4. **Visual Grounding**: Uses actual image similarity, not inferred text similarity, for more accurate detection
+
+#### Implementation Details
+
+**New Methods in `HybridMemoryRetriever`:**
+- `get_memories_by_time_slot()`: Filters memories by observation_type (morning/evening)
+- `generate_image_embedding()`: Generates CLIP embeddings for images
+- `calculate_circadian_boredom()`: Main utility function that computes boredom factor
+- `add_image_embedding_to_chroma()`: Stores image embeddings when observations are saved
+- `_resolve_image_path()`: Handles Docker path conversion for local development
+
+**Integration Points:**
+- Boredom calculation happens after image fetch, before image description (Step 1.5)
+- Narrative directive passed to both `describe_image()` and `generate_direct_prompt()`
+- Works in both regular observation cycles and simulation mode
+
+**Backfill Support:**
+- `backfill_image_embeddings.py` script generates embeddings for all historical observations
+- Handles Docker path conversion automatically
+- Can be run with `--force` to regenerate all embeddings
+
+#### Migration Notes
+
+- **Backward Compatible**: System gracefully handles missing image embeddings (skips boredom calculation)
+- **Automatic Storage**: New observations automatically store image embeddings
+- **Backfill Recommended**: Run `python backfill_image_embeddings.py` after deployment to populate historical embeddings
+
+---
+
 ## December 17-20, 2025: Model Context Protocol (MCP) Integration
 
 ### On-Demand Memory Queries via Function Calling
@@ -247,10 +313,11 @@ The initial prompting system established:
 
 ---
 
-## Current State (December 20, 2025)
+## Current State (January 4, 2026)
 
 The prompting system now features:
 
+- **Circadian Boredom Factor**: Image embedding-based similarity detection that dynamically adjusts narrative directives based on visual redundancy
 - **Model Context Protocol (MCP)**: On-demand memory queries via function calling  
 - **Prompt Chaining**: Two-step process for better grounding and creativity  
 - **GPT-OSS-120b**: Large model for creative writing quality  
@@ -261,8 +328,9 @@ The prompting system now features:
 - **Anti-Repetition System**: Explicit guidance to avoid patterns  
 - **Model Specialization**: Right model for each task  
 - **Minimized Context**: LLM-driven memory queries reduce token usage by 60-80%
+- **Image Embedding System**: CLIP-based embeddings for visual similarity detection
 
-The result: diary entries that are more varied, more grounded, more creative, and more coherent—while maintaining the robot's unique voice and perspective. The MCP integration enables the LLM to dynamically retrieve relevant memories during writing, making entries more contextually aware without overloading the prompt.
+The result: diary entries that are more varied, more grounded, more creative, and more coherent—while maintaining the robot's unique voice and perspective. The MCP integration enables the LLM to dynamically retrieve relevant memories during writing, making entries more contextually aware without overloading the prompt. The boredom factor system ensures the robot adapts its observational focus based on visual novelty, preventing repetitive entries when scenes are similar while highlighting significant changes when they occur.
 
 
 ---

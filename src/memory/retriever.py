@@ -22,14 +22,16 @@ except ImportError:
     Settings = None
     logging.warning("ChromaDB or sentence-transformers not available. Semantic search will be disabled.")
 
-from ..config import MEMORY_DIR
+from ..config import MEMORY_DIR, PROJECT_ROOT, IMAGES_DIR
 
 logger = logging.getLogger(__name__)
 
 MEMORY_FILE = MEMORY_DIR / 'observations.json'
 CHROMA_DB_PATH = MEMORY_DIR / 'chroma_db'
 COLLECTION_NAME = "robot_memories"
+IMAGE_COLLECTION_NAME = "robot_image_embeddings"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"  # Lightweight, local embedding model
+IMAGE_EMBEDDING_MODEL_NAME = "clip-ViT-B-32"  # CLIP model for image embeddings
 
 
 class HybridMemoryRetriever:
@@ -45,7 +47,9 @@ class HybridMemoryRetriever:
         self.memory_file = memory_file
         self.chroma_available = False
         self.collection = None
+        self.image_collection = None
         self.embedding_model = None
+        self.image_embedding_model = None
         
         if CHROMA_AVAILABLE:
             try:
@@ -90,10 +94,26 @@ class HybridMemoryRetriever:
             metadata={"hnsw:space": "cosine"}  # Use cosine similarity for embeddings
         )
         
-        # Load embedding model
+        # Load text embedding model
         logger.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
         self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
         logger.info("Embedding model loaded successfully")
+        
+        # Get or create image embedding collection
+        try:
+            self.image_collection = self.client.get_or_create_collection(
+                name=IMAGE_COLLECTION_NAME,
+                metadata={"hnsw:space": "cosine"}  # Use cosine similarity for embeddings
+            )
+            
+            # Load image embedding model (CLIP)
+            logger.info(f"Loading image embedding model: {IMAGE_EMBEDDING_MODEL_NAME}")
+            self.image_embedding_model = SentenceTransformer(IMAGE_EMBEDDING_MODEL_NAME)
+            logger.info("Image embedding model loaded successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize image embedding model: {e}")
+            self.image_embedding_model = None
+            self.image_collection = None
     
     def get_recent_temporal_memories(self, count: int = 5) -> List[Dict]:
         """
@@ -339,3 +359,343 @@ class HybridMemoryRetriever:
         except Exception as e:
             logger.error(f"Error migrating memories to ChromaDB: {e}")
             return 0
+    
+    def get_memories_by_time_slot(self, observation_type: str, count: int = 5) -> List[Dict]:
+        """
+        Get memories filtered by observation type (time slot).
+        
+        Args:
+            observation_type: "morning" or "evening"
+            count: Number of memories to return
+            
+        Returns:
+            List of memory dictionaries matching the time slot, sorted by date descending
+        """
+        if not self.memory_file.exists():
+            return []
+        
+        try:
+            with open(self.memory_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                if not content:
+                    return []
+                memories = json.loads(content)
+            
+            filtered = []
+            for mem in memories:
+                # Try to get observation_type from memory if stored
+                mem_obs_type = mem.get('observation_type')
+                
+                # If not stored, try to infer from date/time
+                if mem_obs_type is None:
+                    try:
+                        date_str = mem.get('date', '')
+                        if date_str:
+                            # Parse ISO format datetime
+                            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                            hour = dt.hour
+                            # Infer: morning is roughly 5-12, evening is 12-5
+                            if 5 <= hour < 12:
+                                mem_obs_type = 'morning'
+                            else:
+                                mem_obs_type = 'evening'
+                    except Exception:
+                        # If we can't parse, skip this memory
+                        continue
+                
+                if mem_obs_type == observation_type:
+                    filtered.append(mem)
+            
+            # Sort by date descending (most recent first)
+            filtered.sort(key=lambda m: m.get('date', ''), reverse=True)
+            return filtered[:count]
+        except Exception as e:
+            logger.error(f"Error loading memories by time slot: {e}")
+            return []
+    
+    def get_image_embeddings_for_memories(self, memory_ids: List[int]) -> List[tuple]:
+        """
+        Retrieve image embeddings from ChromaDB for given memory IDs.
+        
+        Args:
+            memory_ids: List of memory IDs to retrieve embeddings for
+            
+        Returns:
+            List of tuples: (memory_id, embedding_vector)
+        """
+        if not self.chroma_available or not self.image_collection:
+            return []
+        
+        try:
+            ids_str = [str(mid) for mid in memory_ids]
+            results = self.image_collection.get(
+                ids=ids_str,
+                include=['embeddings']
+            )
+            
+            if not results or not results.get('ids'):
+                return []
+            
+            embeddings_list = []
+            ids = results.get('ids', [])
+            embeddings = results.get('embeddings', [])
+            
+            for mem_id_str, emb in zip(ids, embeddings):
+                try:
+                    mem_id = int(mem_id_str)
+                    embeddings_list.append((mem_id, emb))
+                except ValueError:
+                    continue
+            
+            return embeddings_list
+        except Exception as e:
+            logger.warning(f"Error retrieving image embeddings: {e}")
+            return []
+    
+    def _resolve_image_path(self, image_path_str: str) -> Optional[Path]:
+        """
+        Resolve image path, handling Docker paths and relative paths.
+        
+        Args:
+            image_path_str: Image path from memory (could be Docker path, relative, or absolute)
+            
+        Returns:
+            Resolved Path object, or None if path cannot be resolved
+        """
+        # Try the path as-is first
+        path = Path(image_path_str)
+        if path.exists():
+            return path
+        
+        # If it's a Docker path (/app/images/...), convert to local
+        if str(path).startswith('/app/images/'):
+            filename = path.name
+            local_path = IMAGES_DIR / filename
+            if local_path.exists():
+                return local_path
+        
+        # If it's just a filename, look in IMAGES_DIR
+        if not str(path).startswith('/') and '/' not in str(path):
+            local_path = IMAGES_DIR / path
+            if local_path.exists():
+                return local_path
+        
+        # Try relative to PROJECT_ROOT
+        relative_path = PROJECT_ROOT / path
+        if relative_path.exists():
+            return relative_path
+        
+        # Try relative to IMAGES_DIR if path has subdirectories
+        if '/' in str(path) and not str(path).startswith('/'):
+            local_path = IMAGES_DIR / path
+            if local_path.exists():
+                return local_path
+        
+        return None
+    
+    def generate_image_embedding(self, image_path: Path) -> Optional[List[float]]:
+        """
+        Generate embedding for a single image using CLIP model.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Embedding vector as list of floats, or None on failure
+        """
+        if not self.image_embedding_model:
+            return None
+        
+        if not image_path.exists():
+            logger.warning(f"Image file not found: {image_path}")
+            return None
+        
+        try:
+            from PIL import Image
+            import numpy as np
+            
+            # Load and preprocess image
+            image = Image.open(image_path).convert('RGB')
+            
+            # Generate embedding
+            emb = self.image_embedding_model.encode(image)
+            
+            # Convert to list if it's a numpy array
+            if hasattr(emb, 'tolist'):
+                emb = emb.tolist()
+            elif not isinstance(emb, list):
+                emb = list(emb)
+            
+            return emb
+        except Exception as e:
+            logger.warning(f"Error generating image embedding: {e}")
+            return None
+    
+    def calculate_circadian_boredom(self, image_path: Path, context_metadata: Dict) -> Optional[float]:
+        """
+        Calculate circadian boredom factor by comparing current image embedding
+        with last 5 same time-slot image embeddings.
+        
+        Args:
+            image_path: Path to current observation image
+            context_metadata: Dictionary with observation_type and other context
+            
+        Returns:
+            Average cosine similarity (boredom factor) or None if insufficient data
+        """
+        if not self.chroma_available or not self.image_embedding_model or not self.image_collection:
+            return None
+        
+        # Extract observation_type
+        observation_type = context_metadata.get('observation_type', 'evening')
+        
+        # Get last 5 same time-slot memories
+        memories = self.get_memories_by_time_slot(observation_type, count=5)
+        
+        if len(memories) < 5:
+            logger.debug(f"Not enough memories for time slot '{observation_type}': {len(memories)} < 5")
+            return None
+        
+        # Generate current image embedding
+        current_emb = self.generate_image_embedding(image_path)
+        if current_emb is None:
+            logger.warning("Failed to generate current image embedding")
+            return None
+        
+        # Get memory IDs
+        memory_ids = [mem.get('id') for mem in memories if mem.get('id') is not None]
+        
+        # Retrieve or generate embeddings for past images
+        past_embeddings = self.get_image_embeddings_for_memories(memory_ids)
+        
+        # If we don't have embeddings stored, try to generate them from image paths
+        if len(past_embeddings) < len(memory_ids):
+            logger.debug(f"Only {len(past_embeddings)}/{len(memory_ids)} embeddings found, generating missing ones...")
+            for mem in memories:
+                mem_id = mem.get('id')
+                if mem_id is None:
+                    continue
+                
+                # Check if we already have this embedding
+                if any(pid == mem_id for pid, _ in past_embeddings):
+                    continue
+                
+                # Try to generate from image_path
+                image_path_str = mem.get('image_path')
+                if image_path_str:
+                    try:
+                        mem_image_path = self._resolve_image_path(image_path_str)
+                        if mem_image_path and mem_image_path.exists():
+                            emb = self.generate_image_embedding(mem_image_path)
+                            if emb:
+                                past_embeddings.append((mem_id, emb))
+                                # Store the embedding for future use
+                                try:
+                                    self.add_image_embedding_to_chroma(mem, mem_image_path)
+                                except Exception as e:
+                                    logger.debug(f"Could not store embedding for memory {mem_id}: {e}")
+                    except Exception as e:
+                        logger.debug(f"Could not generate embedding for memory {mem_id}: {e}")
+                        continue
+        
+        if len(past_embeddings) < 5:
+            logger.debug(f"Not enough past embeddings: {len(past_embeddings)} < 5")
+            return None
+        
+        # Calculate cosine similarities
+        import numpy as np
+        
+        similarities = []
+        current_emb_np = np.array(current_emb)
+        current_norm = np.linalg.norm(current_emb_np)
+        
+        for mem_id, past_emb in past_embeddings[:5]:  # Use first 5
+            try:
+                past_emb_np = np.array(past_emb)
+                past_norm = np.linalg.norm(past_emb_np)
+                
+                if current_norm == 0 or past_norm == 0:
+                    continue
+                
+                # Cosine similarity: dot product / (norm1 * norm2)
+                similarity = np.dot(current_emb_np, past_emb_np) / (current_norm * past_norm)
+                similarities.append(float(similarity))
+            except Exception as e:
+                logger.debug(f"Error calculating similarity for memory {mem_id}: {e}")
+                continue
+        
+        if len(similarities) < 5:
+            logger.debug(f"Not enough valid similarities: {len(similarities)} < 5")
+            return None
+        
+        # Return average (boredom factor)
+        boredom_factor = sum(similarities) / len(similarities)
+        return boredom_factor
+    
+    def add_image_embedding_to_chroma(self, memory: Dict, image_path) -> bool:
+        """
+        Generate and store image embedding when observation is saved.
+        
+        Args:
+            memory: Memory dictionary with 'id', 'date', 'observation_type'
+            image_path: Path to the image file (Path object or string) (can be Path object or string)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.chroma_available or not self.image_collection or not self.image_embedding_model:
+            return False
+        
+        # Resolve path if it's a string or Docker path
+        if isinstance(image_path, str):
+            resolved_path = self._resolve_image_path(image_path)
+            if resolved_path is None:
+                logger.warning(f"Image file not found for embedding: {image_path}")
+                return False
+            image_path = resolved_path
+        elif not image_path.exists():
+            # Try to resolve if it doesn't exist
+            resolved_path = self._resolve_image_path(str(image_path))
+            if resolved_path is None:
+                logger.warning(f"Image file not found for embedding: {image_path}")
+                return False
+            image_path = resolved_path
+        
+        try:
+            mem_id = str(memory.get('id'))
+            if not mem_id:
+                return False
+            
+            # Check if embedding already exists
+            existing = self.image_collection.get(ids=[mem_id])
+            if existing and existing.get('ids') and len(existing['ids']) > 0:
+                logger.debug(f"Image embedding {mem_id} already exists in ChromaDB, skipping")
+                return True
+            
+            # Generate embedding
+            emb = self.generate_image_embedding(image_path)
+            if emb is None:
+                logger.warning(f"Failed to generate image embedding for memory {mem_id}")
+                return False
+            
+            # Get observation_type from memory or context
+            observation_type = memory.get('observation_type', 'evening')
+            
+            # Add to ChromaDB
+            self.image_collection.add(
+                documents=[str(image_path)],  # Store image path as document
+                metadatas=[{
+                    'id': memory.get('id'),
+                    'date': memory.get('date', ''),
+                    'observation_type': observation_type
+                }],
+                ids=[mem_id],
+                embeddings=[emb]
+            )
+            
+            logger.debug(f"Added image embedding {mem_id} to ChromaDB")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to add image embedding to ChromaDB: {e}")
+            return False

@@ -99,7 +99,7 @@ class MemoryManager:
                     pass
             raise  # Re-raise to allow caller to handle
     
-    def add_observation(self, image_path: Path, diary_entry: str, image_url: Optional[str] = None, llm_client=None):
+    def add_observation(self, image_path: Path, diary_entry: str, image_url: Optional[str] = None, llm_client=None, context_metadata: Optional[Dict] = None):
         """
         Add a new observation to memory.
         
@@ -108,6 +108,7 @@ class MemoryManager:
             diary_entry: The generated diary entry text
             image_url: Original image URL (optional)
             llm_client: Optional GroqClient instance for generating LLM summaries
+            context_metadata: Optional context metadata (for storing observation_type)
         """
         memory = self._load_memory()
         
@@ -123,6 +124,11 @@ class MemoryManager:
             except Exception as e:
                 logger.warning(f"Failed to generate LLM summary: {e}, using fallback")
         
+        # Get observation_type from context_metadata if available
+        observation_type = None
+        if context_metadata:
+            observation_type = context_metadata.get('observation_type')
+        
         # Ensure all values are JSON-serializable
         observation = {
             'id': observation_id,
@@ -132,7 +138,8 @@ class MemoryManager:
             'image_url': image_url,
             'content': str(diary_entry),
             'summary': str(diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry),
-            'llm_summary': str(llm_summary) if llm_summary is not None else None  # Intelligent summary from LLM
+            'llm_summary': str(llm_summary) if llm_summary is not None else None,  # Intelligent summary from LLM
+            'observation_type': observation_type  # Store observation type for time-slot filtering
         }
         
         memory.append(observation)
@@ -151,6 +158,9 @@ class MemoryManager:
         retriever = self._get_hybrid_retriever()
         if retriever:
             retriever.add_memory_to_chroma(observation)
+            # Add image embedding to ChromaDB
+            if retriever.chroma_available and retriever.image_embedding_model:
+                retriever.add_image_embedding_to_chroma(observation, image_path)
     
     def get_recent_memory(self, count: int = 10) -> List[Dict]:
         """

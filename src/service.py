@@ -249,7 +249,7 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         observation_id = memory_count + 1
         # Create a placeholder image path for memory (news-based entries don't have images)
         placeholder_image = PROJECT_ROOT / 'images' / 'news_transmission.png'
-        memory_manager.add_observation(placeholder_image, diary_entry, image_url=f"news://{cluster_id}", llm_client=llm_client)
+        memory_manager.add_observation(placeholder_image, diary_entry, image_url=f"news://{cluster_id}", llm_client=llm_client, context_metadata=context_metadata)
         
         # Step 5.5: Calculate NEXT scheduled observation (after this one completes)
         logger.info("Step 5.5: Calculating next scheduled observation...")
@@ -409,16 +409,33 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Step 2.6: Memory query tools will be available on-demand (no pre-loading)
         logger.info("Step 2.6: Memory query tools will be available on-demand during diary writing...")
         
+        # Step 1.5: Calculate boredom factor from image embedding
+        logger.info("Step 1.5: Calculating circadian boredom factor from image embedding...")
+        boredom_factor = None
+        narrative_directive = None
+        if memory_manager and memory_count >= 5:  # Need at least 5 memories
+            retriever = memory_manager._get_hybrid_retriever()
+            if retriever and retriever.chroma_available and retriever.image_embedding_model:
+                boredom_factor = retriever.calculate_circadian_boredom(
+                    image_path,
+                    context_metadata
+                )
+                if boredom_factor is not None:
+                    from ..llm.prompts import get_boredom_narrative_directive
+                    narrative_directive = get_boredom_narrative_directive(boredom_factor)
+                    logger.info(f"Boredom factor: {boredom_factor:.3f} -> {'High' if boredom_factor > 0.85 else 'Low' if boredom_factor < 0.50 else 'Medium'}")
+        
         # Step 3: Generate dynamic prompt (no memory pre-loading)
         logger.info("Step 3: Generating dynamic prompt...")
         # Pass empty list for recent_memory - LLM will query on-demand
         optimized_prompt = generate_dynamic_prompt([], llm_client, 
-                                                   context_metadata, weather_data, memory_count, days_since_first)
+                                                   context_metadata, weather_data, memory_count, days_since_first,
+                                                   boredom_directive=narrative_directive)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
         # Step 4: Create diary entry with memory query tools
         logger.info("Step 4: Creating diary entry with on-demand memory queries...")
-        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager)
+        diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager, boredom_directive=narrative_directive)
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Save to memory
@@ -426,7 +443,7 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
         # Get observation ID from memory count (will be unique per observation)
         memory_count = memory_manager.get_total_count()
         observation_id = memory_count + 1
-        memory_manager.add_observation(image_path, diary_entry, llm_client=llm_client)
+        memory_manager.add_observation(image_path, diary_entry, llm_client=llm_client, context_metadata=context_metadata)
         
         # Step 5.5: Calculate NEXT scheduled observation (after this one completes)
         # Only recalculate if this was a scheduled observation - unscheduled observations preserve the existing schedule
@@ -603,6 +620,22 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         # Mark as unscheduled if this is a manual observation
         context_metadata['is_unscheduled'] = is_unscheduled
         
+        # Step 1.5: Calculate boredom factor from image embedding (only for image-based observations)
+        boredom_factor = None
+        narrative_directive = None
+        if not news_only and image_path and memory_manager and memory_count >= 5:
+            logger.info("Step 1.5: Calculating circadian boredom factor from image embedding...")
+            retriever = memory_manager._get_hybrid_retriever()
+            if retriever and retriever.chroma_available and retriever.image_embedding_model:
+                boredom_factor = retriever.calculate_circadian_boredom(
+                    image_path,
+                    context_metadata
+                )
+                if boredom_factor is not None:
+                    from ..llm.prompts import get_boredom_narrative_directive
+                    narrative_directive = get_boredom_narrative_directive(boredom_factor)
+                    logger.info(f"Boredom factor: {boredom_factor:.3f} -> {'High' if boredom_factor > 0.85 else 'Low' if boredom_factor < 0.50 else 'Medium'}")
+        
         # Step 2.6: Memory query tools will be available on-demand (no pre-loading)
         logger.info("Step 2.6: Memory query tools will be available on-demand during diary writing...")
         
@@ -637,7 +670,8 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
         logger.info("Step 3: Generating dynamic prompt...")
         # Pass empty list for recent_memory - LLM will query on-demand
         optimized_prompt = generate_dynamic_prompt([], llm_client, 
-                                                   context_metadata, weather_data, memory_count, days_since_first)
+                                                   context_metadata, weather_data, memory_count, days_since_first,
+                                                   boredom_directive=narrative_directive)
         logger.debug(f"Optimized prompt: {optimized_prompt[:200]}...")
         
         # Step 4: Create diary entry with memory query tools
@@ -710,7 +744,7 @@ Write as if you've intercepted these transmissions and are reflecting on them as
             diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata, memory_manager=memory_manager)
             # full_prompt is already set above for news-only
         else:
-            diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager)
+            diary_entry = create_diary_entry(image_path, optimized_prompt, llm_client, context_metadata, memory_manager=memory_manager, boredom_directive=narrative_directive)
             # Get the full prompt (includes image description) if available
             full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
         
