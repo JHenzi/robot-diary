@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 import shutil
 import logging
+import re
 
 from ..config import (
     HUGO_SITE_PATH, 
@@ -14,7 +15,8 @@ from ..config import (
     DEPLOY_ENABLED,
     DEPLOY_METHOD,
     DEPLOY_DESTINATION,
-    DEPLOY_SSH_KEY
+    DEPLOY_SSH_KEY,
+    DEPLOY_HOST_IP
 )
 from ..context.metadata import LOCATION_TZ
 
@@ -192,7 +194,15 @@ tags = {tags}
             logger.error("Build the site first before deploying")
             return False
         
-        logger.info(f"Deploying site to {DEPLOY_DESTINATION} using {DEPLOY_METHOD}...")
+        # If DEPLOY_HOST_IP is set, replace hostname in DEPLOY_DESTINATION with IP
+        # This allows using IP directly instead of domain (useful when DNS points to different IP)
+        deploy_destination = DEPLOY_DESTINATION
+        if DEPLOY_HOST_IP:
+            # Replace hostname with IP: user@host:/path -> user@IP:/path
+            deploy_destination = re.sub(r'@([^:/]+)', f'@{DEPLOY_HOST_IP}', DEPLOY_DESTINATION)
+            logger.info(f"Using IP address {DEPLOY_HOST_IP} instead of hostname in destination")
+        
+        logger.info(f"Deploying site to {deploy_destination} using {DEPLOY_METHOD}...")
         
         try:
             if DEPLOY_METHOD == 'rsync':
@@ -222,7 +232,7 @@ tags = {tags}
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/")
-                cmd.append(f"{DEPLOY_DESTINATION}/")
+                cmd.append(f"{deploy_destination}/")
                 
                 result = subprocess.run(
                     cmd,
@@ -255,7 +265,7 @@ tags = {tags}
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/*")
-                cmd.append(DEPLOY_DESTINATION)
+                cmd.append(deploy_destination)
                 
                 result = subprocess.run(
                     cmd,

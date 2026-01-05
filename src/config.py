@@ -26,6 +26,7 @@ DEPLOY_ENABLED = os.getenv('DEPLOY_ENABLED', 'false').lower() == 'true'
 DEPLOY_METHOD = os.getenv('DEPLOY_METHOD', 'rsync').lower()  # 'rsync' or 'scp'
 DEPLOY_DESTINATION = os.getenv('DEPLOY_DESTINATION', '')  # Format: user@host:/path/to/destination
 DEPLOY_SSH_KEY = os.getenv('DEPLOY_SSH_KEY', '')  # Optional: path to SSH key file
+DEPLOY_HOST_IP = os.getenv('DEPLOY_HOST_IP', '')  # Optional: IP address to use instead of hostname from DEPLOY_DESTINATION
 
 # Observation Schedule Configuration
 # Format: comma-separated times in "HH:MM" format (24-hour)
