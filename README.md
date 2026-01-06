@@ -201,7 +201,8 @@ The output is diary entries that:
   - Additional MCPs in development (Bible MCP and others)
 - **[ChromaDB](https://www.trychroma.com/)**: Vector database for semantic memory search and image embedding storage
 - **[Sentence Transformers](https://www.sbert.net/)**: Local embedding models for memory similarity search and image embeddings (CLIP)
-- **[CLIP (via Sentence Transformers)](https://huggingface.co/sentence-transformers/clip-ViT-B-32)**: Vision-language model for generating image embeddings used in boredom factor calculations
+- **[CLIP (via Sentence Transformers)](https://huggingface.co/sentence-transformers/clip-ViT-B-32)**: Vision-language model for generating image embeddings used in boredom factor calculations (~400MB download on first run)
+- **[Pillow](https://pillow.readthedocs.io/)**: Image processing library required for CLIP image embedding generation
 - **[Astral](https://github.com/sffjunkie/astral)**: Astronomical calculations (sunrise/sunset, moon phases)
 - **[Holidays](https://github.com/vacanza/python-holidays)**: US holiday detection
 - **[Pirate Weather API](https://pirateweather.net/)**: Weather data
@@ -246,6 +247,10 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+**First Run Notes:**
+- The CLIP model for image embeddings will be downloaded on first observation (~400MB). This is a one-time download.
+- If you have existing observations, you may want to run the backfill script: `docker exec robot-diary python backfill_image_embeddings.py`
+
 ### Required Environment Variables
 
 Create a `.env` file in the project root with:
@@ -269,13 +274,19 @@ Create a `.env` file in the project root with:
 - `DEPLOY_DESTINATION`: Deployment target (format: `user@host:/path/to/destination`)
 - `DEPLOY_METHOD`: Deployment method - `rsync` or `scp` (default: `rsync`)
 - `DEPLOY_SSH_KEY`: Path to SSH key file for deployment (if needed)
+- `DEPLOY_HOST_IP`: IP address to use instead of hostname from `DEPLOY_DESTINATION` (useful when DNS resolution fails or hostname has changed). If set, replaces the hostname in `DEPLOY_DESTINATION` with this IP address.
 
 **Advanced Configuration:**
 - `OBSERVATION_TIMES`: Comma-separated observation times in 24-hour format (default: `9:00,16:20`)
-- `MEMORY_RETENTION_DAYS`: Days to retain observations in memory (default: `30`)
-- `MAX_MEMORY_ENTRIES`: Maximum number of observations to keep (default: `50`)
+- `MEMORY_RETENTION_DAYS`: Days to retain observations in memory (default: `30`). Set to `0` for unlimited retention (no automatic cleanup based on age).
+- `MAX_MEMORY_ENTRIES`: Maximum number of observations to keep (default: `50`). Set to `0` for unlimited entries (no automatic truncation).
 - `HUGO_SITE_PATH`: Path to Hugo site directory (default: `./hugo`)
 - `HUGO_BUILD_ON_UPDATE`: Automatically build Hugo site after each observation (default: `true`)
+
+**⚠️ Important Notes:**
+- **Unlimited Memories**: Setting both `MEMORY_RETENTION_DAYS=0` and `MAX_MEMORY_ENTRIES=0` will keep all observations indefinitely. Monitor disk space if running long-term.
+- **Image Embeddings**: On first run, the CLIP model (`clip-ViT-B-32`) will be downloaded (~400MB). This is required for the circadian boredom factor calculation. The model is cached locally after the first download.
+- **Backfilling Image Embeddings**: If you have existing observations without image embeddings, run `python backfill_image_embeddings.py` to generate embeddings for historical observations. Use `--force` to regenerate all embeddings.
 
 ### Managing the Container
 
