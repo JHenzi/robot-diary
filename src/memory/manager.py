@@ -144,11 +144,12 @@ class MemoryManager:
         
         memory.append(observation)
         
-        # Clean old entries
-        memory = self._clean_old_entries(memory)
+        # Clean old entries (skip if MEMORY_RETENTION_DAYS is 0 or negative)
+        if MEMORY_RETENTION_DAYS > 0:
+            memory = self._clean_old_entries(memory)
         
-        # Limit total entries
-        if len(memory) > MAX_MEMORY_ENTRIES:
+        # Limit total entries (skip if MAX_MEMORY_ENTRIES is 0 or negative)
+        if MAX_MEMORY_ENTRIES > 0 and len(memory) > MAX_MEMORY_ENTRIES:
             memory = memory[-MAX_MEMORY_ENTRIES:]
         
         self._save_memory(memory)
@@ -221,7 +222,15 @@ class MemoryManager:
     
     def _clean_old_entries(self, memory: List[Dict]) -> List[Dict]:
         """Remove entries older than retention period."""
-        cutoff_date = datetime.now() - timedelta(days=MEMORY_RETENTION_DAYS)
+        # Cap at a reasonable maximum to prevent overflow (Python datetime limit is ~year 1)
+        # 36525 days = ~100 years, which is effectively unlimited for this use case
+        max_safe_days = 36525
+        retention_days = min(MEMORY_RETENTION_DAYS, max_safe_days) if MEMORY_RETENTION_DAYS > 0 else 0
+        
+        if retention_days == 0:
+            return memory  # Skip cleaning if unlimited
+        
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
         cutoff_iso = cutoff_date.isoformat()
         
         filtered = [
