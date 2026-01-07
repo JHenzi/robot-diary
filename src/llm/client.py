@@ -998,6 +998,19 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                             max_tokens=random.randint(2000, 5000)
                         )
                         logger.warning("Retry without tools succeeded. Continuing without memory queries for this entry.")
+                    # Handle parsing errors where model generates text instead of structured function calls
+                    elif "output_parse_failed" in error_str.lower() or "parsing failed" in error_str.lower():
+                        logger.warning(f"Function calling parse error detected: {e}")
+                        logger.warning("Model generated text instead of structured function calls. Retrying without tools...")
+                        # Retry without tools as fallback
+                        response = self.client.chat.completions.create(
+                            model=DIARY_WRITING_MODEL,
+                            messages=messages,
+                            tools=None,  # Disable tools for this request
+                            temperature=random.uniform(0.5, 0.85),
+                            max_tokens=random.randint(2000, 5000)
+                        )
+                        logger.warning("Retry without tools succeeded. Continuing without memory queries for this entry.")
                     else:
                         raise  # Re-raise if it's a different error
                 

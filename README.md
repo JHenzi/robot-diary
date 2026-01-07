@@ -308,6 +308,49 @@ git pull
 docker-compose up -d --build
 ```
 
+### Troubleshooting
+
+**YouTube Stream Timeout (`yt-dlp` timeout after 30 seconds):**
+
+If you see errors like `Command '['yt-dlp', '-f', 'best', '-g', '...']' timed out after 30 seconds`, this usually indicates:
+
+1. **Network connectivity issues**: YouTube may be slow to respond or unreachable from your container
+2. **YouTube blocking/throttling**: YouTube may be rate-limiting or blocking `yt-dlp` requests
+3. **Outdated `yt-dlp`**: The tool may need updating to handle YouTube's latest changes
+
+**Solutions:**
+
+- **Check network connectivity**: Ensure the container can reach YouTube
+  ```bash
+  docker exec robot-diary ping -c 3 youtube.com
+  ```
+
+- **Update `yt-dlp`**: YouTube frequently changes their API, so `yt-dlp` needs regular updates
+  ```bash
+  docker exec robot-diary pip install --upgrade yt-dlp
+  ```
+
+- **Verify stream URL**: Test if the YouTube URL is accessible and the stream is live
+  ```bash
+  docker exec robot-diary yt-dlp -f best -g "YOUR_YOUTUBE_STREAM_URL"
+  ```
+
+- **Temporary workaround**: The system uses cached images for 30 minutes. If a fetch fails, it will retry on the next scheduled observation. The service will continue running and attempt the next observation at the scheduled time.
+
+**Note**: The system requires live images and will fail the observation cycle if it cannot fetch a new image. This is by design to ensure observations are based on current conditions. If timeouts persist, check YouTube's status and your network connectivity.
+
+**Function Calling Parse Errors (`output_parse_failed`):**
+
+If you see errors like `Parsing failed. The model generated output that could not be parsed`, this indicates the LLM (particularly GPT-OSS-120b) generated text instead of structured function calls. This is a known issue that can occur when:
+
+1. The model gets confused about when to use function calls
+2. The model "thinks out loud" instead of making structured calls
+3. Complex reasoning leads the model to generate text rather than function calls
+
+**Automatic Recovery**: The system automatically retries without function calling tools when this error occurs, so the observation will complete but without on-demand memory queries for that entry. This is a graceful degradation - the diary entry will still be created, just without dynamic memory lookups.
+
+**Note**: This is a known limitation with some LLM models and function calling. The system handles it gracefully by falling back to writing without memory queries for that specific entry.
+
 ## Philosophy
 
 This project explores:
