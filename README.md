@@ -189,6 +189,14 @@ The output is diary entries that:
 - Demonstrate "world knowledge" beyond just visual description
 - **With GPT-OSS-120b**: Exhibit richer narrative depth, more sophisticated robotic voice, and more nuanced reflections
 
+### Automatic Interlinking
+
+The system automatically converts observation references in diary entries into clickable links:
+- **Pattern Matching**: When the robot mentions "Observation #45" or "#45" in its writing, the system automatically detects these references
+- **Post-Processing**: After each diary entry is generated, a pattern-matching step scans the text for observation references and converts them to markdown links pointing to the corresponding observation posts
+- **Seamless Navigation**: Readers can click on any observation reference to jump to that specific entry, creating a web of interconnected observations that reflects the robot's memory and narrative continuity
+- **Retroactive Updates**: All existing posts have been updated with interlinks, so the entire archive is now navigable through these automatic references
+
 ## Tech Stack
 
 - **[Python](https://www.python.org/)**: Core automation

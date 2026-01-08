@@ -30,6 +30,80 @@ class HugoGenerator:
         self.content_dir = HUGO_CONTENT_DIR
         self.static_images_dir = HUGO_STATIC_IMAGES_DIR
     
+    def _get_observation_slug(self, observation_id: int) -> str | None:
+        """
+        Get the Hugo post slug (filename without extension) for a given observation ID.
+        
+        This uses basic pattern matching on existing post filenames, without any LLM calls.
+        If multiple posts exist for the same observation ID, the earliest (by filename sort)
+        is returned to keep behavior stable and deterministic.
+        """
+        try:
+            matching_files = sorted(self.content_dir.glob(f"*_observation_{observation_id}.md"))
+            if not matching_files:
+                return None
+            return matching_files[0].stem
+        except Exception as e:
+            logger.warning(f"Error looking up slug for observation {observation_id}: {e}")
+            return None
+    
+    def _link_observation_references(self, diary_entry: str) -> str:
+        """
+        Post-process diary text to turn references like 'Observation #45' or '#45'
+        into markdown links pointing at the matching observation post.
+        
+        This uses simple regex-based pattern matching and filesystem lookups only.
+        Matches both "Observation #NN" and standalone "#NN" patterns.
+        """
+        # Match:
+        #   - "Observation #45"
+        #   - "Observation #45" (with non-breaking space)
+        #   - allow optional extra whitespace around '#'
+        result = diary_entry
+        
+        # Pattern 1: "Observation #NN" (with various space types)
+        # Process this first to avoid double-matching
+        obs_pattern = re.compile(r"(Observation[\u00A0\u202F ]*#\s*(\d+))")
+        
+        def replace_obs(match: re.Match) -> str:
+            full_text = match.group(1)
+            obs_id_str = match.group(2)
+            try:
+                obs_id = int(obs_id_str)
+            except ValueError:
+                return full_text
+            
+            slug = self._get_observation_slug(obs_id)
+            if not slug:
+                return full_text
+            
+            return f"[{full_text}](/posts/{slug})"
+        
+        result = obs_pattern.sub(replace_obs, result)
+        
+        # Pattern 2: Standalone "#NN" (not part of markdown headers and not already linked)
+        # Use negative lookbehind to avoid matching "#NN" that's part of "Observation #NN" or already in a link
+        # Use word boundary or non-word char after to ensure we match the full number
+        standalone_pattern = re.compile(r"(?<!Observation[\u00A0\u202F ])(?<!\[)(?<![a-zA-Z])#\s*(\d+)(?=\s|$|[^\d])")
+        
+        def replace_standalone(match: re.Match) -> str:
+            full_text = match.group(0)  # The entire match including "#"
+            obs_id_str = match.group(1)
+            try:
+                obs_id = int(obs_id_str)
+            except ValueError:
+                return full_text
+            
+            slug = self._get_observation_slug(obs_id)
+            if not slug:
+                return full_text
+            
+            return f"[{full_text}](/posts/{slug})"
+        
+        result = standalone_pattern.sub(replace_standalone, result)
+        
+        return result
+    
     def create_post(self, diary_entry: str, image_path: Path, observation_id: int, 
                    context_metadata: dict = None, is_news_based: bool = False) -> Path:
         """
@@ -129,8 +203,11 @@ tags = {tags}
 
 """
         
-        # Combine front matter, image (if any), and diary entry
-        post_content = front_matter + image_markdown + diary_entry
+        # Post-process diary entry to link any explicit references to past observations
+        processed_diary_entry = self._link_observation_references(diary_entry)
+        
+        # Combine front matter, image (if any), and processed diary entry
+        post_content = front_matter + image_markdown + processed_diary_entry
         
         # Write post
         with open(post_path, 'w', encoding='utf-8') as f:

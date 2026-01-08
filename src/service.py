@@ -537,9 +537,10 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
     logger.info("=" * 60)
     
     try:
-        # Initialize components (no Hugo generator needed)
+        # Initialize components (no Hugo generator needed for posts, but we reuse its link post-processing)
         memory_manager = MemoryManager()
         llm_client = GroqClient()
+        hugo_generator = HugoGenerator()
         
         image_path = None
         cluster = None
@@ -749,6 +750,13 @@ Write as if you've intercepted these transmissions and are reflecting on them as
             full_prompt = getattr(llm_client, '_last_full_prompt', optimized_prompt)
         
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
+        
+        # Post-process diary entry to link explicit references to past observations,
+        # so simulation output matches production post behavior.
+        try:
+            diary_entry = hugo_generator._link_observation_references(diary_entry)
+        except Exception as e:
+            logger.warning(f"Failed to post-process observation links in simulation: {e}")
         
         # Step 5: Generate simulation markdown file
         logger.info("Step 5: Generating simulation markdown file...")
