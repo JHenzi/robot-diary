@@ -9,6 +9,68 @@ draft: false
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
 
+## January 8, 2026: Automatic Observation Interlinking
+
+### Post-Processing Pattern Matching for Navigation
+
+**Feature: "Automatic Interlinking System"**
+
+We introduced an automatic post-processing system that converts observation references in diary entries into clickable links, creating a navigable web of interconnected observations that reflects the robot's memory and narrative continuity.
+
+#### The Concept
+
+When the robot references past observations in its writing (e.g., "Observation #45" or "#45"), the system automatically detects these references and converts them to markdown links pointing to the corresponding observation posts. This enables readers to seamlessly navigate between related observations and explore the robot's accumulated memory.
+
+#### Technical Implementation
+
+**Pattern Matching System:**
+- **Two-Pass Processing**: First processes "Observation #NN" patterns, then standalone "#NN" patterns
+- **Unicode Support**: Handles regular spaces, non-breaking spaces (`\u00A0`), and narrow no-break spaces (`\u202F`) that LLMs sometimes output
+- **Filesystem Lookup**: Scans `hugo/content/posts/` directory to find matching observation files
+- **Deterministic Selection**: When multiple posts exist for the same observation ID, selects the earliest by filename sort
+
+**Post-Processing Integration:**
+- Runs automatically after each diary entry is generated, before Hugo post creation
+- Processes only the diary content (preserves front matter)
+- Uses the same logic for both new observations and retroactive updates
+
+**Pattern Matching Details:**
+- Matches: `Observation #NN`, `Observation #NN` (with various space types), and standalone `#NN`
+- Avoids: Markdown headers, already-linked references, and false positives
+- Link Format: `[Observation #NN](/posts/YYYY-MM-DD_HHMMSS_observation_NN)`
+
+#### Why This Works
+
+1. **Seamless Navigation**: Readers can click any observation reference to jump to that entry
+2. **Reflects Memory**: The interlinked structure mirrors how the robot references its own memories
+3. **No Manual Work**: Automatic conversion means no maintenance required
+4. **Retroactive**: All existing posts have been updated with interlinks
+
+#### Implementation Details
+
+**New Methods in `HugoGenerator`:**
+- `_link_observation_references()`: Main post-processing function that converts references to links
+- `_get_observation_slug()`: Filesystem lookup to find matching observation post filenames
+
+**Integration Points:**
+- Called in `create_post()` after front matter generation, before writing the file
+- Also integrated into simulation mode for testing
+- Works with both image-based and news-based observations
+
+**Retroactive Updates:**
+- Script processed all 63 existing observation posts
+- Added 190 total links across 49 posts that contained observation references
+- All historical entries now have working interlinks
+
+#### Migration Notes
+
+- **Automatic**: New observations automatically get interlinks
+- **No Configuration**: Works out of the box with no settings required
+- **Backward Compatible**: Existing posts updated retroactively
+- **Pattern Robust**: Handles various Unicode space characters that LLMs output
+
+---
+
 ## January 4, 2026: Circadian Boredom Factor
 
 ### Image Embedding-Based Boredom Detection
@@ -313,9 +375,11 @@ The initial prompting system established:
 
 ---
 
-## Current State (January 4, 2026)
+## Current State (January 8, 2026)
 
 The prompting system now features:
+
+- **Automatic Interlinking**: Post-processing converts observation references to clickable links for seamless navigation
 
 - **Circadian Boredom Factor**: Image embedding-based similarity detection that dynamically adjusts narrative directives based on visual redundancy
 - **Model Context Protocol (MCP)**: On-demand memory queries via function calling  
