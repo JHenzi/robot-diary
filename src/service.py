@@ -28,6 +28,7 @@ from .scheduler import (
 )
 from .camera import fetch_latest_image
 from .llm import GroqClient, generate_dynamic_prompt, create_diary_entry
+from .llm.prompts import get_boredom_narrative_directive
 from .memory import MemoryManager
 from .hugo import HugoGenerator
 from .weather import PirateWeatherClient
@@ -421,7 +422,6 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                     context_metadata
                 )
                 if boredom_factor is not None:
-                    from ..llm.prompts import get_boredom_narrative_directive
                     narrative_directive = get_boredom_narrative_directive(boredom_factor)
                     logger.info(f"Boredom factor: {boredom_factor:.3f} -> {'High' if boredom_factor > 0.85 else 'Low' if boredom_factor < 0.50 else 'Medium'}")
         
@@ -633,7 +633,6 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
                     context_metadata
                 )
                 if boredom_factor is not None:
-                    from ..llm.prompts import get_boredom_narrative_directive
                     narrative_directive = get_boredom_narrative_directive(boredom_factor)
                     logger.info(f"Boredom factor: {boredom_factor:.3f} -> {'High' if boredom_factor > 0.85 else 'Low' if boredom_factor < 0.50 else 'Medium'}")
         
