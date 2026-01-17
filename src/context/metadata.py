@@ -93,8 +93,10 @@ def get_moon_phase(date: datetime) -> Optional[Dict]:
         return None
     
     try:
-        # Calculate moon phase (0.0 = new moon, 0.5 = full moon)
-        phase_value = moon.phase(date)
+        # Calculate moon phase (returns days since new moon, 0.0-27.99)
+        # Normalize to 0.0-1.0 where 0.0 = new moon, 0.5 = full moon
+        phase_days = moon.phase(date)
+        phase_value = (phase_days % 29.5) / 29.5  # Normalize to 0.0-1.0
         
         # Determine phase name
         if phase_value < 0.03 or phase_value > 0.97:
@@ -126,21 +128,23 @@ def get_moon_phase(date: datetime) -> Optional[Dict]:
         days_to_full = None
         days_to_new = None
         
-        # Find next full moon (phase = 0.5)
+        # Find next full moon (normalized phase = 0.5)
         test_date = date
         for _ in range(30):  # Search up to 30 days ahead
             test_date += timedelta(days=1)
-            test_phase = moon.phase(test_date)
-            if 0.47 <= test_phase <= 0.53:
+            test_phase_days = moon.phase(test_date)
+            test_phase_normalized = (test_phase_days % 29.5) / 29.5
+            if 0.47 <= test_phase_normalized <= 0.53:
                 days_to_full = (test_date - date).days
                 break
         
-        # Find next new moon (phase = 0.0 or 1.0)
+        # Find next new moon (normalized phase = 0.0 or 1.0)
         test_date = date
         for _ in range(30):
             test_date += timedelta(days=1)
-            test_phase = moon.phase(test_date)
-            if test_phase < 0.03 or test_phase > 0.97:
+            test_phase_days = moon.phase(test_date)
+            test_phase_normalized = (test_phase_days % 29.5) / 29.5
+            if test_phase_normalized < 0.03 or test_phase_normalized > 0.97:
                 days_to_new = (test_date - date).days
                 break
         

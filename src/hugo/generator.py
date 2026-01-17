@@ -59,7 +59,12 @@ class HugoGenerator:
         #   - "Observation #45"
         #   - "Observation #45" (with non-breaking space)
         #   - allow optional extra whitespace around '#'
-        result = diary_entry
+        # First, fix malformed markdown headers like "##[# 1]" -> "## 1"
+        # This pattern occurs when the LLM generates headers with links incorrectly
+        # Handles both "##[# 1]" (with space) and "##[#1]" (without space)
+        # Also remove links from headers that are already linked like "## [1](/posts/...)" -> "## 1"
+        result = re.sub(r'^(##+)\[#\s*(\d+)\]', r'\1 \2', diary_entry, flags=re.MULTILINE)
+        result = re.sub(r'^(##+)\s*\[(\d+)\]\(/posts/[^)]+\)', r'\1 \2', result, flags=re.MULTILINE)
         
         # Pattern 1: "Observation #NN" (with various space types)
         # Process this first to avoid double-matching
@@ -83,24 +88,36 @@ class HugoGenerator:
         
         # Pattern 2: Standalone "#NN" (not part of markdown headers and not already linked)
         # Use negative lookbehind to avoid matching "#NN" that's part of "Observation #NN" or already in a link
+        # Exclude headers by ensuring we're not on a line that starts with "##" followed by our pattern
         # Use word boundary or non-word char after to ensure we match the full number
-        standalone_pattern = re.compile(r"(?<!Observation[\u00A0\u202F ])(?<!\[)(?<![a-zA-Z])#\s*(\d+)(?=\s|$|[^\d])")
+        # Process line by line to avoid matching headers
+        lines = result.split('\n')
+        processed_lines = []
+        for line in lines:
+            # Skip processing if this line is a markdown header (starts with ##)
+            if re.match(r'^##+\s', line):
+                processed_lines.append(line)
+            else:
+                # Only process standalone #NN patterns on non-header lines
+                standalone_pattern = re.compile(r"(?<!Observation[\u00A0\u202F ])(?<!\[)(?<![a-zA-Z])#\s*(\d+)(?=\s|$|[^\d])")
+                
+                def replace_standalone(match: re.Match) -> str:
+                    full_text = match.group(0)  # The entire match including "#"
+                    obs_id_str = match.group(1)
+                    try:
+                        obs_id = int(obs_id_str)
+                    except ValueError:
+                        return full_text
+                    
+                    slug = self._get_observation_slug(obs_id)
+                    if not slug:
+                        return full_text
+                    
+                    return f"[{full_text}](/posts/{slug})"
+                
+                processed_lines.append(standalone_pattern.sub(replace_standalone, line))
         
-        def replace_standalone(match: re.Match) -> str:
-            full_text = match.group(0)  # The entire match including "#"
-            obs_id_str = match.group(1)
-            try:
-                obs_id = int(obs_id_str)
-            except ValueError:
-                return full_text
-            
-            slug = self._get_observation_slug(obs_id)
-            if not slug:
-                return full_text
-            
-            return f"[{full_text}](/posts/{slug})"
-        
-        result = standalone_pattern.sub(replace_standalone, result)
+        result = '\n'.join(processed_lines)
         
         return result
     
@@ -302,9 +319,10 @@ tags = {tags}
                         logger.warning(f"Could not set key permissions: {e}")
                     
                     # SSH options for non-interactive deployment:
+                    # - F: Use SSH config file for host aliases
                     # - StrictHostKeyChecking=accept-new: Accept new host keys automatically (but still validate)
                     # - UserKnownHostsFile: Save to known_hosts for future connections
-                    ssh_opts = f"-i {ssh_key_path} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/app/.ssh/known_hosts"
+                    ssh_opts = f"-F /app/.ssh/config -i {ssh_key_path} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/app/.ssh/known_hosts"
                     cmd.extend(['-e', f'ssh {ssh_opts}'])
                 
                 # Source and destination
@@ -338,7 +356,8 @@ tags = {tags}
                         logger.warning(f"Could not set key permissions: {e}")
                     
                     # SSH options for non-interactive deployment
-                    cmd.extend(['-i', ssh_key_path, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=/app/.ssh/known_hosts'])
+                    # -F: Use SSH config file for host aliases
+                    cmd.extend(['-F', '/app/.ssh/config', '-i', ssh_key_path, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=/app/.ssh/known_hosts'])
                 
                 # Source and destination
                 cmd.append(f"{HUGO_PUBLIC_DIR}/*")

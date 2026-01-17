@@ -8,6 +8,7 @@ remote destination using rsync with delete option.
 import subprocess
 import sys
 import os
+import re
 from pathlib import Path
 
 from src.config import (
@@ -16,7 +17,8 @@ from src.config import (
     DEPLOY_ENABLED,
     DEPLOY_METHOD,
     DEPLOY_DESTINATION,
-    DEPLOY_SSH_KEY
+    DEPLOY_SSH_KEY,
+    DEPLOY_HOST_IP
 )
 
 
@@ -50,7 +52,13 @@ def deploy_with_rsync():
         print("❌ DEPLOY_DESTINATION not configured in .env")
         return False
     
-    print(f"📤 Deploying to {DEPLOY_DESTINATION}...")
+    # If DEPLOY_HOST_IP is set, replace hostname in DEPLOY_DESTINATION with IP
+    deploy_destination = DEPLOY_DESTINATION
+    if DEPLOY_HOST_IP:
+        deploy_destination = re.sub(r'@([^:/]+)', f'@{DEPLOY_HOST_IP}', DEPLOY_DESTINATION)
+        print(f"   Using IP address {DEPLOY_HOST_IP} instead of hostname in destination")
+    
+    print(f"📤 Deploying to {deploy_destination}...")
     
     # Build rsync command
     rsync_cmd = [
@@ -63,17 +71,39 @@ def deploy_with_rsync():
         '--exclude', 'log.html',  # preserve log.html on destination (don't overwrite)
     ]
     
-    # Add SSH key if specified
+    # Determine SSH config path (Docker or local)
+    ssh_config_path = None
+    if Path('/app/.ssh/config').exists():
+        ssh_config_path = '/app/.ssh/config'  # Docker
+    elif (Path.home() / '.ssh' / 'config').exists():
+        ssh_config_path = str(Path.home() / '.ssh' / 'config')  # Local
+    
+    # Add SSH options if key is specified
     if DEPLOY_SSH_KEY:
-        rsync_cmd.extend(['-e', f'ssh -i {DEPLOY_SSH_KEY}'])
-        print(f"   Using SSH key: {DEPLOY_SSH_KEY}")
+        ssh_key_path = DEPLOY_SSH_KEY
+        ssh_opts_parts = []
+        
+        # Add SSH config file if available
+        if ssh_config_path:
+            ssh_opts_parts.append(f"-F {ssh_config_path}")
+        
+        # Add key and other options
+        ssh_opts_parts.append(f"-i {ssh_key_path}")
+        ssh_opts_parts.append("-o StrictHostKeyChecking=accept-new")
+        ssh_opts_parts.append("-o UserKnownHostsFile=/app/.ssh/known_hosts" if Path('/app/.ssh').exists() else f"-o UserKnownHostsFile={Path.home() / '.ssh' / 'known_hosts'}")
+        
+        ssh_opts = " ".join(ssh_opts_parts)
+        rsync_cmd.extend(['-e', f'ssh {ssh_opts}'])
+        print(f"   Using SSH key: {ssh_key_path}")
+        if ssh_config_path:
+            print(f"   Using SSH config: {ssh_config_path}")
     
     # Add source and destination
     source = str(HUGO_PUBLIC_DIR) + '/'
-    rsync_cmd.extend([source, DEPLOY_DESTINATION])
+    rsync_cmd.extend([source, deploy_destination])
     
     print(f"   Source: {source}")
-    print(f"   Destination: {DEPLOY_DESTINATION}")
+    print(f"   Destination: {deploy_destination}")
     print(f"   Command: {' '.join(rsync_cmd)}")
     print()
     

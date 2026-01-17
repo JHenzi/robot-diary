@@ -95,3 +95,39 @@ class TestHugoObservationLinks:
         assert "[Observation #46](/posts/2025-12-31_162640_observation_46)" in processed
         assert processed.count("/posts/") == 2
 
+    def test_fix_malformed_header_links(self, tmp_path, monkeypatch):
+        # Test that malformed headers like "##[# 1]" are fixed to "## 1" (no link in headers)
+        content_dir = tmp_path / "content" / "posts"
+        content_dir.mkdir(parents=True, exist_ok=True)
+        post_file = content_dir / "2025-12-12_observation_1.md"
+        post_file.write_text("dummy", encoding="utf-8")
+
+        gen = HugoGenerator()
+        monkeypatch.setattr(gen, "content_dir", content_dir)
+
+        # Test malformed header with space
+        diary = "##[# 1](/posts/2025-12-12_observation_1). Snapshot\nSome text here."
+        processed = gen._link_observation_references(diary)
+        assert "## 1" in processed
+        assert "##[# 1]" not in processed
+        assert "## [1](/posts/" not in processed  # Headers should not have links
+
+        # Test malformed header without space
+        diary2 = "##[#1](/posts/2025-12-12_observation_1). Snapshot\nSome text here."
+        processed2 = gen._link_observation_references(diary2)
+        assert "## 1" in processed2
+        assert "##[#1]" not in processed2
+        assert "## [1](/posts/" not in processed2  # Headers should not have links
+
+        # Test with multiple hash marks
+        diary3 = "###[# 2](/posts/2025-12-12_observation_1). Section\nSome text."
+        processed3 = gen._link_observation_references(diary3)
+        assert "### 2" in processed3
+        assert "###[# 2]" not in processed3
+        assert "### [2](/posts/" not in processed3  # Headers should not have links
+
+        # Test already-linked header should be cleaned
+        diary4 = "## [1](/posts/2025-12-12_observation_1). Snapshot\nSome text here."
+        processed4 = gen._link_observation_references(diary4)
+        assert "## 1" in processed4
+        assert "## [1](/posts/" not in processed4  # Link should be removed from header

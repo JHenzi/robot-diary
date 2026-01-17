@@ -20,6 +20,15 @@ class GroqClient:
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY)
     
+    def _get_reasoning_params(self, model: str) -> dict:
+        """Get reasoning parameters if model is GPT-OSS."""
+        if "gpt-oss" in model.lower():
+            return {
+                "reasoning_effort": "medium",  # Use reasoning_effort for Chat Completions API
+                "reasoning_format": "hidden"  # Hide reasoning steps from output
+            }
+        return {}
+    
     def generate_direct_prompt(self, recent_memory: list[dict], base_prompt_template: str,
                               context_metadata: dict = None, weather_data: dict = None,
                               memory_count: int = 0, days_since_first: int = 0, 
@@ -572,13 +581,15 @@ Important reminders:
                 iteration += 1
                 
                 # Call LLM with current messages and tools
+                reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                 response = self.client.chat.completions.create(
                     model=DIARY_WRITING_MODEL,
                     messages=messages,
                     tools=tools if tools else None,
                     tool_choice="auto" if tools else None,
                     temperature=random.uniform(0.5, 0.85),
-                    max_tokens=random.randint(2000, 4500)
+                    max_tokens=random.randint(2000, 4500),
+                    **reasoning_params  # Unpack reasoning params if GPT-OSS
                 )
                 
                 message = response.choices[0].message
@@ -975,13 +986,15 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                 
                 # Call LLM with current messages and tools
                 try:
+                    reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                     response = self.client.chat.completions.create(
                         model=DIARY_WRITING_MODEL,
                         messages=messages,
                         tools=tools if tools else None,
                         tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
                         temperature=random.uniform(0.5, 0.85),
-                        max_tokens=random.randint(2000, 5000)
+                        max_tokens=random.randint(2000, 5000),
+                        **reasoning_params  # Unpack reasoning params if GPT-OSS
                     )
                 except Exception as e:
                     error_str = str(e)
@@ -990,12 +1003,14 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                         logger.warning(f"Tool call validation error detected: {e}")
                         logger.warning("This may be due to model generating incorrect tool names. Retrying without tools...")
                         # Retry without tools as fallback
+                        reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                         response = self.client.chat.completions.create(
                             model=DIARY_WRITING_MODEL,
                             messages=messages,
                             tools=None,  # Disable tools for this request
                             temperature=random.uniform(0.5, 0.85),
-                            max_tokens=random.randint(2000, 5000)
+                            max_tokens=random.randint(2000, 5000),
+                            **reasoning_params  # Unpack reasoning params if GPT-OSS
                         )
                         logger.warning("Retry without tools succeeded. Continuing without memory queries for this entry.")
                     # Handle parsing errors where model generates text instead of structured function calls
@@ -1003,12 +1018,14 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                         logger.warning(f"Function calling parse error detected: {e}")
                         logger.warning("Model generated text instead of structured function calls. Retrying without tools...")
                         # Retry without tools as fallback
+                        reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                         response = self.client.chat.completions.create(
                             model=DIARY_WRITING_MODEL,
                             messages=messages,
                             tools=None,  # Disable tools for this request
                             temperature=random.uniform(0.5, 0.85),
-                            max_tokens=random.randint(2000, 5000)
+                            max_tokens=random.randint(2000, 5000),
+                            **reasoning_params  # Unpack reasoning params if GPT-OSS
                         )
                         logger.warning("Retry without tools succeeded. Continuing without memory queries for this entry.")
                     else:
