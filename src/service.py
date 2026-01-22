@@ -350,8 +350,10 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                 logger.info(f"Using image: {image_path}")
         except Exception as e:
             logger.error(f"Failed to fetch new image: {e}")
-            logger.error("Cannot proceed without a live image - observation failed")
-            raise Exception(f"Image fetch failed and we require live images: {e}")
+            logger.warning("⚠️  Image feed unavailable - falling back to news-based observation")
+            logger.info("Switching to news-based observation mode...")
+            # Fall back to news-based observation when image fetch fails
+            return run_news_based_observation(dry_run=dry_run, observation_type=observation_type)
         
         # Step 2: Get memory statistics (before loading full memories)
         logger.info("Step 2: Getting memory statistics...")

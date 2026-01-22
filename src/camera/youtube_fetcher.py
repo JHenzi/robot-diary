@@ -50,45 +50,82 @@ def _get_youtube_stream_url(youtube_url: str) -> str:
     """
     Get the direct stream URL from a YouTube URL using yt-dlp.
     
+    Tries multiple format options as fallbacks:
+    1. No format specified (let yt-dlp choose automatically)
+    2. 'b' (best pre-merged format)
+    3. 'worst' (fallback for compatibility)
+    
     Args:
         youtube_url: YouTube URL (watch or live)
         
     Returns:
         Direct stream URL for FFmpeg
+        
+    Raises:
+        Exception: If all format attempts fail
+        FileNotFoundError: If yt-dlp is not installed
     """
     logger.info(f"Getting stream URL from YouTube: {youtube_url}")
     
-    try:
-        # Use yt-dlp to get the best quality stream URL
-        cmd = [
-            'yt-dlp',
-            '-f', 'best',  # Best quality
-            '-g',  # Get URL only, don't download
-            youtube_url
-        ]
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=True
-        )
-        
-        stream_url = result.stdout.strip()
-        if not stream_url:
-            raise ValueError("yt-dlp returned empty stream URL")
-        
-        logger.info(f"✅ Retrieved stream URL: {stream_url[:100]}...")
-        return stream_url
-        
-    except subprocess.CalledProcessError as e:
-        logger.error(f"yt-dlp failed: {e.stderr}")
-        raise Exception(f"Failed to get YouTube stream URL: {e.stderr}")
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            "yt-dlp not found. Install with: pip install yt-dlp"
-        )
+    # Try different format options as fallbacks
+    format_options = [
+        None,  # No format - let yt-dlp choose automatically (recommended)
+        'b',   # Best pre-merged format
+        'worst',  # Fallback option
+    ]
+    
+    last_error = None
+    for fmt_option in format_options:
+        try:
+            # Build command
+            cmd = ['yt-dlp', '-g']  # Get URL only, don't download
+            
+            # Add format option if specified
+            if fmt_option:
+                cmd.extend(['-f', fmt_option])
+            
+            cmd.append(youtube_url)
+            
+            logger.debug(f"Trying yt-dlp with format: {fmt_option or 'auto'}")
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True
+            )
+            
+            stream_url = result.stdout.strip()
+            if not stream_url:
+                raise ValueError("yt-dlp returned empty stream URL")
+            
+            logger.info(f"✅ Retrieved stream URL (format: {fmt_option or 'auto'}): {stream_url[:100]}...")
+            return stream_url
+            
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else str(e)
+            logger.warning(f"yt-dlp failed with format '{fmt_option or 'auto'}': {error_msg[:200]}")
+            last_error = error_msg
+            
+            # If this is the last option, we'll raise the error
+            if fmt_option == format_options[-1]:
+                break
+            
+            # Continue to next format option
+            continue
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                "yt-dlp not found. Install with: pip install yt-dlp"
+            )
+    
+    # All format options failed
+    logger.error(f"All yt-dlp format options failed. Last error: {last_error}")
+    raise Exception(
+        f"Failed to get YouTube stream URL after trying all format options. "
+        f"Last error: {last_error[:500] if last_error else 'Unknown error'}"
+    )
 
 
 def _capture_frame_with_ffmpeg(stream_url: str, output_path: Path) -> bool:
