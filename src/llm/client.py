@@ -702,13 +702,29 @@ Important reminders:
                     continue
                 else:
                     # No tool calls - LLM has finished writing
-                    diary_entry = message.content.strip()
+                    diary_entry = (message.content or "").strip()
+                    if not diary_entry:
+                        logger.warning(
+                            "LLM returned an empty text-only diary entry (no tool calls). "
+                            "Retrying with an explicit instruction to output the entry text."
+                        )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Please output the full diary entry text now. "
+                                    "Do not call any tools. Do not return an empty response."
+                                ),
+                            }
+                        )
+                        continue
+
                     logger.info(f"✅ Text-only diary entry created (after {iteration} iteration(s))")
                     break
             
             if iteration >= max_iterations:
                 logger.warning(f"Reached max iterations ({max_iterations}), using last response")
-                diary_entry = messages[-1].get("content", "").strip()
+                diary_entry = (messages[-1].get("content") or "").strip()
             
             return diary_entry
             
@@ -1141,13 +1157,29 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                     continue
                 else:
                     # No tool calls - LLM has finished writing
-                    diary_entry = message.content.strip()
+                    diary_entry = (message.content or "").strip()
+                    if not diary_entry:
+                        logger.warning(
+                            "LLM returned an empty diary entry (no tool calls). "
+                            "Retrying with an explicit instruction to output the entry text."
+                        )
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Please output the full diary entry text now. "
+                                    "Do not call any tools. Do not return an empty response."
+                                ),
+                            }
+                        )
+                        continue
+
                     logger.info(f"✅ Diary entry created (after {iteration} iteration(s))")
                     break
             
             if iteration >= max_iterations:
                 logger.warning(f"Reached max iterations ({max_iterations}), using last response")
-                diary_entry = messages[-1].get("content", "").strip()
+                diary_entry = (messages[-1].get("content") or "").strip()
             
             # Store the full prompt for debugging/simulation purposes
             self._last_full_prompt = full_prompt

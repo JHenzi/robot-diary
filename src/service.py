@@ -242,6 +242,20 @@ Write as if you've intercepted these transmissions and are reflecting on them as
         # Step 4: Create text-only diary entry with memory query tools
         logger.info("Step 4: Creating text-only diary entry from news with on-demand memory queries...")
         diary_entry = llm_client.create_diary_entry_from_text(full_prompt, context_metadata, memory_manager=memory_manager)
+        if not diary_entry or not diary_entry.strip():
+            # Never publish an empty post; fall back to a small deterministic entry.
+            logger.error("News-based diary entry generation returned empty content; using deterministic fallback entry.")
+            weather_summary = weather_data.get("summary", "Unknown") if weather_data else "Unknown"
+            weather_temp = weather_data.get("temperature", "?") if weather_data else "?"
+            headlines_text = "\n".join([f"- {h}" for h in headlines]) if headlines else "- (no headlines available)"
+            diary_entry = (
+                f"**SYSTEM NOTICE (news fallback):** Unable to generate a diary entry from transmissions at this time.\n\n"
+                f"**Headlines captured:**\n{headlines_text}\n\n"
+                f"**Context:** {context_metadata.get('day_of_week')}, {context_metadata.get('date')} at {context_metadata.get('time')} "
+                f"{context_metadata.get('timezone', 'CST')} – {context_metadata.get('season')} {context_metadata.get('time_of_day')}.\n"
+                f"**Weather:** {weather_summary}, {weather_temp}°F.\n\n"
+                f"I will continue monitoring and will attempt a full reflection on the next cycle."
+            )
         logger.info(f"Diary entry created ({len(diary_entry)} characters)")
         
         # Step 5: Save to memory (no image path)
