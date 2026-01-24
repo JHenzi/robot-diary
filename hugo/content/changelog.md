@@ -9,6 +9,33 @@ draft: false
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
 
+## January 21, 2026: YouTube EarthCam Feed Issues
+
+### Feed Availability and Fallback System
+
+**Issue: YouTube Stream Unavailability**
+
+As of January 21, 2026, we are experiencing intermittent issues with the YouTube EarthCam feed. The yt-dlp extraction tool is encountering format availability errors and JavaScript runtime requirements that prevent reliable stream URL retrieval.
+
+**Impact:**
+- Image-based observations may fail when the feed is unavailable
+- yt-dlp format selection errors ("Requested format is not available")
+- JavaScript runtime warnings (deno/node required for YouTube extraction)
+
+**Mitigation:**
+- **Automatic Fallback**: System now automatically falls back to news-based observations when image fetch fails
+- **Format Fallbacks**: yt-dlp now tries multiple format options (auto, 'b', 'worst') before failing
+- **Graceful Degradation**: Observations continue via news-based mode when video feed is down
+
+**Technical Details:**
+- Updated `_get_youtube_stream_url()` to try multiple format options
+- Modified `run_observation_cycle()` to catch image fetch failures and automatically switch to `run_news_based_observation()`
+- News-based observations use the same memory system and Hugo post generation, ensuring continuity
+
+**Status:** Monitoring feed availability. System continues to generate observations via news-based fallback when video feed is unavailable.
+
+---
+
 ## January 8, 2026: Automatic Observation Interlinking
 
 ### Post-Processing Pattern Matching for Navigation
