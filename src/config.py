@@ -83,7 +83,8 @@ LOCATION_LATITUDE = 29.9511
 LOCATION_LONGITUDE = -90.0715
 
 # YouTube Live Stream Configuration
-YOUTUBE_STREAM_URL = os.getenv('YOUTUBE_STREAM_URL', 'https://www.youtube.com/watch?v=qHW8srS0ylo')
+# Note: This may change over time; override in .env via YOUTUBE_STREAM_URL when it does.
+YOUTUBE_STREAM_URL = os.getenv('YOUTUBE_STREAM_URL', 'https://www.youtube.com/watch?v=UUhTr19MH0k')
 
 # Timezone for New Orleans (Central Time)
 LOCATION_TIMEZONE = 'America/Chicago'

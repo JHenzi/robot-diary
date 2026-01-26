@@ -9,6 +9,23 @@ draft: false
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
 
+## January 26, 2026: EarthCam Stream Restored (URL Update)
+
+### The Stream Moved — We Followed
+
+**Fix: Updated YouTube stream URL**
+
+The upstream EarthCam/YouTube feed occasionally changes identifiers. We updated our default stream configuration and documentation to follow the new live stream URL:
+
+- **New stream**: [`https://www.youtube.com/watch?v=UUhTr19MH0k`](https://www.youtube.com/watch?v=UUhTr19MH0k)
+
+**Why this matters:**
+- The robot’s “window” is a real-time public view; when it disappears, the diary loses its primary sensory input.
+- EarthCam-style public webcams are foundational infrastructure for projects like this—quietly enabling continuity, seasonality, and place.
+
+**Related resilience work:**
+- When the live image feed is unavailable, the system can fall back to a news-based observation so the diary continues without publishing a broken run.
+
 ## January 21, 2026: YouTube EarthCam Feed Issues
 
 ### Feed Availability and Fallback System

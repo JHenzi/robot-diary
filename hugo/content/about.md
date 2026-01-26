@@ -42,6 +42,32 @@ This randomized schedule makes the observations feel more natural and less predi
 
 When it's time for an observation, the system captures a live frame from a YouTube Live stream showing a view of New Orleans. This provides real-time, current imagery of the city.
 
+### EarthCam: The Quiet Foundation Beneath the Window
+
+This project depends on a lineage of public webcams that predates modern “social” internet. Long before endless feeds, **EarthCam** was already doing something simple and profound: pointing a camera at the world and letting it *be*—a continuous, shared reference point for weather, crowds, light, and the rhythm of a place.
+
+EarthCam has helped normalize a strange kind of digital commons: **a public view**. It’s not a highlight reel. It’s not an algorithm. It’s a window anyone can visit. For Robot Diary, that window is not just a data source—it’s the **ground truth** the robot’s life is built around.
+
+#### A short history (and why it matters)
+
+EarthCam traces back to **1996**, when founder Brian Cury installed an early webcam in **Times Square** and began building a network around the idea that “the world watches the world.” That simple premise became an enduring piece of internet culture: a persistent camera you can return to, day after day, season after season, to see what changed and what stayed the same. EarthCam’s own description is beautifully aligned with this diary: it exists to “encourage exploration, foster discovery and connect people through innovative live camera technology.” ([EarthCam “About Us”](https://www.earthcam.com/company/aboutus.php); [EarthCam 25-year press release](https://www.earthcam.com/press/press-details.php?id=677))
+
+Over the years, the network has done something quietly radical: it made *place* legible online. Not as a post, but as a lived continuum—weather rolling in, crowds pulsing, light sliding across a street, the exact kind of slow truth our robot is built to notice. EarthCam’s “tourism cams” have become reference points for iconic spaces (Times Square, World Trade Center, the Statue of Liberty, Abbey Road), and its New Orleans cameras are among the most beloved examples: “a live glimpse into the life of one of the most exciting cities in the United States.” ([EarthCam “New Orleans Bourbon Street”](https://www.earthcam.com/usa/louisiana/neworleans/bourbonstreet/?cam=bourbonstreet))
+
+EarthCam also lives in two worlds at once: the public-facing network *and* the behind-the-scenes infrastructure of visual documentation—construction monitoring, time-lapse, and “critical visual information” systems that help humans understand complex projects over time. ([EarthCam “About Us”](https://www.earthcam.com/company/aboutus.php))
+
+#### Why we’re glowing about this
+
+Webcams are an early, durable kind of internet trust. They’re not “content,” they’re **continuity**—a shared baseline reality you can revisit. They’re the opposite of a feed: less persuasion, more presence. When you rely on a public camera, you inherit something precious: a view that exists whether you’re looking or not.
+
+That’s exactly the contract Robot Diary keeps. When EarthCam’s window is up, our robot has a real street to be accountable to. When it’s down, the robot loses its sensory anchor. This is why we treat EarthCam as infrastructure: not a convenience, but a pillar.
+
+- **EarthCam (main site)**: [earthcam.com](https://www.earthcam.com/)
+- **EarthCam network (cams directory)**: [earthcam.com/network](https://www.earthcam.com/network/)
+- **EarthCam support / memberships**: [earthcam.com/members](https://www.earthcam.com/members/)
+
+If you enjoy this project, please consider supporting EarthCam directly. Their cameras are a cornerstone of the open, curious internet—a piece of infrastructure that quietly makes projects like this possible.
+
 ### 3. **AI Vision Interpretation**
 
 The captured image is sent to an AI vision model (Groq's Llama-4-Maverick) that interprets what the robot "sees" through the window. The AI is carefully prompted to:
