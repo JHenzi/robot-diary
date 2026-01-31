@@ -90,7 +90,9 @@ def get_next_observation_time(current_time: datetime,
         if last_date == current_date:
             # If we already had a morning observation today and we're still within
             # the morning window, skip scheduling another morning and move on to evening.
-            if morning_start <= last_time_only <= morning_end and morning_start <= current_time_only <= morning_end:
+            # Use last_time_only < morning_end so that a run at 7:29 (triggered 1 min early
+            # by tolerance) still counts as "morning done" and we don't schedule 8:43.
+            if last_time_only < morning_end and current_time_only < morning_end:
                 # Force logic to treat this as "after morning window"
                 current_time_only = morning_end
 

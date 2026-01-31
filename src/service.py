@@ -920,22 +920,39 @@ def main():
                 next_time = next_time.astimezone(LOCATION_TZ)
             obs_type = scheduled_info.get('type', 'evening')
             
-            # Check if scheduled time is in the past - if so, recalculate
+            # Check if scheduled time is in the past - if so, recalculate using last
+            # observation time so we don't double-schedule the same window (e.g. two
+            # morning runs in one day after a restart).
             if next_time < now:
                 logger.warning(f"Loaded scheduled time ({get_observation_schedule_summary(next_time, obs_type)}) is in the past. Recalculating...")
-                next_time, obs_type = get_next_observation_time(now)
+                last_obs_dt = memory_manager.get_last_observation_datetime()
+                if last_obs_dt is not None:
+                    next_time, obs_type = get_next_observation_time(now, last_scheduled_time=last_obs_dt)
+                    logger.info("Used last observation datetime to avoid double-scheduling same window.")
+                else:
+                    next_time, obs_type = get_next_observation_time(now)
                 memory_manager.save_next_scheduled_time(next_time, obs_type)
                 logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
             else:
                 logger.info(f"Loaded scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
         except Exception as e:
             logger.warning(f"Error loading schedule: {e}, calculating new schedule")
-            next_time, obs_type = get_next_observation_time(now)
+            last_obs_dt = memory_manager.get_last_observation_datetime()
+            if last_obs_dt is not None:
+                next_time, obs_type = get_next_observation_time(now, last_scheduled_time=last_obs_dt)
+                logger.info("Used last observation datetime to avoid double-scheduling same window.")
+            else:
+                next_time, obs_type = get_next_observation_time(now)
             memory_manager.save_next_scheduled_time(next_time, obs_type)
             logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
     else:
-        # Calculate new schedule
-        next_time, obs_type = get_next_observation_time(now)
+        # Calculate new schedule (no existing schedule); use last observation time if available
+        last_obs_dt = memory_manager.get_last_observation_datetime()
+        if last_obs_dt is not None:
+            next_time, obs_type = get_next_observation_time(now, last_scheduled_time=last_obs_dt)
+            logger.info("Used last observation datetime to avoid double-scheduling same window.")
+        else:
+            next_time, obs_type = get_next_observation_time(now)
         memory_manager.save_next_scheduled_time(next_time, obs_type)
         logger.info(f"Next scheduled observation: {get_observation_schedule_summary(next_time, obs_type)}")
     

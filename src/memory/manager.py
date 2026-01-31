@@ -280,6 +280,29 @@ class MemoryManager:
         
         return None
     
+    def get_last_observation_datetime(self) -> Optional[datetime]:
+        """
+        Get the datetime of the most recent observation.
+        Used when recalculating schedule on startup so we don't double-schedule
+        the same window (e.g. two morning runs in one day after a restart).
+        
+        Returns:
+            Datetime of last observation, or None if no observations exist
+        """
+        memory = self._load_memory()
+        if not memory:
+            return None
+        
+        try:
+            last_entry = memory[-1]
+            last_date_str = last_entry.get('date', '')
+            if last_date_str:
+                return datetime.fromisoformat(last_date_str.replace('Z', '+00:00'))
+        except Exception as e:
+            logger.warning(f"Error parsing last observation datetime: {e}")
+        
+        return None
+    
     def get_next_scheduled_time(self) -> Optional[Dict]:
         """
         Get the next scheduled observation time from memory.
