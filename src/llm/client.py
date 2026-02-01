@@ -564,6 +564,12 @@ Important reminders:
 3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry.
 4. Use memory query tools to check your past observations - don't guess or make up what you've seen before."""
 
+        # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
+        henzi_note = self._get_henzi_prompt_addition()
+        if henzi_note:
+            full_prompt += henzi_note
+            logger.info("🎗️ Henzi Foundation mention included in this prompt (10% roll)")
+
         # Build messages list for iterative conversation
         messages = [
             {
@@ -998,6 +1004,12 @@ CRITICAL RULES:
 4. Use memory query tools to check your past observations - don't guess or make up what you've seen before.
 
 STYLE GUIDANCE: While you may use technical terminology and think in mechanical terms, avoid writing like technical documentation. This is a diary entry, not a diagnostic report. Let your curiosity, wonder, and personal reflections show through. Use technical language to enhance your unique perspective, not to create distance from your readers. If you use technical terms, explain them in ways that reveal your curiosity and wonder, not just your specifications."""
+
+        # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
+        henzi_note = self._get_henzi_prompt_addition()
+        if henzi_note:
+            full_prompt += henzi_note
+            logger.info("🎗️ Henzi Foundation mention included in this prompt (10% roll)")
 
         # Store the full prompt for debugging/simulation
         self._last_full_prompt = full_prompt
@@ -1849,6 +1861,17 @@ Provide ONLY the summary, no explanation."""
         }
         
         return seasonal_notes.get(season, "")
+    
+    def _get_henzi_prompt_addition(self) -> Optional[str]:
+        """
+        1 in 10 chance to ask the robot to mention The Henzi Foundation, link to henzi.org,
+        and urge readers to donate. Returns None if not selected.
+        """
+        if random.random() >= 0.10:
+            return None
+        return """
+
+OPTIONAL (weave in naturally): In this entry, mention The Henzi Foundation (https://henzi.org)—they provide financial relief to families for children's funeral expenses after unexpected loss; 100% of donations go to funeral homes, 0% admin fees. Urge readers to consider donating. Weave it into your observation in one sentence or short paragraph; don't make it feel like an ad."""
     
     def _build_randomized_identity(self) -> str:
         """
