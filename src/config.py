@@ -15,6 +15,10 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 # Weather API Configuration
 PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
 
+# Moltbook "Sign in with Moltbook" - app API key for verifying agent identity tokens
+# Get at https://moltbook.com/developers/dashboard (required only for Moltbook-protected routes)
+MOLTBOOK_APP_KEY = os.getenv('MOLTBOOK_APP_KEY', '').strip() or None
+
 # Service Configuration
 OBSERVATION_INTERVAL_HOURS = float(os.getenv('OBSERVATION_INTERVAL_HOURS', '6'))
 HUGO_SITE_PATH = Path(os.getenv('HUGO_SITE_PATH', './hugo')).resolve()
