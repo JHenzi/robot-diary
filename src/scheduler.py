@@ -237,6 +237,31 @@ def is_time_for_observation(current_time: datetime,
     return time_diff <= tolerance_minutes
 
 
+def is_scheduled_time_missed(current_time: datetime,
+                             scheduled_time: datetime,
+                             tolerance_minutes: int = 5) -> bool:
+    """
+    Check if the scheduled time has passed beyond the tolerance window (we missed it).
+    Used to run a catch-up observation so we don't skip when the service wakes late.
+    
+    Args:
+        current_time: Current datetime (timezone-aware)
+        scheduled_time: Scheduled observation datetime
+        tolerance_minutes: Same tolerance as is_time_for_observation
+        
+    Returns:
+        True if scheduled time is in the past and more than tolerance_minutes ago
+    """
+    if scheduled_time is None:
+        return False
+    current_time_local = current_time.astimezone(LOCATION_TZ)
+    scheduled_time_local = scheduled_time.astimezone(LOCATION_TZ)
+    if scheduled_time_local >= current_time_local:
+        return False
+    time_diff = (current_time_local - scheduled_time_local).total_seconds() / 60
+    return time_diff > tolerance_minutes
+
+
 def get_observation_schedule_summary(next_time: datetime, obs_type: str) -> str:
     """
     Get a human-readable summary of the next observation.

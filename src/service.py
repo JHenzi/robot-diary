@@ -24,6 +24,7 @@ from .config import (
 from .scheduler import (
     get_next_observation_time,
     is_time_for_observation,
+    is_scheduled_time_missed,
     get_observation_schedule_summary
 )
 from .camera import fetch_latest_image
@@ -995,10 +996,17 @@ def main():
             # Check for scheduled observation
             if USE_SCHEDULED_OBSERVATIONS:
                 now = datetime.now(LOCATION_TZ)
+                tolerance_minutes = 5
+                due_now = is_time_for_observation(now, next_time, tolerance_minutes=tolerance_minutes)
+                missed = is_scheduled_time_missed(now, next_time, tolerance_minutes=tolerance_minutes)
                 
-                # Check if it's time for the scheduled observation
-                if is_time_for_observation(now, next_time, tolerance_minutes=5):
+                # Run if we're in the window OR we missed the window (catch-up so we don't skip)
+                if due_now:
                     logger.info(f"⏰ Scheduled {obs_type} observation time reached!")
+                elif missed:
+                    logger.info(f"⏰ Scheduled {obs_type} observation was missed (window passed). Running catch-up...")
+                
+                if due_now or missed:
                     try:
                         # Check if we should do a news-based observation (10% chance, but only every few days)
                         last_news_date = get_last_news_observation_date()
