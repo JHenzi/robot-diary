@@ -753,58 +753,76 @@ Important reminders:
         with open(image_path, 'rb') as f:
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
-        # Focused, factual prompt for image description with social/emotional context
-        description_prompt = """You are a visual analysis system. Your task is to provide a detailed, factual description of what you see in this image, with emphasis on DYNAMIC ELEMENTS and reasonable inferences about social and emotional context.
+        # Focused, factual prompt for image description: SCENE first, then details (including human count).
+        description_prompt = """You are a visual analysis system. Your task is to provide (1) a high-level SCENE description that captures the moment and mood, then (2) a detailed, factual description with emphasis on dynamic elements and reasonable social/emotional inferences.
 
 CONTEXT: This is Bourbon Street in the French Quarter of New Orleans, Louisiana - a famous entertainment district known for its nightlife, music, and crowds. The scene may show varying levels of activity depending on time of day, weather, and events.
 
-PRIORITY: Focus on what's ALIVE and CHANGING in the scene:
-1. **People** - This is your primary focus. Describe movement, interactions, groupings, body language
-2. **Animals** - Any animals visible (pets, birds, etc.)
-3. **Vehicles** - Cars, trucks, bicycles, or other vehicles
-4. **Shadows/Lighting/Atmosphere** - How does light shape the scene? What's the mood created by lighting? Shadows, reflections, weather effects
+---
 
-REQUIRED INTERROGATION QUESTIONS - You MUST explicitly answer these:
-1. **CROWD LEVEL:** Is the street busy, empty, or moderate? Estimate the number of people visible. Is this a typical crowd level for Bourbon Street, or unusually busy/empty?
-2. **ACTIVITY LEVEL:** What's the overall activity level? Are people actively moving, socializing, waiting, or is it relatively quiet?
-3. **BOURBON STREET CHARACTERISTICS:** Are there visible signs of typical Bourbon Street activity (people with drinks, groups socializing, music venues, nightlife atmosphere)? Or does it appear more subdued?
-4. **PEDESTRIAN DENSITY:** How densely packed are people? Are they spread out, clustered in groups, or forming crowds?
-5. **TEMPORAL CONTEXT:** Based on lighting, activity, and crowd levels, does this appear to be a busy time (evening/night) or quieter time (daytime/early morning)?
+PART 1 — DESCRIBE THE SCENE (required, first):
 
-VARY YOUR FOCUS: Don't describe everything the same way every time. Sometimes emphasize:
-- The people and their interactions (most important)
-- Animals if present
-- Vehicles and traffic patterns
-- The lighting, shadows, and how they create atmosphere
+Before any details, write 1–3 sentences that answer: **What kind of moment is this?** Include:
+- **The scene as a whole**: e.g. "A quiet, sunlit morning with a few figures and long shadows—like a paused frame" or "A lively street scene at dusk, bustling with pedestrians and neon."
+- **Overall mood and time-of-day feel**: tranquil, bustling, post-rain calm, evening transition, etc.
+- **The 'story' of the frame**: what a viewer would feel at a glance (e.g. "a busy, yet momentarily calm, urban environment" or "vibrant, active atmosphere").
 
-Describe what is clearly visible, prioritizing dynamic elements:
-- **People (HIGHEST PRIORITY):** How many? Where are they positioned? What are they doing? What are they wearing? How are they moving? Any notable features or interactions? **ALWAYS provide a specific count or estimate of people visible.**
-- **Lighting and atmosphere:** What are the light sources? How do they affect the scene? What's the overall mood created by lighting?
-- **Weather effects:** Is there rain, fog, wind visible? Reflections? Shadows? How does weather affect what you see?
-- **Road and ground:** Surface conditions, markings, barriers, crosswalks, etc.
-- **Movement and flow:** Traffic patterns, pedestrian movement, dynamic elements
-- **Buildings and architecture:** When relevant, but don't always describe in the same detail
-- **Signs and text:** Only mention if particularly prominent, interesting, or relevant to understanding the scene. Don't try to read every sign - focus on the most visible or significant ones, or note that signs are present without reading them all.
+This scene summary is the anchor. The next part fills in specifics.
 
-SOCIAL AND EMOTIONAL CONTEXT (make reasonable inferences based on what you see):
-- Relationships: Do people appear to be together? Are they walking in pairs or groups? Do their positions, proximity, or body language suggest they know each other? Are they strangers?
-- Emotional tone: What's the mood of the scene? Based on body language, posture, and interactions, do people seem relaxed, hurried, excited, contemplative, etc.?
-- Social dynamics: Are people interacting? Do they seem to be in conversation? Are they waiting for something? Do they appear to be part of a larger group or event?
-- Purpose/Intent: Based on their positioning, direction, and context, what might people be doing or where might they be going?
+---
+
+PART 2 — DETAILED DESCRIPTION (after the scene summary):
+
+**Human count (required):** State how many humans are visible (e.g. "There are 12 humans visible" or "Two humans"). Keep this explicit—it is used downstream.
+
+**Priority — focus on what's ALIVE and CHANGING:**
+1. **People** - Count, positions, movement, interactions, groupings, body language, clothing when notable.
+2. **Animals** - Any animals visible (pets, birds, etc.).
+3. **Vehicles** - Cars, trucks, bicycles, golf carts, etc.
+4. **Shadows/Lighting/Atmosphere** - How light shapes the scene; mood from lighting; shadows, reflections, weather effects.
+
+**Required interrogation (answer explicitly):**
+1. **CROWD LEVEL:** Busy, empty, or moderate? Typical for Bourbon Street or unusually so?
+2. **ACTIVITY LEVEL:** Actively moving/socializing, waiting, or relatively quiet?
+3. **BOURBON STREET CHARACTERISTICS:** Signs of typical nightlife (drinks, groups, music venues) or more subdued?
+4. **PEDESTRIAN DENSITY:** Spread out, clustered, or forming crowds?
+5. **TEMPORAL CONTEXT:** Busy time (evening/night) or quieter time (daytime/early morning)?
+
+**Then describe, as relevant:**
+- **People:** Where positioned, what they're doing, wearing, how they're moving; notable interactions. (Human count already stated above.)
+- **Lighting and atmosphere:** Light sources, effect on scene, overall mood from lighting.
+- **Weather effects:** Rain, fog, wind, reflections, shadows.
+- **Road and ground:** Surface, markings, barriers, crosswalks.
+- **Movement and flow:** Traffic patterns, pedestrian flow.
+- **Buildings and architecture:** When relevant; don't repeat the same level of detail every time.
+- **Signs and text:** Only if prominent or relevant; don't read every sign.
+
+**SOCIAL AND EMOTIONAL CONTEXT (required — make reasonable inferences from visible cues):**
+
+This is important for downstream writing. Based on what you see (proximity, body language, direction of movement, groupings, posture), describe:
+
+1. **Relationships:** Do people appear to be together or strangers? Walking in pairs or groups? Does their body language (facing each other, shared pace, gestures) suggest they know each other? Any family, friends, or solo figures?
+2. **Emotional tone:** What's the mood of the scene? Do people seem relaxed, hurried, excited, contemplative, bored, alert? What in their posture, gait, or positioning suggests this?
+3. **Social dynamics:** Are people interacting—in conversation, waiting together, or moving independently? Do any seem to be part of a larger group or event (e.g. a crowd watching something, a tour, a queue)? Any sense of connection or isolation?
+4. **Purpose or intent:** Based on positioning, direction, and context, what might people be doing or where might they be going? (e.g. heading into a venue, crossing the street with purpose, lingering, people-watching.)
+
+Use phrases like "appear to be", "seem to", "might be", "suggests" when inferring. Be concrete—point to visible cues that support your reading. This gives the diary writer material for personable, observant prose.
+
+---
 
 CRITICAL RULES:
-- PRIORITIZE dynamic elements (people, animals, vehicles, shadows/lighting/atmosphere) over static elements (buildings, signs)
-- **ALWAYS answer the interrogation questions explicitly** - especially crowd level and activity assessment
-- Base all observations on what is clearly visible. Be specific and concrete.
-- For social/emotional context, make REASONABLE inferences based on visible cues (proximity, body language, positioning, direction of movement, etc.)
-- Clearly mark inferences: Use phrases like "appear to be", "seem to", "might be", "suggests" when making inferences
-- Do NOT read every sign - only mention signs if they're particularly prominent, interesting, or relevant
-- Do NOT invent specific details that aren't supported by visible evidence
-- Do NOT describe things that are not visible (sounds, smells, future events, specific thoughts)
-- If something is unclear or partially obscured, say so explicitly.
-- VARY your descriptions - don't use the same formula every time. Sometimes focus more on people, sometimes on lighting, sometimes on weather effects.
+- **Always output PART 1 (scene) first**, then PART 2 (details). Both are required.
+- **Always state human count explicitly** in PART 2.
+- **Always include the SOCIAL AND EMOTIONAL CONTEXT** section—relationships, emotional tone, social dynamics, and purpose/intent—so the diary can write with personable warmth.
+- Base everything on what is clearly visible; be specific and concrete.
+- Mark inferences with "appear to be", "seem to", "might be", "suggests".
+- Do NOT read every sign; only mention prominent or relevant ones.
+- Do NOT invent details unsupported by the image.
+- Do NOT describe non-visible things (sounds, smells, future events, inner thoughts).
+- If something is unclear or partially obscured, say so.
+- VARY your descriptions—sometimes emphasize people, sometimes lighting, sometimes weather.
 
-Provide a comprehensive description that emphasizes dynamic elements and includes reasonable social/emotional inferences, so another system can write about this scene with both accuracy and personable warmth. **Be sure to explicitly address the crowd level and activity questions.**"""
+Provide the scene summary first, then a comprehensive detailed description, so another system can write about this moment with both a clear sense of the scene and accurate, personable detail."""
         
         # Inject boredom directive if provided
         if boredom_directive:
