@@ -6,6 +6,7 @@ theme = 'PaperMod'
 [params]
   # Theme configuration
   env = 'production'
+  mainSections = ['posts']
   
   # Site description
   description = 'The personal diary of B3N-T5-MNT, a maintenance robot in New Orleans who observes the world through a window and documents its experiences, thoughts, and reflections in an ongoing art project.'
