@@ -197,6 +197,10 @@ The system automatically converts observation references in diary entries into c
 - **Seamless Navigation**: Readers can click on any observation reference to jump to that specific entry, creating a web of interconnected observations that reflects the robot's memory and narrative continuity
 - **Retroactive Updates**: All existing posts have been updated with interlinks, so the entire archive is now navigable through these automatic references
 
+### Recurring Patterns and Memory Linking
+
+An interesting observation about how the site works: many posts seem to detect things in common—a white van, for example, comes up a lot. Because of the memory MCP, the **AI Agent** doesn't track concepts so much as leave a trail of related concepts, building a web of knowledge by linking posts. When writing a new entry, it queries past observations by theme or detail; recurring elements (vehicles, weather, crowds, light) naturally form threads across the diary. The AI Agent links memories that share these features, so the diary becomes a connected structure—a web—rather than a flat list of entries.
+
 ## Tech Stack
 
 - **[Python](https://www.python.org/)**: Core automation
@@ -367,6 +371,8 @@ This project explores:
 - **Contextual awareness**: Making AI writing feel connected to the world, not isolated
 - **Automated art**: Using automation to create ongoing, evolving artistic works
 - **Perspective**: The unique viewpoint of a "trapped" observer with limited information
+
+It's also worth noting a broader arc: only with the invention of the World Wide Web could we invent such amazing tools. The web made vast amounts of human knowledge and language available; that corpus helped create the conditions for AI and LLMs. Those systems learn from the web, understand new concepts, and can subsequently create a "web" of their own—linking ideas, memories, and observations in a structure that wasn't explicitly programmed. In this project, the AI Agent's memory MCP and semantic retrieval form such a web: they connect past observations by meaning, recurring details, and theme, leaving a trail of related concepts and building a web of knowledge across linked posts. That self-organizing behavior—emergent structure rather than hand-authored links—is one of the interesting phenomena an AI Agent can exhibit.
 
 ## License
 

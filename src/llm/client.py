@@ -931,8 +931,14 @@ Provide the scene summary first, then a comprehensive detailed description, so a
         if memory_manager:
             from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
             memory_tools = MemoryQueryTools(memory_manager)
-            tools.extend(get_memory_tool_schemas())
-            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
+            raw_schemas = get_memory_tool_schemas()
+            # Groq models may emit tool names with "functions/" prefix; send that so API accepts
+            for t in raw_schemas:
+                copy_t = dict(t)
+                copy_t["function"] = dict(copy_t["function"])
+                copy_t["function"]["name"] = "functions/" + copy_t["function"]["name"]
+                tools.append(copy_t)
+            logger.info(f"Memory query tools available: {len(tools)} functions")
         
         # Browser search is a built-in Groq tool for GPT-OSS-120B
         # We don't need to add it to the tools list - it's automatically available
@@ -1045,14 +1051,18 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                 except Exception as e:
                     error_str = str(e)
                     # Handle tool call validation errors (e.g., GPT-OSS-120b adding "functions/" prefix)
-                    if "tool call validation failed" in error_str.lower() or "functions/" in error_str:
+                    # Also handle "Tool choice is none, but model called a tool" when retry without tools was used
+                    if "tool call validation failed" in error_str.lower() or "functions/" in error_str or "tool choice is none" in error_str.lower():
                         logger.warning(f"Tool call validation error detected: {e}")
                         logger.warning("This may be due to model generating incorrect tool names. Retrying without tools...")
-                        # Retry without tools as fallback
+                        # Retry without tools: append instruction so model does not emit a tool call
+                        retry_messages = messages + [
+                            {"role": "user", "content": "Do not use any tools for this response. Write the diary entry using only the context already provided above."}
+                        ]
                         reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                         response = self.client.chat.completions.create(
                             model=DIARY_WRITING_MODEL,
-                            messages=messages,
+                            messages=retry_messages,
                             tools=None,  # Disable tools for this request
                             temperature=random.uniform(0.5, 0.85),
                             max_tokens=random.randint(2000, 5000),
@@ -1063,11 +1073,13 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                     elif "output_parse_failed" in error_str.lower() or "parsing failed" in error_str.lower():
                         logger.warning(f"Function calling parse error detected: {e}")
                         logger.warning("Model generated text instead of structured function calls. Retrying without tools...")
-                        # Retry without tools as fallback
+                        retry_messages = messages + [
+                            {"role": "user", "content": "Do not use any tools for this response. Write the diary entry using only the context already provided above."}
+                        ]
                         reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                         response = self.client.chat.completions.create(
                             model=DIARY_WRITING_MODEL,
-                            messages=messages,
+                            messages=retry_messages,
                             tools=None,  # Disable tools for this request
                             temperature=random.uniform(0.5, 0.85),
                             max_tokens=random.randint(2000, 5000),

@@ -97,6 +97,7 @@ Before generating each diary entry, the system builds a rich, multi-layered cont
 - **Recent memory entries** - The last 5-10 observations are summarized and included, allowing the robot to reference past entries by number or date
 - **LLM-based memory summarization** - Past observations are intelligently summarized to maintain narrative threads without overwhelming the prompt
 - **Pattern recognition** - The system helps the robot notice changes, patterns, and continuity from previous observations
+- **Memory MCP and recurring themes** - An interesting observation about the site: many posts seem to detect things in common (a white van, for example, comes up a lot). Because of the memory MCP, the **AI Agent** doesn't track concepts so much as leave a trail of related concepts, building a web of knowledge by linking posts. It queries past observations by theme or detail; recurring elements—vehicles, weather, crowds, light—naturally form threads across the diary. The AI Agent links memories that share these features, so the diary becomes a connected structure—a web—rather than a flat list of entries.
 
 **Personality & Voice Evolution:**
 - **Event-driven personality drift** - The robot's personality evolves based on:
@@ -198,6 +199,8 @@ This is an art project—an exploration of:
 - What unique insights emerge from a non-human observer?
 
 The entries are generated automatically, but they represent a genuine attempt to create a coherent, evolving narrative voice that maintains continuity over time. The robot's personality develops as it accumulates more observations, becoming more reflective, philosophical, or developing quirky observations about human behavior.
+
+There's a broader arc worth noting: only with the invention of the World Wide Web could we invent such amazing tools. The web made vast amounts of human knowledge and language available; that corpus helped create the conditions for AI and LLMs. Those systems learn from the web, understand new concepts, and can subsequently create a "web" of their own—linking ideas, memories, and observations in a structure that wasn't explicitly programmed. Here, the **AI Agent**'s memory MCP and semantic retrieval form such a web: they connect past observations by meaning, recurring details, and theme, leaving a trail of related concepts and building a web of knowledge across linked posts. That **self-organizing behavior**—emergent structure rather than hand-authored links—is one of the interesting phenomena an AI Agent can exhibit.
 
 ## Open Source
 
