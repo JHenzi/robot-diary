@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Any
 from datetime import datetime
 
 # Disable ChromaDB telemetry before importing
@@ -20,6 +20,7 @@ try:
 except ImportError:
     CHROMA_AVAILABLE = False
     Settings = None
+    SentenceTransformer = None
     logging.warning("ChromaDB or sentence-transformers not available. Semantic search will be disabled.")
 
 from ..config import MEMORY_DIR, PROJECT_ROOT, IMAGES_DIR
@@ -32,6 +33,48 @@ COLLECTION_NAME = "robot_memories"
 IMAGE_COLLECTION_NAME = "robot_image_embeddings"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"  # Lightweight, local embedding model
 IMAGE_EMBEDDING_MODEL_NAME = "clip-ViT-B-32"  # CLIP model for image embeddings
+MODEL_LOCAL_FIRST = os.getenv('SENTENCE_TRANSFORMERS_LOCAL_FIRST', 'true').lower() == 'true'
+
+# Process-level model cache so repeated observation cycles don't re-initialize
+# the same SentenceTransformer objects.
+_MODEL_CACHE: Dict[str, Any] = {}
+
+
+def _get_sentence_transformer(model_name: str):
+    """
+    Load SentenceTransformer with process-level caching.
+
+    Strategy:
+    1. Reuse cached model object if already loaded in this process.
+    2. Try local cache only first to avoid repeated Hugging Face HEAD requests.
+    3. Fall back to network fetch only if local model files are missing.
+    """
+    cached_model = _MODEL_CACHE.get(model_name)
+    if cached_model is not None:
+        logger.debug(f"Reusing cached embedding model: {model_name}")
+        return cached_model
+
+    if SentenceTransformer is None:
+        raise ImportError("sentence-transformers is not available")
+
+    model = None
+
+    if MODEL_LOCAL_FIRST:
+        try:
+            model = SentenceTransformer(model_name, local_files_only=True)
+            logger.info(f"Loaded embedding model from local cache: {model_name}")
+        except TypeError:
+            # Older sentence-transformers versions may not support local_files_only.
+            logger.debug("SentenceTransformer does not support local_files_only; using default loading")
+        except Exception as e:
+            logger.info(f"Local cache unavailable for {model_name}, falling back to download: {e}")
+
+    if model is None:
+        model = SentenceTransformer(model_name)
+        logger.info(f"Loaded embedding model with network fallback: {model_name}")
+
+    _MODEL_CACHE[model_name] = model
+    return model
 
 
 class HybridMemoryRetriever:
@@ -96,7 +139,7 @@ class HybridMemoryRetriever:
         
         # Load text embedding model
         logger.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
-        self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        self.embedding_model = _get_sentence_transformer(EMBEDDING_MODEL_NAME)
         logger.info("Embedding model loaded successfully")
         
         # Get or create image embedding collection
@@ -108,7 +151,7 @@ class HybridMemoryRetriever:
             
             # Load image embedding model (CLIP)
             logger.info(f"Loading image embedding model: {IMAGE_EMBEDDING_MODEL_NAME}")
-            self.image_embedding_model = SentenceTransformer(IMAGE_EMBEDDING_MODEL_NAME)
+            self.image_embedding_model = _get_sentence_transformer(IMAGE_EMBEDDING_MODEL_NAME)
             logger.info("Image embedding model loaded successfully")
         except Exception as e:
             logger.warning(f"Failed to initialize image embedding model: {e}")

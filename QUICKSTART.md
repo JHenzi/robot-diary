@@ -43,7 +43,7 @@ The service follows this workflow to **avoid unnecessary API calls**:
    - Fetches latest image (uses cache if available)
    - Loads recent memory
    - Generates dynamic prompt using `gpt-oss-20b` (cheaper model)
-   - Creates diary entry using `llama-4-maverick` (vision model)
+   - Creates diary entry using `llama-4-scout` (vision model)
    - Saves to memory
    - Generates Hugo post
    - Builds Hugo site
@@ -75,4 +75,3 @@ Edit your `.env` file or set environment variables:
 - **Hugo Build Fails**: Ensure Hugo is installed (`hugo version`)
 - **Image Not Found**: Check Windy API key and webcam ID
 - **Import Errors**: Make sure you're in the project root directory
-

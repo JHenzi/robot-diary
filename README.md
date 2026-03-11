@@ -73,10 +73,10 @@ To prevent repetitive, formulaic entries, each prompt includes randomly selected
 
 We use a **two-step, multi-model approach** for efficiency and quality:
 
-1. **Image Description** ([`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct)): Vision model provides a detailed, factual description of what's in the image (Step 1)
+1. **Image Description** ([`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct)): Vision model provides a detailed, factual description of what's in the image (Step 1)
 2. **Memory Summarization** ([`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant)): Cheap model distills each observation into a context-preserving summary
 3. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
-4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct), but can be upgraded to [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) for richer, more nuanced storytelling (Step 2)
+4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct), but can be upgraded to [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) for richer, more nuanced storytelling (Step 2)
 
 **Why Two Steps?** By separating image description from creative writing, we:
 - **Reduce Hallucination**: The writing model works from concrete facts, not trying to interpret images directly
@@ -205,7 +205,7 @@ An interesting observation about how the site works: many posts seem to detect t
 
 - **[Python](https://www.python.org/)**: Core automation
 - **[Groq API](https://groq.com/)**: Multi-model LLM inference
-  - [`llama-4-maverick-17b-128e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-maverick-17b-128e-instruct): Vision model for image description (Step 1)
+  - [`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct): Vision model for image description (Step 1)
   - [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
   - [`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant): Memory summarization
 - **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: On-demand memory queries via function calling
@@ -273,7 +273,7 @@ Create a `.env` file in the project root with:
 ### Important Optional Environment Variables
 
 **Model Configuration:**
-- `DIARY_WRITING_MODEL`: Model to use for diary entry writing (Step 2). Defaults to `meta-llama/llama-4-maverick-17b-128e-instruct`. Set to `openai/gpt-oss-120b` for richer, more nuanced storytelling with a stronger robotic voice. The 120B model produces significantly better narrative flow and more sophisticated observations.
+- `DIARY_WRITING_MODEL`: Model to use for diary entry writing (Step 2). Defaults to `meta-llama/llama-4-scout-17b-16e-instruct`. Set to `openai/gpt-oss-120b` for richer, more nuanced storytelling with a stronger robotic voice. The 120B model produces significantly better narrative flow and more sophisticated observations.
 
 **Context & Features:**
 - `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context (highly recommended)
@@ -292,6 +292,7 @@ Create a `.env` file in the project root with:
 - `OBSERVATION_TIMES`: Comma-separated observation times in 24-hour format (default: `9:00,16:20`)
 - `MEMORY_RETENTION_DAYS`: Days to retain observations in memory (default: `30`). Set to `0` for unlimited retention (no automatic cleanup based on age).
 - `MAX_MEMORY_ENTRIES`: Maximum number of observations to keep (default: `50`). Set to `0` for unlimited entries (no automatic truncation).
+- `SENTENCE_TRANSFORMERS_LOCAL_FIRST`: Load embedding models from local cache before trying network (default: `true`). Helps avoid repeated Hugging Face metadata checks on recurring runs.
 - `HUGO_SITE_PATH`: Path to Hugo site directory (default: `./hugo`)
 - `HUGO_BUILD_ON_UPDATE`: Automatically build Hugo site after each observation (default: `true`)
 

@@ -52,7 +52,7 @@ MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
 
 # Model Configuration
 PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
-VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
+VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
 
 # Diary Writing Model - can be overridden via environment variable
@@ -130,4 +130,3 @@ MEMORY_DIR.mkdir(exist_ok=True)
 (PROJECT_ROOT / 'weather').mkdir(exist_ok=True)
 HUGO_CONTENT_DIR.mkdir(parents=True, exist_ok=True)
 HUGO_STATIC_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-

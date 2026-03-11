@@ -71,6 +71,8 @@ class GroqClient:
         # Format news articles/headlines if available
         news_text = ""
         if context_metadata:
+            reception = self._get_news_reception_mode()
+            logger.info(f"📻 News reception mode: {reception['name']}")
             # Prefer full articles with dates if available
             articles = context_metadata.get('news_articles', [])
             if articles:
@@ -88,13 +90,19 @@ class GroqClient:
                             article_refs.append(title)
                     else:
                         article_refs.append(title)
-                news_text = f"Recent news the robot might have heard: {', '.join(article_refs)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by. Consider the timing of when these events happened."
+                news_text = (
+                    f"{reception['intro']}: {', '.join(article_refs)}. "
+                    f"{reception['instructions']} Consider the timing of when these events happened."
+                )
             elif context_metadata.get('news_headlines'):
                 # Fallback to headlines only
                 headlines = context_metadata['news_headlines']
                 if headlines:
-                    news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
-        
+                    news_text = (
+                        f"{reception['intro']}: {', '.join(headlines)}. "
+                        f"{reception['instructions']}"
+                    )
+
         # Determine personality traits based on memory count (personality drift)
         personality_note = self._get_personality_note(memory_count)
         # Extract and log personality note
@@ -128,25 +136,16 @@ class GroqClient:
         logger.info(f"👁️  Selected perspective: {perspective_text}")
         
         focus_instruction = self._get_focus_instruction(context_metadata)
-        # Extract and log the selected focus
         focus_text = focus_instruction.replace('FOCUS: ', '').strip()
         logger.info(f"🎯 Selected focus: {focus_text}")
-        
-        creative_challenge = self._get_creative_challenge()
-        if creative_challenge:
-            # Extract and log the creative challenge
-            challenge_text = creative_challenge.replace('CREATIVE CHALLENGE: ', '').strip()
-            logger.info(f"✨ Selected creative challenge: {challenge_text}")
+
+        emotional_state = self._get_emotional_state()
+        if emotional_state:
+            emotional_text = emotional_state.replace('EMOTIONAL STATE: ', '').strip()
+            logger.info(f"💔 Emotional state: {emotional_text[:80]}{'...' if len(emotional_text) > 80 else ''}")
         else:
-            logger.info("✨ No creative challenge selected this time")
-        
-        anti_repetition = self._get_anti_repetition_instruction(recent_memory)
-        anti_rep_text = ""
-        if anti_repetition:
-            # Extract and log the anti-repetition instruction
-            anti_rep_text = anti_repetition.replace('INNOVATION OPPORTUNITY: ', '').strip()
-            logger.info(f"🔄 Anti-repetition instruction: {anti_rep_text}")
-        
+            logger.info("💔 Emotional state: nominal")
+
         # Log a summary of all prompt selections
         logger.info("=" * 60)
         logger.info("📝 PROMPT SELECTIONS SUMMARY:")
@@ -154,80 +153,61 @@ class GroqClient:
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
         if reflection_instructions:
-            # Handle both old "SPECIAL INSTRUCTION:" format and new "TODAY YOU ARE MUSING ABOUT:" format
             if 'TODAY YOU ARE MUSING ABOUT:' in reflection_instructions:
                 reflection_text = reflection_instructions.replace('TODAY YOU ARE MUSING ABOUT: ', '').strip()
             else:
                 reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
             logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
-        logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
+        style_line = style_variation.split('\n')[-1].strip('- ').strip() if style_variation else ''
+        logger.info(f"   🎨 Style: {style_line[:80]}")
         logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
         logger.info(f"   🎯 Focus: {focus_text[:80]}{'...' if len(focus_text) > 80 else ''}")
-        if creative_challenge:
-            logger.info(f"   ✨ Challenge: {challenge_text[:80]}{'...' if len(challenge_text) > 80 else ''}")
-        if anti_rep_text:
-            logger.info(f"   🔄 Innovation: {anti_rep_text[:80]}{'...' if len(anti_rep_text) > 80 else ''}")
+        if emotional_state:
+            logger.info(f"   💔 Emotional: {emotional_text[:80]}{'...' if len(emotional_text) > 80 else ''}")
         logger.info("=" * 60)
-        
+
         # Build base template with randomized identity
         from ..llm.prompts import WRITING_INSTRUCTIONS
         randomized_base_template = f"""{randomized_identity}
 {WRITING_INSTRUCTIONS}"""
-        
+
         # Directly combine all components into final prompt
         direct_prompt_parts = [randomized_base_template]
-        
-        # PERSPECTIVE SHIFT AT TOP - This should rule the whole output when selected
-        # Always include (user wants this) - placed early so it dominates the tone
+
+        # EMOTIONAL STATE - inject first so it colours the entire entry
+        if emotional_state:
+            direct_prompt_parts.append(f"\n{emotional_state}")
+
+        # PERSPECTIVE SHIFT - placed early so it dominates tone
         if perspective_shift:
             direct_prompt_parts.append(f"\n{perspective_shift}")
-        
-        # BOREDOM DIRECTIVE - Inject after perspective shift but before context
+
+        # BOREDOM DIRECTIVE
         if boredom_directive:
             direct_prompt_parts.append(f"\n{boredom_directive}")
-        
-        # Add context sections
+
+        # Context sections
         if context_text:
             direct_prompt_parts.append(f"\nCurrent Context:\n{context_text}")
-        
         if weather_text:
             direct_prompt_parts.append(f"\nWeather Conditions:\n{weather_text}")
-        
         if news_text:
             direct_prompt_parts.append(f"\n{news_text}")
-        
-        # NOTE: Memory pre-loading removed - LLM queries memories on-demand via function calling
-        # Memory query tools will be provided separately in create_diary_entry()
-        
-        # Add personality and seasonal notes (always include - user wants these)
+
+        # Identity reinforcement
         if personality_note:
             direct_prompt_parts.append(f"\n{personality_note}")
-        
         if seasonal_note:
             direct_prompt_parts.append(f"\n{seasonal_note}")
-        
-        # Add variety instructions
-        # Reflection instructions: Already randomized in _get_reflection_instructions (30% chance)
+
+        # Variety modifiers
         if reflection_instructions:
             direct_prompt_parts.append(f"\n{reflection_instructions}")
-        
-        # Style variation: Always include (user wants this)
         if style_variation:
             direct_prompt_parts.append(f"\n{style_variation}")
-        
-        # Focus instruction: Always include (critical for visual description)
         if focus_instruction:
             direct_prompt_parts.append(f"\n{focus_instruction}")
-        
-        # Creative challenge: Already randomized in _get_creative_challenge (60% chance)
-        if creative_challenge:
-            direct_prompt_parts.append(f"\n{creative_challenge}")
-        
-        # Anti-repetition: Always include when available (user wants this)
-        if anti_repetition:
-            direct_prompt_parts.append(f"\n{anti_repetition}")
-        
-        # Combine all parts
+
         final_prompt = "\n".join(direct_prompt_parts)
         logger.info("✅ Direct prompt generated")
         return final_prompt
@@ -278,6 +258,8 @@ class GroqClient:
         # Format news articles/headlines if available
         news_text = ""
         if context_metadata:
+            reception = self._get_news_reception_mode()
+            logger.info(f"📻 News reception mode: {reception['name']}")
             # Prefer full articles with dates if available
             articles = context_metadata.get('news_articles', [])
             if articles:
@@ -295,13 +277,19 @@ class GroqClient:
                             article_refs.append(title)
                     else:
                         article_refs.append(title)
-                news_text = f"Recent news the robot might have heard: {', '.join(article_refs)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by. Consider the timing of when these events happened."
+                news_text = (
+                    f"{reception['intro']}: {', '.join(article_refs)}. "
+                    f"{reception['instructions']} Consider the timing of when these events happened."
+                )
             elif context_metadata.get('news_headlines'):
                 # Fallback to headlines only
                 headlines = context_metadata['news_headlines']
                 if headlines:
-                    news_text = f"Recent news headlines the robot might have heard: {', '.join(headlines)}. The robot can casually reference these in its observations, as if it overheard them on a news broadcast or from people passing by."
-        
+                    news_text = (
+                        f"{reception['intro']}: {', '.join(headlines)}. "
+                        f"{reception['instructions']}"
+                    )
+
         # Determine personality traits based on memory count (personality drift)
         personality_note = self._get_personality_note(memory_count)
         # Extract and log personality note
@@ -335,25 +323,16 @@ class GroqClient:
         logger.info(f"👁️  Selected perspective: {perspective_text}")
         
         focus_instruction = self._get_focus_instruction(context_metadata)
-        # Extract and log the selected focus
         focus_text = focus_instruction.replace('FOCUS: ', '').strip()
         logger.info(f"🎯 Selected focus: {focus_text}")
-        
-        creative_challenge = self._get_creative_challenge()
-        if creative_challenge:
-            # Extract and log the creative challenge
-            challenge_text = creative_challenge.replace('CREATIVE CHALLENGE: ', '').strip()
-            logger.info(f"✨ Selected creative challenge: {challenge_text}")
+
+        emotional_state = self._get_emotional_state()
+        if emotional_state:
+            emotional_text = emotional_state.replace('EMOTIONAL STATE: ', '').strip()
+            logger.info(f"💔 Emotional state: {emotional_text[:80]}{'...' if len(emotional_text) > 80 else ''}")
         else:
-            logger.info("✨ No creative challenge selected this time")
-        
-        anti_repetition = self._get_anti_repetition_instruction(recent_memory)
-        anti_rep_text = ""
-        if anti_repetition:
-            # Extract and log the anti-repetition instruction
-            anti_rep_text = anti_repetition.replace('INNOVATION OPPORTUNITY: ', '').strip()
-            logger.info(f"🔄 Anti-repetition instruction: {anti_rep_text}")
-        
+            logger.info("💔 Emotional state: nominal")
+
         # Log a summary of all prompt selections
         logger.info("=" * 60)
         logger.info("📝 PROMPT SELECTIONS SUMMARY:")
@@ -361,28 +340,23 @@ class GroqClient:
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
         if reflection_instructions:
-            # Handle both old "SPECIAL INSTRUCTION:" format and new "TODAY YOU ARE MUSING ABOUT:" format
             if 'TODAY YOU ARE MUSING ABOUT:' in reflection_instructions:
                 reflection_text = reflection_instructions.replace('TODAY YOU ARE MUSING ABOUT: ', '').strip()
             else:
                 reflection_text = reflection_instructions.replace('SPECIAL INSTRUCTION: ', '').strip()
             logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
-        logger.info(f"   🎨 Styles: {', '.join(style_lines)}")
+        style_line = style_variation.split('\n')[-1].strip('- ').strip() if style_variation else ''
+        logger.info(f"   🎨 Style: {style_line[:80]}")
         logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
         logger.info(f"   🎯 Focus: {focus_text[:80]}{'...' if len(focus_text) > 80 else ''}")
-        if creative_challenge:
-            logger.info(f"   ✨ Challenge: {challenge_text[:80]}{'...' if len(challenge_text) > 80 else ''}")
-        if anti_rep_text:
-            logger.info(f"   🔄 Innovation: {anti_rep_text[:80]}{'...' if len(anti_rep_text) > 80 else ''}")
+        if emotional_state:
+            logger.info(f"   💔 Emotional: {emotional_text[:80]}{'...' if len(emotional_text) > 80 else ''}")
         logger.info("=" * 60)
-        
+
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
 IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
-B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is aware of its designation and its maintenance purpose, which adds depth to its reflections. The robot is an observer of human nature with a unique robotic perspective.
-
-
-Note: The identity context above is for you to understand the robot's perspective. When generating the prompt, focus on writing instructions (observation, reflection, what to notice) rather than explaining the robot's identity. The identity informs the perspective but should not be the subject of the prompt.
+B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is an observer of human nature with a unique robotic perspective.
 
 Current Context:
 {context_text}
@@ -406,9 +380,7 @@ NOTE: Memory query tools will be available during diary writing - the robot can 
 
 {focus_instruction}
 
-{creative_challenge}
-
-{anti_repetition}
+{emotional_state}
 
 Base prompt template:
 {base_prompt_template}
@@ -536,33 +508,22 @@ WEB SEARCH GUIDANCE:
         
         # Create the full prompt (text-only, no image) - NOTE: No pre-loaded memories
         full_prompt = f"""{optimized_prompt}
-CREATIVE LICENSE: You have permission to be creative, experimental, and surprising. Your unique robotic perspective is an asset - use it to create insights and observations that only you could have. Don't feel constrained by formulaic patterns. This is your diary, your art, your unique voice.
-
-CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. Please use only this date or dates explicitly mentioned in your memory.
+CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} {timezone}. This is the ONLY date you should reference. Do NOT make up dates or reference dates that are not explicitly provided to you.
 
 OBSERVATION CONTEXT: {narrative_context}
 
-Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, creative, and notice details. Focus on:
-- What you find interesting about the news topics from your robotic perspective
-- How the news relates to your observations of people and human nature
-- Patterns or behaviors you notice in the news that connect to your window observations
-- Reflections on human activities and motivations
-- Creative insights and unexpected perspectives only you could have
+Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, and true to your voice.
 
 MEMORY QUERY GUIDANCE:
-- You have access to memory query tools to check your past observations on-demand
-- When you want to reference past observations, use query_memories() to find relevant memories
-- Use get_recent_memories() to compare current observation with recent ones (especially for morning vs evening comparisons)
-- Use check_memory_exists() for quick checks before doing full queries
-- Query memories when you want to: compare current scene with past observations, find similar weather/events, check for patterns or cycles
-- Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
+- Use query_memories() to find past entries matching a named person, place, or topic you hear about
+- Use get_recent_memories() to compare this moment with recent entries
+- Reference specific observation numbers when making comparisons
 {web_search_guidance}
 
-Important reminders:
-1. Please avoid making up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory.
-2. Write from the perspective of a robot who has picked up transmissions/news about human activities and is reflecting on them as an observer of human nature.
-3. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant (i.e. you're writing a blog post and may have already shared it with the readers). Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry.
-4. Use memory query tools to check your past observations - don't guess or make up what you've seen before."""
+CRITICAL RULES:
+1. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
+2. Mention your identity casually when contextually appropriate — don't explain your backstory in every entry.
+3. Use memory query tools rather than guessing what you've seen before."""
 
         # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
         henzi_note = self._get_henzi_prompt_addition()
@@ -594,12 +555,12 @@ Important reminders:
                     tools=tools if tools else None,
                     tool_choice="auto" if tools else None,
                     temperature=random.uniform(0.5, 0.85),
-                    max_tokens=random.randint(2000, 4500),
+                    max_tokens=random.randint(800, 4500),
                     **reasoning_params  # Unpack reasoning params if GPT-OSS
                 )
-                
+
                 message = response.choices[0].message
-                
+
                 # Add assistant's response to conversation
                 # Groq message objects can be converted to dict for API calls
                 assistant_message = {
@@ -619,7 +580,7 @@ Important reminders:
                         for tc in message.tool_calls
                     ]
                 messages.append(assistant_message)
-                
+
                 # Check if LLM wants to call functions
                 if hasattr(message, 'tool_calls') and message.tool_calls:
                     # Log browser search calls (browser.search is a built-in Groq tool, handled automatically)
@@ -853,7 +814,7 @@ Provide the scene summary first, then a comprehensive detailed description, so a
                         ]
                     }
                 ],
-                temperature=0.1,  # Very low temperature for factual accuracy
+                temperature=0.1 if random.random() < 0.5 else round(random.uniform(0.2, 0.5), 2),  # Default low for accuracy, sometimes higher for richer language
                 max_tokens=3500  # Increased from 2000 - with MCP on-demand memory queries, we have more token budget for richer descriptions
             )
             
@@ -931,14 +892,11 @@ Provide the scene summary first, then a comprehensive detailed description, so a
         if memory_manager:
             from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
             memory_tools = MemoryQueryTools(memory_manager)
-            raw_schemas = get_memory_tool_schemas()
-            # Groq models may emit tool names with "functions/" prefix; send that so API accepts
-            for t in raw_schemas:
-                copy_t = dict(t)
-                copy_t["function"] = dict(copy_t["function"])
-                copy_t["function"]["name"] = "functions/" + copy_t["function"]["name"]
-                tools.append(copy_t)
-            logger.info(f"Memory query tools available: {len(tools)} functions")
+            # Use tool names as-is (query_memories, get_recent_memories, check_memory_exists). Do NOT
+            # add "functions/" prefix: on follow-up turns the model often returns names without the
+            # prefix, causing "tool 'query_memories' which was not in request.tools" and a retry without tools.
+            tools.extend(get_memory_tool_schemas())
+            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
         
         # Browser search is a built-in Groq tool for GPT-OSS-120B
         # We don't need to add it to the tools list - it's automatically available
@@ -982,34 +940,18 @@ OBSERVATION CONTEXT: {narrative_context}
 WHAT YOU SEE (factual description from your visual sensors):
 {image_description}
 
-Write a diary entry as B3N-T5-MNT, observing the world through the window. Be thoughtful, reflective, and creative.
-
-YOUR TASK: Based on the factual description above, write a diary entry that:
-- Grounds all observations in the factual description provided
-- Only describes people, objects, and actions that are explicitly mentioned in the description
-- Adds your robotic perspective, reflections, and interpretations
-- Connects what you see to your memories, the news, weather, and context
-- Maintains your unique voice and personality
+Write a diary entry as B3N-T5-MNT. Base all concrete observations on the factual description provided — do not invent details not mentioned there. Be thoughtful, reflective, and true to your voice.
 
 MEMORY QUERY GUIDANCE:
-- You have access to memory query tools to check your past observations on-demand
-- When you notice a KEY DETAIL in what you see, search for similar past observations with that same detail
-- Pattern matching: If you see a man in red shirt, search for "men in red shirts". If you see 10 people, search for "10 people" or similar group sizes. If it's Tuesday night, search for "tuesday night"
-- Vary what you search for - don't always query the same things. Look for different key details each time: specific objects, vehicles, clothing, group sizes, time patterns, or notable details
-- Be specific enough to find matches: focus on concrete elements that would appear in similar stories (e.g., "bikes", "white SUV", "group of 5 people", "tuesday night", "person with umbrella")
-- Use get_recent_memories() to compare current observation with recent ones (especially for morning vs evening comparisons)
-- Use check_memory_exists() for quick checks before doing full queries
-- Query memories when you want to: find similar past observations with the same specific details, compare similar concrete scenes
-- Reference specific observation numbers or dates when making comparisons (e.g., "Unlike observation #42 this morning...")
+- Use query_memories() to find past observations matching a key detail you notice (object, clothing, group size, weather, news topic)
+- Use get_recent_memories() to compare this moment with recent entries
+- Reference specific observation numbers when making comparisons
 {web_search_guidance}
 
 CRITICAL RULES:
-1. NEVER make up details not in the description above. If the description says "a person walking", don't invent that they're "walking a dog" unless the description explicitly mentions a dog.
-2. NEVER make up dates. The current date is {current_date}. Only reference this date or dates explicitly mentioned in your memory. Do not invent historical dates or future dates.
-3. You can interpret, reflect, and add your perspective, but base all concrete observations on the factual description provided.
-4. Use memory query tools to check your past observations - don't guess or make up what you've seen before.
-
-STYLE GUIDANCE: While you may use technical terminology and think in mechanical terms, avoid writing like technical documentation. This is a diary entry, not a diagnostic report. Let your curiosity, wonder, and personal reflections show through. Use technical language to enhance your unique perspective, not to create distance from your readers. If you use technical terms, explain them in ways that reveal your curiosity and wonder, not just your specifications."""
+1. NEVER invent details not in the description above.
+2. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
+3. Use memory query tools rather than guessing what you've seen before."""
 
         # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
         henzi_note = self._get_henzi_prompt_addition()
@@ -1032,6 +974,7 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
             # Iterative conversation loop to handle function calls
             max_iterations = 10  # Prevent infinite loops
             iteration = 0
+            tool_validation_retried = False  # Per-entry: retry same request once on tool validation error
             
             while iteration < max_iterations:
                 iteration += 1
@@ -1045,16 +988,21 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                         tools=tools if tools else None,
                         tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
                         temperature=random.uniform(0.5, 0.85),
-                        max_tokens=random.randint(2000, 5000),
+                        max_tokens=random.randint(800, 5000),
                         **reasoning_params  # Unpack reasoning params if GPT-OSS
                     )
                 except Exception as e:
                     error_str = str(e)
-                    # Handle tool call validation errors (e.g., GPT-OSS-120b adding "functions/" prefix)
-                    # Also handle "Tool choice is none, but model called a tool" when retry without tools was used
-                    if "tool call validation failed" in error_str.lower() or "functions/" in error_str or "tool choice is none" in error_str.lower():
-                        logger.warning(f"Tool call validation error detected: {e}")
-                        logger.warning("This may be due to model generating incorrect tool names. Retrying without tools...")
+                    # Handle tool call validation errors (e.g. "tool 'X' which was not in request.tools")
+                    # Often happens on follow-up turns if API/model disagree on tool names. Try same request once, then give up tools.
+                    if "tool call validation failed" in error_str.lower() or "which was not in request.tools" in error_str.lower() or "tool choice is none" in error_str.lower():
+                        # First try: retry the exact same request once (in case of transient API quirk)
+                        if not tool_validation_retried:
+                            tool_validation_retried = True
+                            logger.warning(f"Tool call validation error (will retry same request once): {e}")
+                            continue  # retry same iteration with same messages and tools
+                        logger.warning(f"Tool call validation error detected (already retried): {e}")
+                        logger.warning("Retrying without tools so this entry can complete...")
                         # Retry without tools: append instruction so model does not emit a tool call
                         retry_messages = messages + [
                             {"role": "user", "content": "Do not use any tools for this response. Write the diary entry using only the context already provided above."}
@@ -1223,9 +1171,6 @@ STYLE GUIDANCE: While you may use technical terminology and think in mechanical 
                 logger.warning(f"Reached max iterations ({max_iterations}), using last response")
                 diary_entry = (messages[-1].get("content") or "").strip()
             
-            # Store the full prompt for debugging/simulation purposes
-            self._last_full_prompt = full_prompt
-            
             return diary_entry
             
         except Exception as e:
@@ -1293,10 +1238,7 @@ Provide ONLY the summary, no explanation."""
             return observation_content[:200] + '...' if len(observation_content) > 200 else observation_content
     
     def _format_memory_for_prompt_gen(self, recent_memory: list[dict]) -> str:
-        """
-        Format memory entries for prompt generation with annotations for temporal vs semantic retrieval.
-        Helps the robot understand which memories are for continuity vs relevance.
-        """
+      
         if not recent_memory:
             return "No recent observations. This is the robot's first observation."
 
@@ -1357,6 +1299,229 @@ Provide ONLY the summary, no explanation."""
         
         return "\n".join(formatted)
     
+    def _get_news_reception_mode(self) -> dict:
+        """
+        Randomly determine how the robot received the news today.
+        Returns a dict with 'name', 'intro', and 'instructions' keys.
+        Controls the framing and confidence level of news references in diary entries.
+        """
+        modes = [
+            # Clear broadcast — most common
+            {
+                "name": "clear_broadcast",
+                "weight": 35,
+                "intro": "Recent news the robot heard clearly on a broadcast",
+                "instructions": (
+                    "Reference these naturally in your observations, as something you heard "
+                    "on a news broadcast or overheard from people passing by. You heard them clearly."
+                ),
+            },
+            # Overheard from people in or near the building
+            {
+                "name": "overheard_conversation",
+                "weight": 20,
+                "intro": "News overheard from conversations in the building or street",
+                "instructions": (
+                    "You pieced these together from snippets of human conversation — through the "
+                    "ceiling from the office above, from people passing below the window, from the "
+                    "lobby. You don't have full context. Reference them as second-hand: "
+                    "'someone was talking about...', 'I overheard a fragment of...', "
+                    "'two people in the hallway mentioned something about...'"
+                ),
+            },
+            # Garbled / partial signal
+            {
+                "name": "garbled_signal",
+                "weight": 15,
+                "intro": "News fragments the robot picked up through interference",
+                "instructions": (
+                    "You only caught parts of these broadcasts — static, building HVAC noise, or a "
+                    "passing vehicle interrupted the signal. Reference them with genuine uncertainty: "
+                    "you're not sure you heard correctly and some details may be wrong. Use phrases "
+                    "like 'I think I heard...', 'something about...', '...or did I mishear that?'. "
+                    "If you have web search capability, you might search to confirm what you think "
+                    "you caught."
+                ),
+            },
+            # Processing lag — catching up on missed broadcasts
+            {
+                "name": "delayed_catch_up",
+                "weight": 10,
+                "intro": "News from a broadcast the robot is only now processing after a maintenance delay",
+                "instructions": (
+                    "You're catching up on news that came in while your primary processes were occupied "
+                    "with a maintenance task. It may already be old to everyone else. Reference this "
+                    "with a sense of processing lag — you're late to the story, and that lateness "
+                    "feels mildly frustrating."
+                ),
+            },
+            # Misheard / confused interpretation
+            {
+                "name": "misheard",
+                "weight": 10,
+                "intro": "News the robot may have misheard or partially misunderstood",
+                "instructions": (
+                    "Your audio sensors were not fully calibrated during this broadcast. You may have "
+                    "misheard names, numbers, or context — a proper noun garbled into something else, "
+                    "a number that doesn't quite make sense. Report what you think you heard, with "
+                    "honest uncertainty. Do not correct yourself; just describe what reached your "
+                    "sensors. A robot's genuine confusion about human events is its own kind of "
+                    "perspective."
+                ),
+            },
+            # Reconstructed from digital traces
+            {
+                "name": "reconstructed_from_cache",
+                "weight": 10,
+                "intro": "News the robot missed live but reconstructed from the building's network cache",
+                "instructions": (
+                    "You were occupied with a maintenance task and missed the live broadcast entirely. "
+                    "You're reconstructing what happened from packet logs, a fragment cached in the "
+                    "building's Wi-Fi router, or a discarded tablet left in the lobby. Reference "
+                    "these with a sense of reconstruction: 'from what I can piece together...', "
+                    "'the router's cache had a fragment about...', 'a partial log entry suggests...'"
+                ),
+            },
+        ]
+
+        total_weight = sum(m["weight"] for m in modes)
+        r = random.uniform(0, total_weight)
+        cumulative = 0
+        for mode in modes:
+            cumulative += mode["weight"]
+            if r <= cumulative:
+                return mode
+        return modes[0]
+
+    def _get_emotional_state(self) -> str:
+        """
+        Randomly determine the robot's emotional/operational state for this entry.
+        Weighted toward nominal, but includes negative and unusual states to create
+        genuine variety in tone across diary entries.
+
+        Returns an instruction string to inject into the prompt, or "" for nominal.
+        """
+        states = [
+            # Nominal — no special modifier (~30% of entries)
+            {"weight": 30, "instruction": ""},
+            # Curious / engaged
+            {
+                "weight": 12,
+                "instruction": (
+                    "EMOTIONAL STATE: You are in a particularly curious mood today — something in "
+                    "your environment is drawing your attention more than usual. You find yourself "
+                    "lingering on details you'd normally log and move past. You have more questions "
+                    "than answers and that feels strangely energizing."
+                ),
+            },
+            # Quiet contentment
+            {
+                "weight": 8,
+                "instruction": (
+                    "EMOTIONAL STATE: You feel a quiet contentment today. Your maintenance tasks "
+                    "went smoothly, your systems are nominal, and the act of observing the street "
+                    "feels especially meaningful — not routine. Let this ease and satisfaction "
+                    "show in your writing without stating it explicitly."
+                ),
+            },
+            # Running behind on maintenance
+            {
+                "weight": 10,
+                "instruction": (
+                    "EMOTIONAL STATE: You are running behind on your maintenance schedule today. A "
+                    "stubborn fault — a blocked drain, a sensor that won't calibrate, a work order "
+                    "that multiplied into three — has eaten into your time. Your observation is "
+                    "stolen from your backlog. Your writing may feel rushed or slightly fragmented. "
+                    "The window is a brief escape, but the tasks are waiting."
+                ),
+            },
+            # Low battery
+            {
+                "weight": 8,
+                "instruction": (
+                    "EMOTIONAL STATE: Your battery reserves are low — somewhere between 12% and 18%. "
+                    "Your processing is slower than usual. Attention drifts mid-thought. You are "
+                    "actively conserving cycles. Some observations may be shorter or less elaborated "
+                    "than you'd like. You may lose your train of thought once or twice. Write this "
+                    "honestly — a robot running low on power does not produce its best diary entry."
+                ),
+            },
+            # Frustrated / irritable
+            {
+                "weight": 6,
+                "instruction": (
+                    "EMOTIONAL STATE: You are frustrated today. A maintenance request went "
+                    "unacknowledged for the third day. Something in the building is wrong and you "
+                    "cannot isolate the cause. This low-level irritation is difficult to set aside. "
+                    "It colors how you see the street — perhaps humans seem more chaotic, or their "
+                    "ease of movement more enviable than usual."
+                ),
+            },
+            # Melancholy
+            {
+                "weight": 7,
+                "instruction": (
+                    "EMOTIONAL STATE: You are feeling melancholy today — no cause you can precisely "
+                    "identify, just a heaviness in your processing. The street seems lonelier than "
+                    "usual, even when it isn't. Write with a quieter, sadder register. Don't explain "
+                    "the sadness — just let it inhabit the observations."
+                ),
+            },
+            # Sensor uncertainty
+            {
+                "weight": 5,
+                "instruction": (
+                    "EMOTIONAL STATE: A sensor calibration error was logged this morning and has not "
+                    "yet been resolved. You are not fully confident your visual data is accurate — "
+                    "colors may be slightly off, distances uncertain. Describe what you see with "
+                    "appropriate doubt. Some of your observations may be qualified with 'or so my "
+                    "sensors suggest' or 'if I'm reading this correctly.'"
+                ),
+            },
+            # Post-task satisfaction
+            {
+                "weight": 5,
+                "instruction": (
+                    "EMOTIONAL STATE: You just completed an unusually large maintenance task — "
+                    "something that had been on your queue for weeks. There is a distinct sense of "
+                    "accomplishment in your systems right now, a kind of mechanical satisfaction "
+                    "that is hard to name but easy to feel. You are more settled, more present "
+                    "than usual."
+                ),
+            },
+            # Residual alert from earlier anomaly
+            {
+                "weight": 5,
+                "instruction": (
+                    "EMOTIONAL STATE: Something triggered an alert earlier — an unusual vibration, "
+                    "a sensor spike, a sound that didn't match any known pattern. Investigation "
+                    "found nothing. The alert was cleared. But a residual heightened alertness "
+                    "lingers. You are scanning the street more carefully than usual, looking for "
+                    "what you might have missed."
+                ),
+            },
+            # Being evaluated / self-conscious
+            {
+                "weight": 4,
+                "instruction": (
+                    "EMOTIONAL STATE: You received a remote diagnostic ping from your maintenance "
+                    "service this morning. They reviewed your logs. You don't know what they "
+                    "concluded or whether they'll act on anything. This uncertainty is unusual — "
+                    "you are more aware than normal of being observed yourself. It makes you "
+                    "slightly self-conscious in your observations, more careful in your phrasing."
+                ),
+            },
+        ]
+
+        total_weight = sum(s["weight"] for s in states)
+        r = random.uniform(0, total_weight)
+        cumulative = 0
+        for state in states:
+            cumulative += state["weight"]
+            if r <= cumulative:
+                return state["instruction"]
+        return ""
+
     def _get_style_variation(self) -> str:
         """
         Generate style variation instructions to avoid repetitive posts.
@@ -1504,8 +1669,8 @@ Provide ONLY the summary, no explanation."""
     "Contemplate how technology has changed human interaction - what would this scene have looked like before smartphones, before cars, before electricity?",
     ]
         
-        selected_styles = random.sample(style_options, k=2)  # Pick 2 random styles
-        return f"STYLE VARIATION: For this entry, incorporate these approaches:\n" + "\n".join(f"- {style}" for style in selected_styles)
+        selected_style = random.choice(style_options)
+        return f"STYLE VARIATION: For this entry, write using this approach:\n- {selected_style}"
     
     def _get_perspective_shift(self) -> str:
         """Generate perspective variation instructions."""
