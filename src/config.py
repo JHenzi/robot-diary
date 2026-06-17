@@ -52,7 +52,7 @@ MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
 
 # Model Configuration
 PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
-VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
+VISION_MODEL = 'qwen/qwen3.6-27b'
 MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
 
 # Diary Writing Model - can be overridden via environment variable
