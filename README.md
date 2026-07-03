@@ -44,7 +44,7 @@ The robot remembers past observations using a **Model Context Protocol (MCP)** i
   - `get_recent_memories(count)`: Temporal retrieval for continuity and day-to-day comparisons
   - `check_memory_exists(topic)`: Quick existence checks before full queries
 - **Hybrid Retrieval**: Uses ChromaDB vector search when available, with fallback to temporal keyword search
-- **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant)) into 200-400 character summaries that preserve:
+- **LLM-Generated Summaries**: Each observation is distilled by an AI model ([`openai/gpt-oss-20b`](https://console.groq.com/docs/model/openai/gpt-oss-20b)) into 200-400 character summaries that preserve:
   - Key visual details
   - Emotional tone
   - Notable events or patterns
@@ -67,16 +67,19 @@ To prevent repetitive, formulaic entries, each prompt includes randomly selected
   - Location specifics (Bourbon Street characteristics, New Orleans culture)
   - Scene analysis (human interactions, movement patterns, architectural details)
 - **Creative Challenges**: 60% chance of including a creative constraint (e.g., "Try an unexpected metaphor only a robot would think of")
-- **Anti-Repetition Detection**: Analyzes recent entries to avoid repeating opening patterns or structures
+- **Structural Templates**: A separate roll controls the *shape* of the entry, not just its style—a single unbroken paragraph, a timestamped log, a letter to the street, a haiku that unfolds into prose, an entry written in reverse. When a structure fires as dominant, competing style and focus instructions are suppressed so the model commits to one form instead of averaging everything into the same tidy report
+- **Freshness Engine**: Before writing, the agent scans its own recent published entries (locally, zero API cost) for phrases that have hardened into habits and bans them for this entry. Real, recurring objects in the camera frame are never banned—a white van that genuinely parks on the street most days gets rotating *treatment* guidance instead (a one-clause nod, one fresh detail, or unremarked background). Every parameter—scan window, list size, whether it fires at all—varies per run, so the anti-pattern machinery never becomes a pattern itself
 
 ### Multi-Model Architecture
 
 We use a **two-step, multi-model approach** for efficiency and quality:
 
-1. **Image Description** ([`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct)): Vision model provides a detailed, factual description of what's in the image (Step 1)
-2. **Memory Summarization** ([`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant)): Cheap model distills each observation into a context-preserving summary
+1. **Image Description** ([`qwen/qwen3.6-27b`](https://console.groq.com/docs/models)): Vision model provides a detailed, factual description of what's in the image (Step 1)
+2. **Memory Summarization** ([`openai/gpt-oss-20b`](https://console.groq.com/docs/model/openai/gpt-oss-20b)): Cheap model distills each observation into a context-preserving summary
 3. **Prompt Assembly** (direct template combination): Combines base template + context + variety instructions (bypasses expensive LLM optimization by default)
-4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct), but can be upgraded to [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) for richer, more nuanced storytelling (Step 2)
+4. **Diary Writing** (configurable model): Takes the factual image description and writes the creative diary entry. Defaults to [`qwen/qwen3.6-27b`](https://console.groq.com/docs/models), but can be upgraded to [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) for richer, more nuanced storytelling (Step 2)
+
+The agent has now outlived several of the models that once powered it—as Groq retired Llama 3.1, Llama 4 Scout, and others, the diary kept publishing while its internals were swapped out underneath. (Model longevity is one of the quietly hard parts of running an agent for months.)
 
 **Why Two Steps?** By separating image description from creative writing, we:
 - **Reduce Hallucination**: The writing model works from concrete facts, not trying to interpret images directly
@@ -114,10 +117,10 @@ Unlike systems that just append context, we use **Model Context Protocol (MCP)**
 ### 3. Guaranteed Variety
 
 Every entry feels different because:
-- **Random selection** of styles, perspectives, and focus areas
-- **Anti-repetition detection** prevents formulaic openings
+- **Random selection** of styles, perspectives, structures, and focus areas
+- **The freshness engine** reads the agent's own recent output and retires phrases that have become habits
 - **Context-aware instructions** adapt to current conditions
-- **Explicit variety directives** in every prompt
+- **Explicit variety directives** in every prompt—with even the meta-parameters randomized, so the variety system itself never settles into a pattern
 
 ### 4. Graceful Degradation
 
@@ -126,6 +129,12 @@ The system handles missing data elegantly:
 - If holidays library unavailable? Continue without holiday awareness
 - If weather API fails? Use cached data or continue without weather
 - **No data is fed to prompts if uncertain or missing**
+
+### 5. A Frontier Model in the Maintenance Loop
+
+A long-running agent accumulates two kinds of drift: its *writing* develops habits, and its *code* develops assumptions that quietly stop being true. In mid-2026 we started periodically bringing in **Claude Fable** (Anthropic's Mythos-class model—Fable and Mythos share the same underlying model) to audit both at once: the codebase *and* six months of the robot's published output.
+
+The results went beyond code review. Fable read hundreds of published entries, quantified the diary's linguistic tics (269 entries ending in "End of entry."), designed the freshness engine and structural templates in response—and, while triaging a flaky test, uncovered a production bug nobody had seen: a null topic label from the news API that was silently killing observation cycles, plus a test that had been hitting the live news API on every run. An agent maintaining an agent, each catching what the other can't see from inside. See the full story in the [changelog](https://robot.henzi.org/changelog/).
 
 ## Example: What Goes Into a Prompt
 
@@ -201,13 +210,15 @@ The system automatically converts observation references in diary entries into c
 
 An interesting observation about how the site works: many posts seem to detect things in common—a white van, for example, comes up a lot. Because of the memory MCP, the **AI Agent** doesn't track concepts so much as leave a trail of related concepts, building a web of knowledge by linking posts. When writing a new entry, it queries past observations by theme or detail; recurring elements (vehicles, weather, crowds, light) naturally form threads across the diary. The AI Agent links memories that share these features, so the diary becomes a connected structure—a web—rather than a flat list of entries.
 
+The white van is also a good example of a subtle failure mode we now handle: when a real object appears in the frame nearly every day, an agent can either mention it identically every time (a tic) or be told to ignore it (a lie). The freshness engine takes a third path—the van stays mentionable, but the *treatment* rotates: sometimes a one-clause acknowledgment, sometimes a single fresh detail, sometimes unremarked background. Familiarity, rendered the way a person actually experiences it.
+
 ## Tech Stack
 
 - **[Python](https://www.python.org/)**: Core automation
 - **[Groq API](https://groq.com/)**: Multi-model LLM inference
-  - [`llama-4-scout-17b-16e-instruct`](https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct): Vision model for image description (Step 1)
+  - [`qwen/qwen3.6-27b`](https://console.groq.com/docs/models): Vision model for image description and default diary writing (Step 1)
   - [`openai/gpt-oss-120b`](https://console.groq.com/docs/model/openai/gpt-oss-120b) (optional): Large model for diary writing - produces richer, more nuanced stories with a stronger robotic voice
-  - [`llama-3.1-8b-instant`](https://console.groq.com/docs/model/llama-3.1-8b-instant): Memory summarization
+  - [`openai/gpt-oss-20b`](https://console.groq.com/docs/model/openai/gpt-oss-20b): Memory summarization
 - **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: On-demand memory queries via function calling
   - Memory MCP: Semantic and temporal memory retrieval
   - Additional MCPs in development (Bible MCP and others)
@@ -273,7 +284,7 @@ Create a `.env` file in the project root with:
 ### Important Optional Environment Variables
 
 **Model Configuration:**
-- `DIARY_WRITING_MODEL`: Model to use for diary entry writing (Step 2). Defaults to `meta-llama/llama-4-scout-17b-16e-instruct`. Set to `openai/gpt-oss-120b` for richer, more nuanced storytelling with a stronger robotic voice. The 120B model produces significantly better narrative flow and more sophisticated observations.
+- `DIARY_WRITING_MODEL`: Model to use for diary entry writing (Step 2). Defaults to the vision model (`qwen/qwen3.6-27b`). Set to `openai/gpt-oss-120b` for richer, more nuanced storytelling with a stronger robotic voice. The 120B model produces significantly better narrative flow and more sophisticated observations.
 
 **Context & Features:**
 - `PIRATE_WEATHER_KEY`: [Pirate Weather API](https://pirateweather.net/) key for weather context (highly recommended)
