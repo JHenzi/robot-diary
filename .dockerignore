@@ -44,3 +44,4 @@ test.py
 webcam_example.py
 webcam_frame.jpg
 
+model_cache/

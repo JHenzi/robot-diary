@@ -41,3 +41,6 @@ hugo/resources/
 archive/angelcam-approach/AngelCamOpenAPISpec.json
 AngelCamOpenAPISpec.json
 
+
+# Hugging Face model cache (bind-mounted into container)
+model_cache/

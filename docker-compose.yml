@@ -11,6 +11,9 @@ services:
       - ./weather:/app/weather
       - ./hugo:/app/hugo
       - ./robot_diary.log:/app/robot_diary.log
+      # Persist Hugging Face model cache (CLIP + MiniLM, ~500MB) across container
+      # rebuilds so embedding models aren't re-downloaded after every --build
+      - ./model_cache:/root/.cache/huggingface
       # Mount .env file
       - ./.env:/app/.env:ro
       # Mount SSH key dynamically from .env (if DEPLOY_SSH_KEY is set)
