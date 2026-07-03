@@ -44,6 +44,11 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 
+# Install CPU-only PyTorch first to prevent pip from pulling NVIDIA CUDA packages
+# (sentence-transformers would otherwise resolve CUDA variants, adding ~1.5 GB)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
+
 # Install Python dependencies
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt

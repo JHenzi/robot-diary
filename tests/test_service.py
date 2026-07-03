@@ -240,8 +240,7 @@ class TestServiceNextScheduledTime:
              patch('src.service.GroqClient') as mock_groq_class, \
              patch('src.service.HugoGenerator') as mock_hugo_class, \
              patch('src.service.get_context_metadata') as mock_context, \
-             patch('src.service.get_random_cluster') as mock_cluster, \
-             patch('src.service.get_cluster_articles') as mock_articles, \
+             patch('src.service.get_articles_from_multiple_clusters') as mock_articles, \
              patch('src.service.PirateWeatherClient'), \
              patch.object(MemoryManager, '_get_hybrid_retriever', return_value=None):
             
@@ -265,16 +264,13 @@ class TestServiceNextScheduledTime:
                 'observation_type': 'morning'
             }
             
-            mock_cluster.return_value = {
-                'cluster_id': 'test123',
-                'topic_label': 'Test Topic',
-                'created_at': '2025-12-13T10:00:00Z',
-                'updated_at': '2025-12-13T10:00:00Z',
-                'sentiment_distribution': {}
-            }
-            
+            # Include a None topic_label to cover clusters the API returns with
+            # topic_label: null - these must fall back to 'Unknown Topic'
             mock_articles.return_value = [
-                {'title': 'Test Article', 'published_at': '2025-12-13T09:00:00Z', 'source': 'Test Source'}
+                {'title': 'Test Article', 'published_at': '2025-12-13T09:00:00Z', 'source': 'Test Source',
+                 '_cluster_id': 'test123', '_cluster_topic': 'Test Topic'},
+                {'title': 'Untagged Article', 'published_at': '2025-12-13T09:30:00Z', 'source': 'Test Source',
+                 '_cluster_id': 'test456', '_cluster_topic': None}
             ]
             
             from src.service import run_news_based_observation

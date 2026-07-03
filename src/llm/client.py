@@ -146,6 +146,19 @@ class GroqClient:
         else:
             logger.info("💔 Emotional state: nominal")
 
+        # Structural template - when dominant, it suppresses style and focus so the
+        # model commits to one form instead of averaging many instructions into a report
+        structure_instruction, structure_dominant = self._get_structure_instruction()
+        if structure_instruction:
+            structure_text = structure_instruction.replace('STRUCTURE: ', '').strip()
+            logger.info(f"🏗️  Structure: {structure_text[:80]}{'...' if len(structure_text) > 80 else ''}")
+            if structure_dominant:
+                logger.info("🏗️  Structure is DOMINANT - suppressing style and focus instructions this run")
+                style_variation = ""
+                focus_instruction = ""
+        else:
+            logger.info("🏗️  No structure template selected")
+
         # Log a summary of all prompt selections
         logger.info("=" * 60)
         logger.info("📝 PROMPT SELECTIONS SUMMARY:")
@@ -160,6 +173,8 @@ class GroqClient:
             logger.info(f"   💭 Reflection: {reflection_text[:80]}{'...' if len(reflection_text) > 80 else ''}")
         style_line = style_variation.split('\n')[-1].strip('- ').strip() if style_variation else ''
         logger.info(f"   🎨 Style: {style_line[:80]}")
+        if structure_instruction:
+            logger.info(f"   🏗️  Structure: {structure_text[:80]}{'...' if len(structure_text) > 80 else ''}")
         logger.info(f"   👁️  Perspective: {perspective_text[:80]}{'...' if len(perspective_text) > 80 else ''}")
         logger.info(f"   🎯 Focus: {focus_text[:80]}{'...' if len(focus_text) > 80 else ''}")
         if emotional_state:
@@ -203,6 +218,8 @@ class GroqClient:
         # Variety modifiers
         if reflection_instructions:
             direct_prompt_parts.append(f"\n{reflection_instructions}")
+        if structure_instruction:
+            direct_prompt_parts.append(f"\n{structure_instruction}")
         if style_variation:
             direct_prompt_parts.append(f"\n{style_variation}")
         if focus_instruction:
@@ -518,12 +535,21 @@ MEMORY QUERY GUIDANCE:
 - Use query_memories() to find past entries matching a named person, place, or topic you hear about
 - Use get_recent_memories() to compare this moment with recent entries
 - Reference specific observation numbers when making comparisons
+- If a query returns no good match, do not force a parallel - the absence of a memory is itself worth noting
 {web_search_guidance}
 
 CRITICAL RULES:
 1. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
 2. Mention your identity casually when contextually appropriate — don't explain your backstory in every entry.
 3. Use memory query tools rather than guessing what you've seen before."""
+
+        # Freshness directives (no image description in the text-only path, so all
+        # overused phrases except scene objects are eligible for the ban list)
+        from .freshness import get_freshness_directives
+        from ..config import HUGO_CONTENT_DIR
+        freshness_directives = get_freshness_directives(HUGO_CONTENT_DIR)
+        if freshness_directives:
+            full_prompt += f"\n\n{freshness_directives}"
 
         # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
         henzi_note = self._get_henzi_prompt_addition()
@@ -946,12 +972,22 @@ MEMORY QUERY GUIDANCE:
 - Use query_memories() to find past observations matching a key detail you notice (object, clothing, group size, weather, news topic)
 - Use get_recent_memories() to compare this moment with recent entries
 - Reference specific observation numbers when making comparisons
+- If a query returns no good match, do not force a parallel - the absence of a memory is itself worth noting
 {web_search_guidance}
 
 CRITICAL RULES:
 1. NEVER invent details not in the description above.
 2. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
 3. Use memory query tools rather than guessing what you've seen before."""
+
+        # Freshness directives: locally-computed from recent published entries.
+        # Bans recurring language tics; recurring real-world fixtures (present in
+        # today's image description) are never banned, only treated differently.
+        from .freshness import get_freshness_directives
+        from ..config import HUGO_CONTENT_DIR
+        freshness_directives = get_freshness_directives(HUGO_CONTENT_DIR, image_description=image_description)
+        if freshness_directives:
+            full_prompt += f"\n\n{freshness_directives}"
 
         # 1 in 10 chance: ask the robot to mention The Henzi Foundation and urge donation
         henzi_note = self._get_henzi_prompt_addition()
@@ -1898,6 +1934,42 @@ Provide ONLY the summary, no explanation."""
             return f"CREATIVE CHALLENGE: {random.choice(challenges)}"
         return ""
     
+    def _get_structure_instruction(self) -> tuple:
+        """
+        Select a structural template for the entry (how it is physically shaped),
+        separate from style (how it sounds). Structure shapes tone more powerfully
+        than style instructions, so when a structure fires as 'dominant' the caller
+        should suppress competing style/focus instructions rather than stacking them.
+
+        Returns:
+            (instruction_text, dominant) - instruction_text is "" when no structure
+            is selected this run; dominant means style/focus should be suppressed.
+        """
+        structures = [
+            "Write the entire entry as a single unbroken paragraph. No headers, no lists, no tables, no horizontal rules.",
+            "Write in three short sections, each under 100 words, separated only by a blank line. No headers.",
+            "Begin with a haiku. Then expand on one image from it in prose. Nothing else.",
+            "Write as a log with timestamps interspersed - e.g. [17:42] noticed... [17:51] wondered... Keep each timestamped note short.",
+            "Write as a letter addressed to someone or something (the street, the building, a pedestrian you can see right now).",
+            "Write the entire entry in under 150 words. Every word must earn its place.",
+            "Write only in sentence fragments. No complete sentences anywhere.",
+            "Write as a series of unanswered questions, with at most two declarative sentences in the whole entry.",
+            "Write as a maintenance work order or inspection form that keeps drifting off-format into reverie.",
+            "Start mid-thought, as if the entry is a continuation of something you were already thinking. No preamble, no scene-setting opening.",
+            "Write the entry in reverse: start with your final thought or conclusion, then work backward to what you first noticed.",
+            "Write as one side of a conversation, as if answering questions someone is asking you that the reader cannot hear.",
+            "Pick exactly one thing you can see and write the entire entry about only that. Everything else in the frame goes unmentioned.",
+            "Write two contradictory drafts of the same moment, one after the other, and do not resolve the contradiction.",
+        ]
+        if random.random() < 0.45:
+            structure = random.choice(structures)
+            dominant = random.random() < 0.6
+            text = f"STRUCTURE: {structure}"
+            if dominant:
+                text += " This structure takes priority over any other style or focus guidance in this prompt."
+            return text, dominant
+        return "", False
+
     def _get_anti_repetition_instruction(self, recent_memory: list[dict]) -> str:
         """Generate instructions to encourage finding new ways to express yourself."""
         if not recent_memory or len(recent_memory) < 2:

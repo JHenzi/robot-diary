@@ -53,7 +53,7 @@ MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
 # Model Configuration
 PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
 VISION_MODEL = 'qwen/qwen3.6-27b'
-MEMORY_SUMMARIZATION_MODEL = 'llama-3.1-8b-instant'  # Cheap model for memory summarization
+MEMORY_SUMMARIZATION_MODEL = 'openai/gpt-oss-20b'  # Cheap model for memory summarization (llama-3.1-8b-instant deprecated by Groq, shutdown 2026-08-16)
 
 # Diary Writing Model - can be overridden via environment variable
 # Defaults to VISION_MODEL, but can be set to a larger model like 'openai/gpt-oss-120b' for testing

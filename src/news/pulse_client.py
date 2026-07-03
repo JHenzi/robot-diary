@@ -186,11 +186,11 @@ def get_articles_from_multiple_clusters(num_clusters: int = 3, articles_per_clus
             # Tag each article with its cluster info for reference
             for article in articles:
                 article['_cluster_id'] = cluster_id
-                article['_cluster_topic'] = cluster.get('topic_label', 'Unknown Topic')
+                article['_cluster_topic'] = cluster.get('topic_label') or 'Unknown Topic'
             all_articles.extend(articles)
             cluster_info.append({
                 'cluster_id': cluster_id,
-                'topic_label': cluster.get('topic_label', 'Unknown Topic'),
+                'topic_label': cluster.get('topic_label') or 'Unknown Topic',
                 'article_count': len(articles)
             })
     

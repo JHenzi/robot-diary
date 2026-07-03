@@ -109,7 +109,7 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         clusters_info = {}
         for article in articles:
             cluster_id = article.get('_cluster_id', 'unknown')
-            cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+            cluster_topic = article.get('_cluster_topic') or 'Unknown Topic'
             if cluster_id not in clusters_info:
                 clusters_info[cluster_id] = {
                     'cluster_id': cluster_id,
@@ -174,7 +174,7 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         # Format articles with dates and sources, grouped by cluster/topic
         articles_by_topic = {}
         for article in articles:
-            cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+            cluster_topic = article.get('_cluster_topic') or 'Unknown Topic'
             if cluster_topic not in articles_by_topic:
                 articles_by_topic[cluster_topic] = []
             articles_by_topic[cluster_topic].append(article)
@@ -578,7 +578,7 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             clusters_info = {}
             for article in articles:
                 cluster_id = article.get('_cluster_id', 'unknown')
-                cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+                cluster_topic = article.get('_cluster_topic') or 'Unknown Topic'
                 if cluster_id not in clusters_info:
                     clusters_info[cluster_id] = {
                         'cluster_id': cluster_id,
@@ -698,7 +698,7 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             # Format articles with dates and sources, grouped by cluster/topic
             articles_by_topic = {}
             for article in articles:
-                cluster_topic = article.get('_cluster_topic', 'Unknown Topic')
+                cluster_topic = article.get('_cluster_topic') or 'Unknown Topic'
                 if cluster_topic not in articles_by_topic:
                     articles_by_topic[cluster_topic] = []
                 articles_by_topic[cluster_topic].append(article)

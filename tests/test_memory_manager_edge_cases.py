@@ -111,9 +111,12 @@ class TestMemoryManagerEdgeCases:
         }
         
         memory = [old_entry, recent_entry]
-        cleaned = memory_manager._clean_old_entries(memory)
-        
-        # Old entry should be removed (assuming retention is 30 days)
+        # Patch retention so the test doesn't depend on the local .env
+        # (production sets MEMORY_RETENTION_DAYS=0 for unlimited retention)
+        with patch('src.memory.manager.MEMORY_RETENTION_DAYS', 30):
+            cleaned = memory_manager._clean_old_entries(memory)
+
+        # Old entry should be removed (retention is 30 days)
         assert len(cleaned) == 1
         assert cleaned[0]['id'] == 2
     
@@ -169,12 +172,15 @@ class TestMemoryManagerEdgeCases:
     
     def test_add_observation_max_entries_limit(self, memory_manager, temp_memory_dir):
         """Test that max entries limit is enforced."""
-        # Add more entries than MAX_MEMORY_ENTRIES
-        for i in range(60):  # Assuming MAX_MEMORY_ENTRIES is 50
-            image_path = temp_memory_dir / f'test_{i}.jpg'
-            image_path.touch()
-            memory_manager.add_observation(image_path, f"Entry {i}")
-        
+        # Patch the limit so the test doesn't depend on the local .env
+        # (production sets MAX_MEMORY_ENTRIES=0 for unlimited entries)
+        with patch('src.memory.manager.MAX_MEMORY_ENTRIES', 50):
+            # Add more entries than MAX_MEMORY_ENTRIES
+            for i in range(60):
+                image_path = temp_memory_dir / f'test_{i}.jpg'
+                image_path.touch()
+                memory_manager.add_observation(image_path, f"Entry {i}")
+
         count = memory_manager.get_total_count()
         # Should be limited to MAX_MEMORY_ENTRIES
         assert count <= 50  # Should not exceed max
