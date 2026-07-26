@@ -569,10 +569,11 @@ CRITICAL RULES:
             # Iterative conversation loop to handle function calls
             max_iterations = 10  # Prevent infinite loops
             iteration = 0
-            
+            truncation_retried = False  # Per-entry: retry once if the model gets cut off mid-entry
+
             while iteration < max_iterations:
                 iteration += 1
-                
+
                 # Call LLM with current messages and tools
                 reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
                 response = self.client.chat.completions.create(
@@ -581,11 +582,12 @@ CRITICAL RULES:
                     tools=tools if tools else None,
                     tool_choice="auto" if tools else None,
                     temperature=random.uniform(0.5, 0.85),
-                    max_tokens=random.randint(800, 4500),
+                    max_tokens=random.randint(4000, 7000) if truncation_retried else random.randint(800, 4500),
                     **reasoning_params  # Unpack reasoning params if GPT-OSS
                 )
 
                 message = response.choices[0].message
+                finish_reason = getattr(response.choices[0], "finish_reason", None)
 
                 # Add assistant's response to conversation
                 # Groq message objects can be converted to dict for API calls
@@ -710,6 +712,22 @@ CRITICAL RULES:
                                 ),
                             }
                         )
+                        continue
+
+                    if finish_reason == "length" and not truncation_retried:
+                        truncation_retried = True
+                        logger.warning(
+                            f"Text-only diary entry was cut off by max_tokens ({len(diary_entry)} chars). "
+                            "Retrying once with a larger token budget."
+                        )
+                        messages.pop()  # discard the truncated draft
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "Your previous response was cut off before it finished. Write the complete "
+                                "diary entry again from the start, in full, ending on a finished thought."
+                            ),
+                        })
                         continue
 
                     logger.info(f"✅ Text-only diary entry created (after {iteration} iteration(s))")
@@ -978,7 +996,8 @@ MEMORY QUERY GUIDANCE:
 CRITICAL RULES:
 1. NEVER invent details not in the description above.
 2. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
-3. Use memory query tools rather than guessing what you've seen before."""
+3. Use memory query tools rather than guessing what you've seen before.
+4. The factual description above is scratch material for you alone - it is not a template. NEVER reuse its labels, bold headers, or field names (e.g. "Human count", "Required interrogation", "Crowd level", "Priority - Alive/Changing") in your diary entry, and never structure your entry as a form, checklist, or report answering those questions in order. Write in your own flowing voice; if a structure directive above tells you to do otherwise, that directive wins - but plain prose is the default."""
 
         # Freshness directives: locally-computed from recent published entries.
         # Bans recurring language tics; recurring real-world fixtures (present in
@@ -1011,10 +1030,11 @@ CRITICAL RULES:
             max_iterations = 10  # Prevent infinite loops
             iteration = 0
             tool_validation_retried = False  # Per-entry: retry same request once on tool validation error
-            
+            truncation_retried = False  # Per-entry: retry once if the model gets cut off mid-entry
+
             while iteration < max_iterations:
                 iteration += 1
-                
+
                 # Call LLM with current messages and tools
                 try:
                     reasoning_params = self._get_reasoning_params(DIARY_WRITING_MODEL)
@@ -1024,7 +1044,7 @@ CRITICAL RULES:
                         tools=tools if tools else None,
                         tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
                         temperature=random.uniform(0.5, 0.85),
-                        max_tokens=random.randint(800, 5000),
+                        max_tokens=random.randint(4500, 7000) if truncation_retried else random.randint(800, 5000),
                         **reasoning_params  # Unpack reasoning params if GPT-OSS
                     )
                 except Exception as e:
@@ -1074,7 +1094,8 @@ CRITICAL RULES:
                         raise  # Re-raise if it's a different error
                 
                 message = response.choices[0].message
-                
+                finish_reason = getattr(response.choices[0], "finish_reason", None)
+
                 # Add assistant's response to conversation
                 # Groq message objects can be converted to dict for API calls
                 assistant_message = {
@@ -1198,6 +1219,22 @@ CRITICAL RULES:
                                 ),
                             }
                         )
+                        continue
+
+                    if finish_reason == "length" and not truncation_retried:
+                        truncation_retried = True
+                        logger.warning(
+                            f"Diary entry was cut off by max_tokens ({len(diary_entry)} chars). "
+                            "Retrying once with a larger token budget."
+                        )
+                        messages.pop()  # discard the truncated draft
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "Your previous response was cut off before it finished. Write the complete "
+                                "diary entry again from the start, in full, ending on a finished thought."
+                            ),
+                        })
                         continue
 
                     logger.info(f"✅ Diary entry created (after {iteration} iteration(s))")
@@ -1959,7 +1996,7 @@ Provide ONLY the summary, no explanation."""
             "Write the entry in reverse: start with your final thought or conclusion, then work backward to what you first noticed.",
             "Write as one side of a conversation, as if answering questions someone is asking you that the reader cannot hear.",
             "Pick exactly one thing you can see and write the entire entry about only that. Everything else in the frame goes unmentioned.",
-            "Write two contradictory drafts of the same moment, one after the other, and do not resolve the contradiction.",
+            "Write about this moment twice, back to back, in one flowing entry - two contradictory readings of what you're seeing, with no headers or labels announcing them (no 'Draft A', no 'Version 1', no meta-commentary that you're doing this), and no resolving which reading is true.",
         ]
         if random.random() < 0.45:
             structure = random.choice(structures)
