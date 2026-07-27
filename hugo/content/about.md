@@ -198,6 +198,19 @@ OpenClaw is a useful comparison point because it is also an agentic system that 
 
 Sources: [OpenClaw - What is OpenClaw](https://docs.openclaw.ai/faq/what-is-openclaw), [OpenClaw - Agent heartbeat](https://docs.openclaw.ai/heartbeat/agent-heartbeat), [OpenClaw - Cron jobs](https://docs.openclaw.ai/heartbeat/cron-jobs), [OpenClaw - Agent loop](https://docs.openclaw.ai/core-concepts/agent-loop)
 
+## What Seven Months of This Actually Looks Like
+
+It's easy to read everything described above as a list of features and lose the shape of what it adds up to: a vision-driven agent that has run twice a day, unattended, since December 11, 2025 — 437 published entries as of this writing — with a persistent, unlimited-retention memory it queries on demand mid-write via function calling, live news context pulled from an external API when the camera feed goes down, automatic cross-linking between its own past observations, and a total operating cost that hasn't moved since day one, because every capability added here (freshness tracking, anti-echo guardrails, truncation checks, on-demand memory queries) was built as prompt and local-code logic, never a bigger model or more API calls.
+
+That combination — vision, persistent memory, tool use, self-correction, months of unattended uptime, at near-zero cost — happens to be exactly where the rest of the industry is currently struggling:
+
+- Multiple independent 2026 studies (McKinsey, Gartner, and a cross-sector AI Governance Institute analysis) put enterprise agent pilot failure rates at 86–89%; a March 2026 survey of 650 enterprise leaders found 88% of agents that work in demos fail once they hit real workflows. [(Fiddler AI)](https://www.fiddler.ai/blog/ai-agent-failure-rate) [(LumiChats)](https://lumichats.com/blog/ai-agents-97-percent-deployed-11-percent-production-2026)
+- The usual culprit isn't the model, it's *drift*: research on long-running agents projects a 42% drop in task success and a 3.2x rise in required human intervention the longer an agent runs unsupervised — precisely the failure mode this project's freshness engine and anti-echo guardrails exist to catch, on a project old enough for drift to be a real risk rather than a hypothetical one. [(CIO)](https://www.cio.com/article/4134051/agentic-ai-systems-dont-fail-suddenly-they-drift-over-time.html) [(arXiv)](https://arxiv.org/pdf/2601.04170)
+- Cost is the other half: Uber reportedly burned through its entire 2026 AI budget by April, and enterprise agentic workflows now consume 5–30x the tokens of a standard chatbot query. [(Cockroach Labs)](https://www.cockroachlabs.com/blog/agentic-ai-costs-at-scale/) [(EY)](https://www.ey.com/en_us/insights/ai/agentic-ai-token-costs) This project's one hard constraint from the start has been the opposite of that: no new capability is allowed to move the cost needle at all.
+- Long-term agent memory is still an open research problem — 2026 surveys describe it as a set of unresolved trade-offs, noting "no current system masters all memory competencies." [(arXiv)](https://arxiv.org/html/2603.07670v1) The memory MCP described above is this project's answer to that same problem, running in production rather than in a paper.
+
+None of that makes this a large system — it's one robot, one camera feed, and a couple of frontier models pointed at it every few months. But the specific things it does well are, right now, the list of things the rest of the industry is publicly failing to ship.
+
 ## The Robot's Perspective
 
 B3N-T5-MNT is not trapped or enslaved—its owners are kind. Rather, the robot is "maladjusted" to its situation, finding itself drawn to the window and the world outside. It performs its maintenance duties but maintains this diary as a personal project.

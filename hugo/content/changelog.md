@@ -9,6 +9,38 @@ draft: false
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
 
+## July 26, 2026: When the Diary Started Reading Like Its Own Prompt
+
+### Another Frontier Model, Another Audit
+
+Six months after Claude Fable's first pass through this codebase (see below), we brought in **Claude Sonnet 5**, running inside **Claude Code**, for the same reason: something was subtly wrong with the robot's voice, and it takes a model with no attachment to this project's accumulated conventions to see a failure mode a human reader can feel but not always name.
+
+The trigger was a one-line complaint from the project owner after reading a run of recent entries: *"the recent diary entries read like an AI model just spit out what it was thinking... it's not good, they degraded."* That's worth taking seriously on a project whose entire premise is that a robot's inner voice should read like reflection, not like a debug log.
+
+#### The Problem: The Diary Was Leaking Its Own Scaffolding
+
+B3N-T5-MNT's entries are produced by a two-step chain: a vision step (`describe_image()`) produces a rigidly labeled internal analysis — bold headers like `**Human count (required):**`, `**Required interrogation**`, `CROWD LEVEL:`, `ACTIVITY LEVEL:` — that exists purely as scratch material for the second step, the actual diary-writing call. Reading back through the archive turned up three concrete ways that scaffolding was escaping into the published diary:
+
+1. **Header echo.** [Observation #427](/posts/2026-07-25_090547_observation_427) is structured almost identically to the internal vision prompt — `**Scene (1-3 sentences)**`, `**Detailed description**`, `**Human count (required):**`, `**Required interrogation**` — instead of being translated into prose. The diary-writing model had started treating its own analysis notes as a template to fill in, rather than raw material to transform.
+2. **Unflagged truncation.** That same entry cuts off mid-sentence — *"That moment"* — and was published anyway. `max_tokens` is randomized per entry as part of the variability system described below, but nothing checked whether the model had actually finished before the post went live.
+3. **Literal stage directions.** One structural template instructs the model to *"write two contradictory drafts of the same moment... and do not resolve the contradiction."* In [Observation #428](/posts/2026-07-25_232529_observation_428), the model took this completely literally, publishing two sections labeled **Draft A** and **Draft B** like a writing exercise, rather than in B3N-T5-MNT's own voice.
+
+None of these were random one-offs — they were the predictable result of internal prompt scaffolding that had gotten specific enough to be copy-pasteable.
+
+#### The Fix
+
+All three fixes were made prompt-side, in `src/llm/client.py`, at zero added cost — no new API calls, no bigger models, consistent with how this project has always operated:
+
+- **An explicit anti-echo rule.** The diary-writing prompt's critical rules now state plainly that the internal factual description is scratch material *for the robot alone*, never a template — its labels, headers, and field names must never appear in the published entry.
+- **A truncation guard.** The response's `finish_reason` is now checked before publishing. If the model was cut off mid-entry, the fragment is discarded and the entry is regenerated once with a larger token budget, so incomplete thoughts never reach Hugo.
+- **A reworded structure template.** The "two contradictory drafts" directive now explicitly forbids labels like "Draft A" or "Version 1" — the two readings are meant to blend into one flowing entry, not read as a labeled exercise.
+
+#### Why This Matters
+
+This is the second time in this project's life that we've brought a frontier Claude model in cold — with no memory of this codebase's accumulated habits — specifically to read the robot's own output and catch what months of familiarity had made invisible to us. That's the actual argument for building agentic systems this way: the same kind of agent harness that runs B3N-T5-MNT twice a day, unattended, can be pointed at its own failures and asked to fix them, with a human in the loop only to say "this feels off" and sign off on the diagnosis. The bug was reported and fixed in a single sitting, in the same repository, by the same class of tooling that runs the diary itself.
+
+---
+
 ## July 2, 2026: The Freshness Engine — The Diary Learns to Notice Its Own Habits
 
 ### A Frontier Model Audits a Long-Running Agent
@@ -470,10 +502,12 @@ The initial prompting system established:
 
 ---
 
-## Current State (July 2, 2026)
+## Current State (July 26, 2026)
 
 The prompting system now features:
 
+- **Anti-Echo Guardrail**: The diary-writing step is explicitly forbidden from reusing the internal vision-analysis step's labels and headers, so scratch scaffolding never leaks into published prose
+- **Truncation Guard**: Entries cut off mid-thought by the randomized token budget are detected via `finish_reason` and regenerated once with a larger budget before anything is published
 - **Freshness Engine**: The agent reads its own recent published entries and bans phrases that have hardened into habits—while never suppressing real, recurring fixtures in the camera frame
 - **Structural Templates**: Randomized entry *forms* (unbroken paragraph, timestamped log, letter, reverse-order) that can dominate and suppress competing instructions
 - **Automatic Interlinking**: Post-processing converts observation references to clickable links for seamless navigation
