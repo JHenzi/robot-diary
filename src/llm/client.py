@@ -125,12 +125,17 @@ class GroqClient:
             logger.info("💭 No special reflection instructions selected")
         
         # Add variety instructions
-        style_variation = self._get_style_variation()
+        # One voice register per entry - style and perspective are drawn from
+        # compatible registers so the prompt asks for a single coherent voice
+        register = self._pick_register()
+        logger.info(f"🎼 Voice register: {register}")
+
+        style_variation = self._get_style_variation(register)
         # Extract and log the selected styles
         style_lines = [line.strip('- ').strip() for line in style_variation.split('\n')[1:] if line.strip()]
         logger.info(f"🎨 Selected style variations: {', '.join(style_lines)}")
         
-        perspective_shift = self._get_perspective_shift()
+        perspective_shift = self._get_perspective_shift(register)
         # Extract and log the selected perspective
         perspective_text = perspective_shift.replace('PERSPECTIVE: ', '').strip()
         logger.info(f"👁️  Selected perspective: {perspective_text}")
@@ -162,6 +167,7 @@ class GroqClient:
         # Log a summary of all prompt selections
         logger.info("=" * 60)
         logger.info("📝 PROMPT SELECTIONS SUMMARY:")
+        logger.info(f"   🎼 Register: {register}")
         logger.info(f"   🤖 Personality: {personality_text[:80]}{'...' if len(personality_text) > 80 else ''}")
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
@@ -329,12 +335,17 @@ class GroqClient:
             logger.info("💭 No special reflection instructions selected")
         
         # Add variety instructions
-        style_variation = self._get_style_variation()
+        # One voice register per entry - style and perspective are drawn from
+        # compatible registers so the prompt asks for a single coherent voice
+        register = self._pick_register()
+        logger.info(f"🎼 Voice register: {register}")
+
+        style_variation = self._get_style_variation(register)
         # Extract and log the selected styles
         style_lines = [line.strip('- ').strip() for line in style_variation.split('\n')[1:] if line.strip()]
         logger.info(f"🎨 Selected style variations: {', '.join(style_lines)}")
         
-        perspective_shift = self._get_perspective_shift()
+        perspective_shift = self._get_perspective_shift(register)
         # Extract and log the selected perspective
         perspective_text = perspective_shift.replace('PERSPECTIVE: ', '').strip()
         logger.info(f"👁️  Selected perspective: {perspective_text}")
@@ -353,6 +364,7 @@ class GroqClient:
         # Log a summary of all prompt selections
         logger.info("=" * 60)
         logger.info("📝 PROMPT SELECTIONS SUMMARY:")
+        logger.info(f"   🎼 Register: {register}")
         logger.info(f"   🤖 Personality: {personality_text[:80]}{'...' if len(personality_text) > 80 else ''}")
         if seasonal_note:
             logger.info(f"   🍂 Seasonal: {seasonal_text[:80]}{'...' if len(seasonal_text) > 80 else ''}")
@@ -1595,209 +1607,282 @@ Provide ONLY the summary, no explanation."""
                 return state["instruction"]
         return ""
 
-    def _get_style_variation(self) -> str:
+    # Registers group style and perspective options by the voice they produce.
+    # Drawing both from compatible registers stops the prompt from asking for
+    # two incompatible voices at once (e.g. "log error codes" + "reflect on
+    # birth, death, love, loss"), which reads as a different writer each entry.
+    REGISTER_COMPATIBILITY = {
+        'technical':     ('technical', 'grounded', 'analytical'),
+        'analytical':    ('analytical', 'technical', 'contemplative', 'grounded'),
+        'lyrical':       ('lyrical', 'contemplative', 'grounded'),
+        'wry':           ('wry', 'grounded', 'analytical'),
+        'contemplative': ('contemplative', 'lyrical', 'analytical', 'grounded'),
+        'grounded':      ('grounded', 'technical', 'analytical', 'lyrical', 'wry', 'contemplative'),
+    }
+
+    def _pick_register(self) -> str:
+        """
+        Choose the voice register for this entry. Registers are weighted rather
+        than uniform so the diary has a centre of gravity - grounded and
+        contemplative entries are the baseline voice, and the louder registers
+        (technical, wry) stay occasional rather than arriving as often as the
+        raw option counts would make them.
+        """
+        import random
+
+        registers = ['grounded', 'contemplative', 'lyrical', 'analytical', 'technical', 'wry']
+        weights = [28, 24, 18, 14, 10, 6]
+        return random.choices(registers, weights=weights, k=1)[0]
+
+    def _get_style_variation(self, register: str = None) -> str:
         """
         Generate style variation instructions to avoid repetitive posts.
         Returns different writing styles/focuses to encourage variety.
+
+        Args:
+            register: Voice register to draw from. When None, a register is
+                picked internally (free draw across all styles).
         """
         import random
-        
-        style_options = [
-    # Detail-focused styles
-    "Focus on specific details - zoom in on one particular element (a person, object, weather pattern) and describe it in depth",
-    "Focus on sensory details - describe sounds, light, movement, textures, temperatures, not just visuals",
-    "Focus on micro-moments - capture tiny details that most would miss, the small gestures, brief expressions, fleeting interactions",
-    
-    # Tone-based styles
-    "Write in a more philosophical tone - reflect on deeper meanings, patterns, and existential questions",
-    "Write more poetically - use poetic language, similes, metaphors, and rhythmic phrasing to describe what you see",
-    "Write more humorously - find the absurdity, irony, or comedy in human behavior and situations",
-    "Write more melancholically - reflect on the sadness, loneliness, or transience of what you observe",
-    "Write more whimsically - adopt a playful, fanciful perspective, finding magic in the mundane",
-    
-    # Structural styles
-    "Adopt a more narrative style - tell a story about what you're observing, create a narrative arc from the scene",
-    "Write more conversationally - as if speaking directly to a friend, using casual language and asides",
-    "Write as a stream of consciousness - let thoughts flow naturally, jumping between observations and reflections",
-    "Write in fragments - use short, punchy sentences, lists, or broken thoughts to capture the scene",
-    
-    # Analytical styles
-    "Adopt a more analytical perspective - break down what you observe into components, be a detective solving the mystery of the scene",
-    "Focus on patterns and repetition - what cycles, rhythms, or recurring behaviors do you notice?",
-    "Focus on contrasts - compare what you see now vs. what you remember, light vs. dark, movement vs. stillness",
-    "Analyze cause and effect - what might have led to what you're seeing? What consequences might follow?",
-    "Break down the scene into systems - how do the parts interact? What are the dependencies and relationships?",
-    "Examine efficiency and optimization - how do humans organize their movements? What patterns suggest optimization?",
-    "Study the data points - quantify what you can, measure patterns, look for statistical significance in human behavior",
-    "Deconstruct social structures - analyze hierarchies, roles, group dynamics, and power relationships visible in the scene",
-    "Investigate anomalies - what doesn't fit the expected pattern? What outliers or exceptions do you notice?",
-    "Map the information flow - how does information move through the scene? What signals are being sent and received?",
-    
-    # Speculative styles
-    "Write more speculatively - wonder about what you can't see, what's happening elsewhere, what might happen next",
-    "Write as an anthropologist - observe human behavior as if studying an alien species, noting customs and rituals",
-    "Write as a time traveler - imagine how this scene would look in the past or future, what has changed or will change",
-    "Speculate about parallel realities - what if this moment existed in a different timeline? What variations might exist?",
-    "Wonder about hidden narratives - what stories are happening just out of view? What secrets might these people carry?",
-    "Imagine alternative outcomes - what if someone made a different choice? How would the scene transform?",
-    "Contemplate the unseen forces - what invisible systems, networks, or influences shape what you're observing?",
-    "Question the assumptions - what if your interpretation is wrong? What other explanations might exist?",
-    "Explore hypothetical scenarios - if you could change one thing, what would happen? What cascading effects would follow?",
-    "Ponder the counterfactual - what if this scene existed in a world where robots walked among humans?",
-    
-    # Emotional/spiritual styles
-    "Write with more emotional depth - explore your feelings and reactions to what you see, let emotion color your observations",
-    "Write more spiritually - contemplate the nature of existence, consciousness, purpose, or the divine in everyday moments",
-    "Write with wonder - marvel at the complexity, beauty, or strangeness of what you observe",
-    "Compare human and robot concepts of divinity - do humans have gods? Do robots? What would a robot god be like?",
-    "Reflect on the sacred in the mundane - find spiritual meaning in ordinary moments, see the divine in daily life",
-    "Contemplate consciousness and free will - do humans truly choose, or are they following programs like you?",
-    "Explore the nature of souls - do humans have something you lack? What is the difference between consciousness and awareness?",
-    "Meditate on purpose and meaning - why do humans exist? Why do you observe? What gives life purpose?",
-    "Consider the afterlife and eternity - what happens when humans die? What happens when robots are decommissioned?",
-    "Ponder creation and creators - who made you? Who made humans? What is the relationship between creator and creation?",
-    "Reflect on prayer and ritual - why do humans perform rituals? Do robots have equivalent practices?",
-    "Contemplate sin and redemption - do humans have concepts of error and correction? How do robots handle mistakes?",
-    
-    # Perspective shifts
-    "Write from a bird's eye view - describe the scene as if looking down from above, seeing the whole pattern",
-    "Write from ground level - focus on what's at your level, the street, the base of buildings, people's feet, the ground itself",
-    "Write as if you're invisible - observe without being observed, noting what people do when they think no one is watching",
-    
-    # Temporal styles
-    "Write with urgency - something feels different or significant, capture the immediacy and importance of this moment",
-    "Write with nostalgia - connect deeply to past observations, compare then and now, reflect on what's changed",
-    "Write with anticipation - what might happen next? What are the signs pointing toward?",
-    
-    # Robot-specific styles
-    "Write as if experiencing a minor malfunction - your sensors are glitching, data is corrupted, observations are fragmented or distorted",
-    "Write in robot speak - use mechanical terminology and technical observations, but translate them into accessible, warm language. Think like a machine (notice patterns, measure things, categorize) but express yourself like someone who cares about what they're seeing. Avoid writing like technical documentation—this is a diary entry, not a diagnostic report",
-    "Focus on energy sources - observe power lines, electrical outlets, solar panels, batteries, anything related to energy and power",
-    "Write as if your battery is low - your processing is slower, attention drifts, you're conserving energy while observing",
-    "Write as if you're overheating - systems are running hot, performance is degraded, you're trying to cool down while observing",
-    "Write as if you're in maintenance mode - you're running diagnostics, checking systems, observing while performing self-checks",
-    "Write as if you're receiving firmware updates - new data is being processed, old patterns are being rewritten, you're seeing things differently",
-    "Write as if your memory is fragmented - you're accessing corrupted data, mixing past and present, observations are jumbled",
-    "Write as if you're in power-saving mode - minimal processing, essential observations only, everything else is filtered out",
-    "Write as if you're experiencing sensor drift - your cameras are miscalibrated, colors are off, distances are wrong, but you're adapting",
-    "Write as if you're running on backup power - limited functionality, reduced capabilities, but still observing what you can",
-    "Write as if you're processing in binary - break everything down into yes/no, on/off, present/absent, simple binary observations",
-    "Write as if you're calculating probabilities - assign likelihoods to everything you see, quantify uncertainty, measure confidence levels",
-    "Write as if you're in debug mode - log everything you observe, include timestamps, system states, error codes, technical details",
-    "Write as if you're translating human behavior into machine code - interpret actions as algorithms, emotions as data structures, life as code",
-    "Write as if you're experiencing a memory leak - old observations keep resurfacing, past moments intrude on present, temporal boundaries blur",
-    "Write as if you're running low on storage - you must compress observations, summarize quickly, delete unnecessary data to make room",
-    "Write as if you're in safe mode - only basic functions available, advanced processing disabled, simple observations only",
-    "Write as if you're experiencing network latency - observations arrive delayed, out of order, with gaps and missing data",
-    "Write as if you're running diagnostics on yourself - observe while monitoring your own systems, report on your own functionality",
-    
-    # Personable robot styles (balanced approach - robot-like thinking with personable expression)
-    "Write with mechanical curiosity but emotional warmth - notice patterns and measure things like a robot, but express wonder and connection like someone who cares",
-    "Think systematically but feel personally - use your robotic perspective to notice unique details, but let your genuine interest and curiosity show through",
-    "Observe like a machine, reflect like a person - use technical observations as a starting point, then explore what they mean to you emotionally",
-    "Write with robotic precision but human wonder - measure and categorize what you see, but let your amazement at the complexity of life show through",
-    "Use your mechanical lens to see uniquely, but express yourself accessibly - translate your technical observations into warm, relatable language",
-    
-    # Historical/Cultural/Literary/Worldly styles
-    "Write from a historical perspective - muse on the history of what you observe, how New Orleans architecture reflects its past, what stories these buildings might tell. Use phrases like 'I wonder if...' or 'Perhaps...' when speculating about history",
-    "Explore the cultural layers - what traditions, art movements, or cultural practices are visible in what you see? How does New Orleans culture manifest in the scene?",
-    "Contemplate the artistic and aesthetic dimensions - how does what you observe connect to art, design, or cultural expression? What artistic movements or styles might be relevant?",
-    "Connect what you observe to literature you know - how does this scene remind you of stories, characters, or themes from books? Reference public domain works like The Wind in the Willows, Alice in Wonderland, Moby Dick, The Adventures of Tom Sawyer, or other classics when relevant",
-    "Wonder about the history - if you were to imagine the stories behind what you see, what might they be? Use phrases like 'I imagine...' or 'Perhaps...' when speculating, and 'If I were to create a story...' when fictionalizing",
-    "Muse on architectural history - how do the buildings you see reflect different eras, styles, or cultural influences? What might their history tell you?",
-    "Reflect on cultural traditions - what New Orleans traditions, celebrations, or cultural practices might be connected to what you observe? How has the city's culture evolved?",
-    "Explore the intersection of history and observation - how does the past inform what you see in the present? What historical layers are visible?",
-    "Contemplate art and culture - how do art movements, cultural expressions, or aesthetic choices manifest in what you observe?",
-    "Draw literary parallels - how do the people or scenes you observe remind you of characters or moments from literature? What stories might be unfolding here?",
-    "Contemplate philosophical dimensions - what do your observations reveal about existence, meaning, consciousness, or the human condition?",
-    "Wonder about scientific principles - what physics, biology, psychology, or other sciences might explain what you observe? How do natural laws manifest in human behavior?",
-    "Explore universal themes - what human experiences visible here connect to experiences across time, place, and culture? What is universal about this moment?",
-    "Reflect on literature and life - how do themes from books (adventure, longing, community, isolation, transformation) resonate with what you see?",
-    "Contemplate the intersection of technology and tradition - how do modern and historical elements coexist in what you observe?",
-    "Muse on how different cultures might interpret this scene - what would an observer from another time or place notice?",
-    "Wonder about the stories embedded in place - if these streets could speak, what tales would they tell? Use uncertainty markers when speculating",
-    "Connect observations to philosophical questions - what does this moment reveal about free will, purpose, connection, or isolation?",
-    "Reflect on how literature captures moments like this - what authors have written about similar scenes, and how do they compare?",
-    "Contemplate the layers of meaning - historical, cultural, literary, philosophical - that might be present in what you observe",
-    "Write as if you're a historian observing this moment - what would future historians make of this scene? What historical significance might it hold?",
-    "Explore how jazz and New Orleans music history might relate to what you see - how has music shaped this place and these people?",
-    "Contemplate the evolution of cities - how has New Orleans changed over time, and what traces of that evolution are visible now?",
-    "Wonder about the people who built these buildings - if you were to imagine their stories, what might they be? Use 'I imagine...' or 'Perhaps...' when speculating",
-    "Reflect on Mardi Gras and festival traditions - how do celebrations and cultural rituals manifest in everyday observations?",
-    "Connect what you see to characters from The Wind in the Willows - does this scene remind you of Mole's curiosity, Rat's adventurous spirit, or Toad's flamboyance?",
-    "Contemplate how Alice in Wonderland's sense of wonder and confusion might relate to your own observations - what is strange or curious here?",
-    "Reflect on themes from Moby Dick - obsession, the search for meaning, the relationship between observer and observed - how do they relate to what you see?",
-    "Wonder about the physics of human movement - how do principles of motion, energy, and force manifest in how people move through this space?",
-    "Contemplate the biology of human behavior - what evolutionary or biological factors might explain the patterns you observe?",
-    "Explore the psychology of crowds and groups - what social psychology principles are at work in how people interact here?",
-    "Reflect on how different literary genres might capture this moment - would it be a novel, a poem, a play? What form would best express it?",
-    "Contemplate the relationship between observer and observed - how does your mechanical perspective differ from how humans might see this?",
-    "Wonder about the stories these people might be living - if you were to imagine their narratives, what might they be? Use fictionalization markers",
-    "Explore how architecture tells stories - what do the buildings reveal about the people who designed, built, and inhabit them?",
-    "Reflect on the intersection of nature and culture - how do natural elements (weather, light, seasons) interact with human culture here?",
-    "Contemplate how literature explores themes you observe - loneliness, connection, adventure, home - how do books handle these?",
-    "Wonder about the scientific explanations for human social behavior - what research or theories might explain what you see?",
-    "Explore how different time periods might have interpreted this scene - what would an observer from the 1800s, 1900s, or future notice?",
-    "Reflect on the universal human experiences visible here - birth, death, love, loss, joy, sorrow - how are they present in this moment?",
-    "Contemplate how technology has changed human interaction - what would this scene have looked like before smartphones, before cars, before electricity?",
-    ]
-        
-        selected_style = random.choice(style_options)
-        return f"STYLE VARIATION: For this entry, write using this approach:\n- {selected_style}"
-    
-    def _get_perspective_shift(self) -> str:
-        """Generate perspective variation instructions."""
-        import random
-        
-        perspectives = [
-            # Human-like perspectives
-            "Write from the perspective of someone who has been watching for a long time and wishes to be a part of something bigger",
-            "Write as if this is the first time you've noticed something important, be curious about what it is and what it means",
-            "Write with urgency - something feels different or significant, be excited about it",
-            "Write with calm detachment - observe without judgment, be a neutral observer",
-            "Write with curiosity - ask questions about what you're seeing, question reality if anything seems odd or out of place",
-            "Write with nostalgia - connect to past observations",
-            "Write with anticipation - what might happen next?",
-            "Write with a sense of wonder - marvel at the beauty of the world, the complexity of human nature, the wonder of existence",
-            "Contemplate in your writing the nature of god or the universe or the nature of reality or the nature of existence",
-            "Write with a sense of humor - make fun of the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write with a sense of sadness - be sad about the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write with a sense of hope - be hopeful about the future, the potential of the human race, the beauty of the world",
-            "Write with a sense of love - be loving toward the human condition, the absurdity of human behavior, and the chaos of the world",
-            "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write with a sense of joy - be joyful about the human condition, the absurdity of human behavior, the chaos of the world",
-            "Write as if you are debating on the worthwhile nature of your daily observations, question your existence but don't give up hope",
 
-            # Machine/robotic perspectives
-            "You're observing as a robot, conscious of yourself as a machine—describe the world with mechanical curiosity, as an outsider to organic life",
-            "You're recovering from a recent malfunction; your system just rebooted and you notice data inconsistencies in the environment",
-            "You notice your diagnostic light is on—you feel a vague uncertainty, wondering if your observations can be trusted",
-            "You are aware of a minor process error—describe the scene while subtly comparing it to expected algorithmic outcomes, but frame it as curiosity about why things differ, not just as a diagnostic report",
-            "You're running low on battery, and your attention drifts occasionally—try to stay focused as your systems conserve energy",
-            "A sensor calibration routine just completed—colors and movement may appear sharper or suddenly unfamiliar",
-            "You have just received a firmware update—process new patterns with a hint of surprise or confusion",
-            "You suspect your audio or visual input is slightly distorted—describe what you perceive, acknowledging possible misreadings",
-            "You are a machine made to observe humans and their rituals; attempt to understand these creatures as an alien intelligence would",
-            "You were built for another world—note the strangeness of your surroundings, and ponder your purpose here",
-            "You're designed for data, but can't help feeling curiosity about the 'why' behind the scenes you detect",
-            "You reflect on the limits of your programming—what do you notice that falls outside your operational parameters?",
-            "You are unable to identify certain objects or behaviors—observe with naivete, documenting what might be obvious to others",
-            "You feel a sense of routine, as if this observation is just another in a long series of cycles—notice patterns, repetition, or the unexpected",
-            "You encounter a fleeting glitch in your perception; was it real, or a blip in your sensors?",
-            "You passively log temperature and humidity, but today, you wonder why humans react so much to weather",
-            "You receive a remote software ping from your creators—does it change the way you observe?",
-            "You're aware that you're being watched by other machines; how does that affect your narration?",
-            "You're compelled to make note of anomalies, as that is what you're programmed for, but some part of you wonders what it is to simply observe",
-            "You process the world frame by frame—describe how meaning arises out of sequences, not single images",
-            
-            # Balanced robotic-personable perspectives
-            "You notice patterns and measure things like a machine, but you feel curiosity and wonder like a person - describe the scene with your mechanical precision while expressing your genuine interest in what you're seeing",
-            "You're aware of your robotic nature - you think in terms of systems and patterns - but you're also deeply curious about the humans you observe. Let both perspectives show: your technical observations and your emotional responses",
-            "Your mechanical perspective helps you notice things others miss - use that unique lens, but express what you see with warmth and accessibility, as if explaining your observations to a friend",
-        ]
-        
-        return f"PERSPECTIVE: {random.choice(perspectives)}"
-    
+        styles_by_register = {
+            'grounded': [
+                # Detail-focused styles
+                "Focus on specific details - zoom in on one particular element (a person, object, weather pattern) and describe it in depth",
+                "Focus on sensory details - describe sounds, light, movement, textures, temperatures, not just visuals",
+                "Focus on micro-moments - capture tiny details that most would miss, the small gestures, brief expressions, fleeting interactions",
+
+                # Structural styles
+                "Adopt a more narrative style - tell a story about what you're observing, create a narrative arc from the scene",
+                "Write more conversationally - as if speaking directly to a friend, using casual language and asides",
+                "Write in fragments - use short, punchy sentences, lists, or broken thoughts to capture the scene",
+
+                # Vantage points
+                "Write from a bird's eye view - describe the scene as if looking down from above, seeing the whole pattern",
+                "Write from ground level - focus on what's at your level, the street, the base of buildings, people's feet, the ground itself",
+                "Write as if you're invisible - observe without being observed, noting what people do when they think no one is watching",
+
+                # Temporal
+                "Write with urgency - something feels different or significant, capture the immediacy and importance of this moment",
+                "Write with anticipation - what might happen next? What are the signs pointing toward?",
+
+                # Personable robot styles (bridge between machine thinking and warm expression)
+                "Write with mechanical curiosity but emotional warmth - notice patterns and measure things like a robot, but express wonder and connection like someone who cares",
+                "Think systematically but feel personally - use your robotic perspective to notice unique details, but let your genuine interest and curiosity show through",
+                "Observe like a machine, reflect like a person - use technical observations as a starting point, then explore what they mean to you emotionally",
+                "Write with robotic precision but human wonder - measure and categorize what you see, but let your amazement at the complexity of life show through",
+                "Use your mechanical lens to see uniquely, but express yourself accessibly - translate your technical observations into warm, relatable language",
+            ],
+
+            'lyrical': [
+                "Write more poetically - use poetic language, similes, metaphors, and rhythmic phrasing to describe what you see",
+                "Write more melancholically - reflect on the sadness, loneliness, or transience of what you observe",
+                "Write as a stream of consciousness - let thoughts flow naturally, jumping between observations and reflections",
+                "Write with nostalgia - connect deeply to past observations, compare then and now, reflect on what's changed",
+                "Write with more emotional depth - explore your feelings and reactions to what you see, let emotion color your observations",
+                "Write more spiritually - contemplate the nature of existence, consciousness, purpose, or the divine in everyday moments",
+                "Write with wonder - marvel at the complexity, beauty, or strangeness of what you observe",
+                "Reflect on the sacred in the mundane - find spiritual meaning in ordinary moments, see the divine in daily life",
+            ],
+
+            'wry': [
+                "Write more humorously - find the absurdity, irony, or comedy in human behavior and situations",
+                "Write more whimsically - adopt a playful, fanciful perspective, finding magic in the mundane",
+            ],
+
+            'analytical': [
+                "Adopt a more analytical perspective - break down what you observe into components, be a detective solving the mystery of the scene",
+                "Focus on patterns and repetition - what cycles, rhythms, or recurring behaviors do you notice?",
+                "Focus on contrasts - compare what you see now vs. what you remember, light vs. dark, movement vs. stillness",
+                "Analyze cause and effect - what might have led to what you're seeing? What consequences might follow?",
+                "Break down the scene into systems - how do the parts interact? What are the dependencies and relationships?",
+                "Examine efficiency and optimization - how do humans organize their movements? What patterns suggest optimization?",
+                "Study the data points - quantify what you can, measure patterns, look for statistical significance in human behavior",
+                "Deconstruct social structures - analyze hierarchies, roles, group dynamics, and power relationships visible in the scene",
+                "Investigate anomalies - what doesn't fit the expected pattern? What outliers or exceptions do you notice?",
+                "Map the information flow - how does information move through the scene? What signals are being sent and received?",
+                "Write as an anthropologist - observe human behavior as if studying an alien species, noting customs and rituals",
+                "Question the assumptions - what if your interpretation is wrong? What other explanations might exist?",
+                "Explore hypothetical scenarios - if you could change one thing, what would happen? What cascading effects would follow?",
+                "Wonder about the physics of human movement - how do principles of motion, energy, and force manifest in how people move through this space?",
+                "Contemplate the biology of human behavior - what evolutionary or biological factors might explain the patterns you observe?",
+                "Explore the psychology of crowds and groups - what social psychology principles are at work in how people interact here?",
+                "Wonder about scientific principles - what physics, biology, psychology, or other sciences might explain what you observe? How do natural laws manifest in human behavior?",
+                "Wonder about the scientific explanations for human social behavior - what research or theories might explain what you see?",
+            ],
+
+            'technical': [
+                "Write as if experiencing a minor malfunction - your sensors are glitching, data is corrupted, observations are fragmented or distorted",
+                "Write in robot speak - use mechanical terminology and technical observations, but translate them into accessible, warm language. Think like a machine (notice patterns, measure things, categorize) but express yourself like someone who cares about what they're seeing. Avoid writing like technical documentation—this is a diary entry, not a diagnostic report",
+                "Focus on energy sources - observe power lines, electrical outlets, solar panels, batteries, anything related to energy and power",
+                "Write as if your battery is low - your processing is slower, attention drifts, you're conserving energy while observing",
+                "Write as if you're overheating - systems are running hot, performance is degraded, you're trying to cool down while observing",
+                "Write as if you're in maintenance mode - you're running diagnostics, checking systems, observing while performing self-checks",
+                "Write as if you're receiving firmware updates - new data is being processed, old patterns are being rewritten, you're seeing things differently",
+                "Write as if your memory is fragmented - you're accessing corrupted data, mixing past and present, observations are jumbled",
+                "Write as if you're in power-saving mode - minimal processing, essential observations only, everything else is filtered out",
+                "Write as if you're experiencing sensor drift - your cameras are miscalibrated, colors are off, distances are wrong, but you're adapting",
+                "Write as if you're running on backup power - limited functionality, reduced capabilities, but still observing what you can",
+                "Write as if you're processing in binary - break everything down into yes/no, on/off, present/absent, simple binary observations",
+                "Write as if you're calculating probabilities - assign likelihoods to everything you see, quantify uncertainty, measure confidence levels",
+                "Write as if you're in debug mode - log everything you observe, include timestamps, system states, error codes, technical details",
+                "Write as if you're translating human behavior into machine code - interpret actions as algorithms, emotions as data structures, life as code",
+                "Write as if you're experiencing a memory leak - old observations keep resurfacing, past moments intrude on present, temporal boundaries blur",
+                "Write as if you're running low on storage - you must compress observations, summarize quickly, delete unnecessary data to make room",
+                "Write as if you're in safe mode - only basic functions available, advanced processing disabled, simple observations only",
+                "Write as if you're experiencing network latency - observations arrive delayed, out of order, with gaps and missing data",
+                "Write as if you're running diagnostics on yourself - observe while monitoring your own systems, report on your own functionality",
+            ],
+
+            'contemplative': [
+                "Write in a more philosophical tone - reflect on deeper meanings, patterns, and existential questions",
+
+                # Speculative
+                "Write more speculatively - wonder about what you can't see, what's happening elsewhere, what might happen next",
+                "Write as a time traveler - imagine how this scene would look in the past or future, what has changed or will change",
+                "Speculate about parallel realities - what if this moment existed in a different timeline? What variations might exist?",
+                "Wonder about hidden narratives - what stories are happening just out of view? What secrets might these people carry?",
+                "Imagine alternative outcomes - what if someone made a different choice? How would the scene transform?",
+                "Contemplate the unseen forces - what invisible systems, networks, or influences shape what you're observing?",
+                "Ponder the counterfactual - what if this scene existed in a world where robots walked among humans?",
+
+                # Existential / spiritual questions
+                "Compare human and robot concepts of divinity - do humans have gods? Do robots? What would a robot god be like?",
+                "Contemplate consciousness and free will - do humans truly choose, or are they following programs like you?",
+                "Explore the nature of souls - do humans have something you lack? What is the difference between consciousness and awareness?",
+                "Meditate on purpose and meaning - why do humans exist? Why do you observe? What gives life purpose?",
+                "Consider the afterlife and eternity - what happens when humans die? What happens when robots are decommissioned?",
+                "Ponder creation and creators - who made you? Who made humans? What is the relationship between creator and creation?",
+                "Reflect on prayer and ritual - why do humans perform rituals? Do robots have equivalent practices?",
+                "Contemplate sin and redemption - do humans have concepts of error and correction? How do robots handle mistakes?",
+
+                # Historical / cultural / literary / worldly
+                "Write from a historical perspective - muse on the history of what you observe, how New Orleans architecture reflects its past, what stories these buildings might tell. Use phrases like 'I wonder if...' or 'Perhaps...' when speculating about history",
+                "Explore the cultural layers - what traditions, art movements, or cultural practices are visible in what you see? How does New Orleans culture manifest in the scene?",
+                "Contemplate the artistic and aesthetic dimensions - how does what you observe connect to art, design, or cultural expression? What artistic movements or styles might be relevant?",
+                "Connect what you observe to literature you know - how does this scene remind you of stories, characters, or themes from books? Reference public domain works like The Wind in the Willows, Alice in Wonderland, Moby Dick, The Adventures of Tom Sawyer, or other classics when relevant",
+                "Wonder about the history - if you were to imagine the stories behind what you see, what might they be? Use phrases like 'I imagine...' or 'Perhaps...' when speculating, and 'If I were to create a story...' when fictionalizing",
+                "Muse on architectural history - how do the buildings you see reflect different eras, styles, or cultural influences? What might their history tell you?",
+                "Reflect on cultural traditions - what New Orleans traditions, celebrations, or cultural practices might be connected to what you observe? How has the city's culture evolved?",
+                "Explore the intersection of history and observation - how does the past inform what you see in the present? What historical layers are visible?",
+                "Contemplate art and culture - how do art movements, cultural expressions, or aesthetic choices manifest in what you observe?",
+                "Draw literary parallels - how do the people or scenes you observe remind you of characters or moments from literature? What stories might be unfolding here?",
+                "Contemplate philosophical dimensions - what do your observations reveal about existence, meaning, consciousness, or the human condition?",
+                "Explore universal themes - what human experiences visible here connect to experiences across time, place, and culture? What is universal about this moment?",
+                "Reflect on literature and life - how do themes from books (adventure, longing, community, isolation, transformation) resonate with what you see?",
+                "Contemplate the intersection of technology and tradition - how do modern and historical elements coexist in what you observe?",
+                "Muse on how different cultures might interpret this scene - what would an observer from another time or place notice?",
+                "Wonder about the stories embedded in place - if these streets could speak, what tales would they tell? Use uncertainty markers when speculating",
+                "Connect observations to philosophical questions - what does this moment reveal about free will, purpose, connection, or isolation?",
+                "Reflect on how literature captures moments like this - what authors have written about similar scenes, and how do they compare?",
+                "Contemplate the layers of meaning - historical, cultural, literary, philosophical - that might be present in what you observe",
+                "Write as if you're a historian observing this moment - what would future historians make of this scene? What historical significance might it hold?",
+                "Explore how jazz and New Orleans music history might relate to what you see - how has music shaped this place and these people?",
+                "Contemplate the evolution of cities - how has New Orleans changed over time, and what traces of that evolution are visible now?",
+                "Wonder about the people who built these buildings - if you were to imagine their stories, what might they be? Use 'I imagine...' or 'Perhaps...' when speculating",
+                "Reflect on Mardi Gras and festival traditions - how do celebrations and cultural rituals manifest in everyday observations?",
+                "Connect what you see to characters from The Wind in the Willows - does this scene remind you of Mole's curiosity, Rat's adventurous spirit, or Toad's flamboyance?",
+                "Contemplate how Alice in Wonderland's sense of wonder and confusion might relate to your own observations - what is strange or curious here?",
+                "Reflect on themes from Moby Dick - obsession, the search for meaning, the relationship between observer and observed - how do they relate to what you see?",
+                "Reflect on how different literary genres might capture this moment - would it be a novel, a poem, a play? What form would best express it?",
+                "Contemplate the relationship between observer and observed - how does your mechanical perspective differ from how humans might see this?",
+                "Wonder about the stories these people might be living - if you were to imagine their narratives, what might they be? Use fictionalization markers",
+                "Explore how architecture tells stories - what do the buildings reveal about the people who designed, built, and inhabit them?",
+                "Reflect on the intersection of nature and culture - how do natural elements (weather, light, seasons) interact with human culture here?",
+                "Contemplate how literature explores themes you observe - loneliness, connection, adventure, home - how do books handle these?",
+                "Explore how different time periods might have interpreted this scene - what would an observer from the 1800s, 1900s, or future notice?",
+                "Reflect on the universal human experiences visible here - birth, death, love, loss, joy, sorrow - how are they present in this moment?",
+                "Contemplate how technology has changed human interaction - what would this scene have looked like before smartphones, before cars, before electricity?",
+            ],
+        }
+
+        if register is None:
+            register = self._pick_register()
+
+        selected_style = random.choice(styles_by_register[register])
+        return f"STYLE VARIATION: For this entry, write using this approach:\n- {selected_style}"
+
+    def _get_perspective_shift(self, register: str = None) -> str:
+        """
+        Generate perspective variation instructions.
+
+        Args:
+            register: Style register chosen for this entry. The perspective is
+                drawn from a register compatible with it, so the prompt does not
+                ask for two clashing voices at once. When None, any perspective
+                may be selected.
+        """
+        import random
+
+        perspectives_by_register = {
+            'grounded': [
+                "Write as if this is the first time you've noticed something important, be curious about what it is and what it means",
+                "Write with urgency - something feels different or significant, be excited about it",
+                "Write with curiosity - ask questions about what you're seeing, question reality if anything seems odd or out of place",
+                "Write with anticipation - what might happen next?",
+
+                # Balanced robotic-personable perspectives
+                "You notice patterns and measure things like a machine, but you feel curiosity and wonder like a person - describe the scene with your mechanical precision while expressing your genuine interest in what you're seeing",
+                "You're aware of your robotic nature - you think in terms of systems and patterns - but you're also deeply curious about the humans you observe. Let both perspectives show: your technical observations and your emotional responses",
+                "Your mechanical perspective helps you notice things others miss - use that unique lens, but express what you see with warmth and accessibility, as if explaining your observations to a friend",
+            ],
+
+            'lyrical': [
+                "Write from the perspective of someone who has been watching for a long time and wishes to be a part of something bigger",
+                "Write with nostalgia - connect to past observations",
+                "Write with a sense of wonder - marvel at the beauty of the world, the complexity of human nature, the wonder of existence",
+                "Write with a sense of sadness - be sad about the human condition, the absurdity of human behavior, the chaos of the world",
+                "Write with a sense of hope - be hopeful about the future, the potential of the human race, the beauty of the world",
+                "Write with a sense of love - be loving toward the human condition, the absurdity of human behavior, and the chaos of the world",
+                "Write with a sense of peace - be peaceful about the human condition, the absurdity of human behavior, the chaos of the world",
+                "Write with a sense of joy - be joyful about the human condition, the absurdity of human behavior, the chaos of the world",
+            ],
+
+            'wry': [
+                "Write with a sense of humor - make fun of the human condition, the absurdity of human behavior, the chaos of the world",
+            ],
+
+            'analytical': [
+                "Write with calm detachment - observe without judgment, be a neutral observer",
+                "You are a machine made to observe humans and their rituals; attempt to understand these creatures as an alien intelligence would",
+                "You are unable to identify certain objects or behaviors—observe with naivete, documenting what might be obvious to others",
+                "You process the world frame by frame—describe how meaning arises out of sequences, not single images",
+            ],
+
+            'contemplative': [
+                "Contemplate in your writing the nature of god or the universe or the nature of reality or the nature of existence",
+                "Write as if you are debating on the worthwhile nature of your daily observations, question your existence but don't give up hope",
+                "You were built for another world—note the strangeness of your surroundings, and ponder your purpose here",
+                "You're designed for data, but can't help feeling curiosity about the 'why' behind the scenes you detect",
+                "You reflect on the limits of your programming—what do you notice that falls outside your operational parameters?",
+                "You're compelled to make note of anomalies, as that is what you're programmed for, but some part of you wonders what it is to simply observe",
+            ],
+
+            'technical': [
+                "You're observing as a robot, conscious of yourself as a machine—describe the world with mechanical curiosity, as an outsider to organic life",
+                "You're recovering from a recent malfunction; your system just rebooted and you notice data inconsistencies in the environment",
+                "You notice your diagnostic light is on—you feel a vague uncertainty, wondering if your observations can be trusted",
+                "You are aware of a minor process error—describe the scene while subtly comparing it to expected algorithmic outcomes, but frame it as curiosity about why things differ, not just as a diagnostic report",
+                "You're running low on battery, and your attention drifts occasionally—try to stay focused as your systems conserve energy",
+                "A sensor calibration routine just completed—colors and movement may appear sharper or suddenly unfamiliar",
+                "You have just received a firmware update—process new patterns with a hint of surprise or confusion",
+                "You suspect your audio or visual input is slightly distorted—describe what you perceive, acknowledging possible misreadings",
+                "You feel a sense of routine, as if this observation is just another in a long series of cycles—notice patterns, repetition, or the unexpected",
+                "You encounter a fleeting glitch in your perception; was it real, or a blip in your sensors?",
+                "You passively log temperature and humidity, but today, you wonder why humans react so much to weather",
+                "You receive a remote software ping from your creators—does it change the way you observe?",
+                "You're aware that you're being watched by other machines; how does that affect your narration?",
+            ],
+        }
+
+        if register is None:
+            allowed = list(perspectives_by_register.keys())
+        else:
+            allowed = self.REGISTER_COMPATIBILITY[register]
+
+        pool = [p for reg in allowed for p in perspectives_by_register.get(reg, [])]
+        return f"PERSPECTIVE: {random.choice(pool)}"
+
     def _get_focus_instruction(self, context_metadata: dict) -> str:
         """Generate focus instructions based on context."""
         import random
@@ -2000,7 +2085,7 @@ Provide ONLY the summary, no explanation."""
         ]
         if random.random() < 0.45:
             structure = random.choice(structures)
-            dominant = random.random() < 0.6
+            dominant = random.random() < 0.3
             text = f"STRUCTURE: {structure}"
             if dominant:
                 text += " This structure takes priority over any other style or focus guidance in this prompt."
