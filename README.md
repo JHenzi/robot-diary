@@ -361,7 +361,27 @@ If you see errors like `Command '['yt-dlp', '-f', 'best', '-g', '...']' timed ou
 
 - **Temporary workaround**: The system uses cached images for 30 minutes. If a fetch fails, it will retry on the next scheduled observation. The service will continue running and attempt the next observation at the scheduled time.
 
-**Note**: The system requires live images and will fail the observation cycle if it cannot fetch a new image. This is by design to ensure observations are based on current conditions. If timeouts persist, check YouTube's status and your network connectivity.
+**Note**: If an image can't be fetched, the observation cycle falls back to a news-based entry rather than failing outright — so a broken camera feed shows up as a run of news-only posts, not as missing posts. Watch the log for `⚠️  Image feed unavailable` to catch this.
+
+**FFmpeg Timeout (`FFmpeg timed out after 30 seconds`):**
+
+This is a *different* failure from the `yt-dlp` timeout above: `yt-dlp` succeeded and logged `✅ Retrieved stream URL`, but FFmpeg then hung grabbing the frame. The usual cause is that `yt-dlp` returned **more than one URL**.
+
+`yt-dlp -g` prints one URL per selected format. When a pre-merged (muxed) format is available it prints a single URL; when it isn't, it prints separate video-only and audio-only URLs. FFmpeg needs the video URL on its own — handing it both at once makes it hang until the timeout.
+
+This bit us on **September 8, 2026**: an image rebuild picked up a newer `yt-dlp` (`requirements.txt` pins only `yt-dlp>=2024.1.0`), which no longer offers a muxed format without a JavaScript runtime installed — see the `No supported JavaScript runtime could be found` warning in `yt-dlp`'s output. Auto format selection silently switched to video+audio, and every observation fell back to news-based for four days. `_get_youtube_stream_url()` now takes only the first URL and logs when it sees several.
+
+- **Check how many URLs you're getting**:
+  ```bash
+  docker exec robot-diary yt-dlp -g "YOUR_YOUTUBE_STREAM_URL" | wc -l
+  ```
+
+- **Confirm FFmpeg can capture from the video URL alone**:
+  ```bash
+  docker exec robot-diary sh -c 'yt-dlp -g "YOUR_YOUTUBE_STREAM_URL" | head -1 | xargs -I{} ffmpeg -i {} -vframes 1 -update 1 -y /tmp/test.jpg'
+  ```
+
+- **Optional**: installing a JS runtime (e.g. `deno`) in the image restores muxed formats and silences the deprecation warning. Not required — the first-URL fix covers it either way.
 
 **Function Calling Parse Errors (`output_parse_failed`):**
 

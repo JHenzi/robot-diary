@@ -96,9 +96,17 @@ def _get_youtube_stream_url(youtube_url: str) -> str:
                 check=True
             )
             
-            stream_url = result.stdout.strip()
-            if not stream_url:
+            # yt-dlp prints one URL per selected format. When no pre-merged
+            # format is available it returns separate video and audio URLs;
+            # FFmpeg needs the video one alone to grab a frame.
+            url_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+            if not url_lines:
                 raise ValueError("yt-dlp returned empty stream URL")
+
+            if len(url_lines) > 1:
+                logger.info(f"yt-dlp returned {len(url_lines)} stream URLs, using the first (video)")
+
+            stream_url = url_lines[0]
             
             logger.info(f"✅ Retrieved stream URL (format: {fmt_option or 'auto'}): {stream_url[:100]}...")
             return stream_url
