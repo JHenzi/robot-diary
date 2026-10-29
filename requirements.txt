@@ -1,28 +1,33 @@
 # Core dependencies
-requests>=2.31.0
-python-dotenv>=1.0.0
+requests>=2.34.0
+python-dotenv>=1.2.0
 
 # Groq API for LLM integration (Llama-4-Maverick)
-groq>=0.4.0
+# 1.x is a breaking rewrite of the 0.x client surface - do not float below it
+groq>=1.7.0
 
 # Date/time handling
-pytz>=2024.1
+pytz>=2026.1
 
 # Astronomical calculations (sunrise/sunset, moon phases)
 astral>=3.2
 
 # US holidays detection
-holidays>=0.36
+holidays>=0.107
 
-# YouTube stream access
-yt-dlp>=2024.1.0
+# YouTube stream access ([default] includes yt-dlp-ejs, used with the deno runtime)
+yt-dlp[default]>=2026.10.21
 
-# Vector database and embeddings for memory retrieval
-chromadb>=0.4.22
-sentence-transformers>=2.2.2
-Pillow>=10.0.0
+# Vector database and embeddings for memory retrieval.
+# Container-only in practice: the host venv is built without these three, so
+# anything touching real embeddings runs through scripts/ in Docker.
+# NOTE: the Dockerfile and CI install CPU-only torch from
+# download.pytorch.org/whl/cpu BEFORE this file, so pip does not resolve the
+# NVIDIA CUDA variants (~1.5 GB).
+chromadb>=1.5.9
+sentence-transformers>=6.1.0
+Pillow>=12.0.0
 
 # Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
-
+pytest>=9.0.0
+pytest-cov>=7.0.0

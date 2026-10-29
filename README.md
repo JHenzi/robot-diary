@@ -272,7 +272,7 @@ docker-compose logs -f
 
 **First Run Notes:**
 - The CLIP model for image embeddings will be downloaded on first observation (~400MB). This is a one-time download.
-- If you have existing observations, you may want to run the backfill script: `docker exec robot-diary python backfill_image_embeddings.py`
+- If you have existing observations, you may want to run the backfill script: `./scripts/backfill-image-embeddings.sh`
 
 ### Required Environment Variables
 
@@ -310,7 +310,7 @@ Create a `.env` file in the project root with:
 **⚠️ Important Notes:**
 - **Unlimited Memories**: Setting both `MEMORY_RETENTION_DAYS=0` and `MAX_MEMORY_ENTRIES=0` will keep all observations indefinitely. Monitor disk space if running long-term.
 - **Image Embeddings**: On first run, the CLIP model (`clip-ViT-B-32`) will be downloaded (~400MB). This is required for the circadian boredom factor calculation. The model is cached locally after the first download.
-- **Backfilling Image Embeddings**: If you have existing observations without image embeddings, run `python backfill_image_embeddings.py` to generate embeddings for historical observations. Use `--force` to regenerate all embeddings.
+- **Backfilling Image Embeddings**: If you have existing observations without image embeddings, run `./scripts/backfill-image-embeddings.sh` to generate embeddings for historical observations. Use `--force` to regenerate all embeddings.
 
 ### Managing the Container
 
@@ -331,6 +331,42 @@ docker-compose restart
 git pull
 docker-compose up -d --build
 ```
+
+### Maintenance Scripts
+
+The container is the only supported runtime for anything that touches
+embeddings, Hugo, or the deploy key. The host `venv/` is deliberately built
+**without** `torch`, `chromadb`, and `sentence-transformers` (117 MB instead of
+1 GB), so the root-level Python scripts are not meant to be run on the host.
+Use the wrappers in `scripts/` instead — each one `exec`s into the running
+`robot-diary` service, falling back to a one-off container if it is stopped:
+
+```bash
+./scripts/observe-now.sh --simulate       # one observation cycle (args pass through)
+./scripts/migrate-memories.sh             # backfill observations.json into ChromaDB
+./scripts/backfill-image-embeddings.sh    # backfill CLIP image embeddings
+./scripts/deploy.sh                       # build Hugo and rsync to the web host
+./scripts/cleanup.sh                      # DESTRUCTIVE: wipe memories/images/posts
+./scripts/diagnose.sh                     # list the one-off diagnostic checks
+./scripts/diagnose.sh image               # ...and run one of them
+./scripts/in-container.sh bash            # escape hatch: any command in the container
+```
+
+The wrappers prefer `docker compose exec` over `docker compose run` on purpose:
+a one-off container would mount the same `./memory` volume as the live service,
+and two processes writing `chroma_db`'s SQLite file at once can corrupt it
+mid-observation.
+
+The pytest suite is the exception — it mocks embeddings entirely, so it runs on
+the host venv with no Docker involved:
+
+```bash
+venv/bin/python -m pytest tests/ -q
+```
+
+Note that the root-level `test_*.py` files are **not** part of that suite.
+`pytest.ini` sets `testpaths = tests`, so pytest never collects them; they are
+one-off diagnostics, reachable through `./scripts/diagnose.sh`.
 
 ### Troubleshooting
 

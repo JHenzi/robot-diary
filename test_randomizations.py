@@ -25,7 +25,7 @@ def test_randomizations(num_runs=5):
         'date': now.strftime('%B %d, %Y'),
         'day_of_week': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()],
         'time': now.strftime('%I:%M %p'),
-        'timezone': 'CST' if now.astimezone(location_tz).dst() == pytz.timezone('UTC').localize(datetime(2024, 1, 1)).dst() else 'CDT',
+        'timezone': now.astimezone(location_tz).strftime('%Z'),  # e.g. EDT/EST
         'season': 'Winter',  # Mock season
         'time_of_day': 'evening',
         'observation_type': 'evening',
