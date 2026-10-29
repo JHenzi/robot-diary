@@ -32,6 +32,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # Install CPU-only PyTorch first so pip does not resolve the NVIDIA CUDA
+        # variants (~1.5 GB) for sentence-transformers; the tests mock embeddings.
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
         pip install -r requirements.txt
     
     - name: Set up test environment
@@ -47,7 +50,7 @@ jobs:
         # Set dummy values for required env vars (tests don't use them)
         GROQ_API_KEY: dummy_key_for_testing_only_minimum_10_chars
         YOUTUBE_STREAM_URL: https://www.youtube.com/watch?v=test123
-        LOCATION_TIMEZONE: America/Chicago
+        LOCATION_TIMEZONE: America/Indiana/Indianapolis
     
     - name: Generate coverage report
       run: |
@@ -55,7 +58,7 @@ jobs:
       env:
         GROQ_API_KEY: dummy_key_for_testing_only_minimum_10_chars
         YOUTUBE_STREAM_URL: https://www.youtube.com/watch?v=test123
-        LOCATION_TIMEZONE: America/Chicago
+        LOCATION_TIMEZONE: America/Indiana/Indianapolis
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
