@@ -17,6 +17,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rsync \
     openssh-client
 
+# JavaScript runtime for yt-dlp's YouTube extraction (EJS). Deno is yt-dlp's
+# default runtime; without one, YouTube formats go missing or fail outright.
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
 # Create .ssh directory for mounted key
 RUN mkdir -p /app/.ssh && chmod 700 /app/.ssh
 
