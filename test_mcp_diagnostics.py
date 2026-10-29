@@ -67,7 +67,7 @@ def test_retriever_initialization():
         if retriever.chroma_available:
             print("✅ ChromaDB initialized successfully")
             print(f"   - Collection name: {retriever.collection.name if retriever.collection else 'None'}")
-            print(f"   - Embedding model: {retriever.embedding_model.get_sentence_embedding_dimension() if retriever.embedding_model else 'None'} dimensions")
+            print(f"   - Embedding model: {retriever.embedding_model.get_embedding_dimension() if retriever.embedding_model else 'None'} dimensions")
             return retriever
         else:
             print("⚠️  ChromaDB not available, using temporal-only mode")
