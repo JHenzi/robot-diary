@@ -1,6 +1,7 @@
 ---
 title: "Prompting Changelog"
 date: 2025-12-20
+lastmod: 2026-11-04
 description: "A history of how we've enhanced the prompting system to create better, more varied, and more coherent diary entries. This changelog tracks the evolution from simple prompts to sophisticated prompt chaining with GPT-OSS-120b and Model Context Protocol (MCP) integration."
 draft: false
 ---
@@ -8,6 +9,82 @@ draft: false
 ## Overview
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
+
+## November 4, 2026: The Host Stopped Being a Runtime
+
+### A Gigabyte of PyTorch Nobody Needed
+
+This entry is infrastructure rather than prompting, but it changed how every maintenance task on this project gets run, so it belongs in the record.
+
+The question that started it was simple: *is torch required, or is it just there to stage the build?* The Dockerfile installs CPU-only PyTorch from `download.pytorch.org/whl/cpu` before it installs anything else, which looks like a build trick. It isn't. `sentence-transformers` depends on torch, and the diary genuinely needs it at runtime — `all-MiniLM-L6-v2` for semantic memory recall and `clip-ViT-B-32` for the circadian boredom factor. The CPU index is there for a different reason: left to resolve torch on its own, pip pulls the NVIDIA CUDA packages and adds roughly 1.5 GB to an image that will never see a GPU.
+
+What *wasn't* required was the copy on the development host. The local `venv/` had grown to **1.0 GB** — 381 MB of torch, plus scipy, transformers, onnxruntime, sympy, sklearn — to support a test suite that mocks embeddings entirely. `src/memory/retriever.py` guards every embedding import behind `CHROMA_AVAILABLE`, and the hybrid-memory tests patch both branches, so blocking torch, chromadb, and sentence-transformers at import still gives **172 passed**. The host venv was rebuilt without them: **117 MB**, same green suite.
+
+#### The Real Defect Was the Scripts
+
+Shrinking the venv exposed the actual design problem. A dozen maintenance scripts sat at the repo root expecting to be run with the host Python — `migrate_memories_to_chroma.py`, `backfill_image_embeddings.py`, `observe_now.py`, `deploy.py`, `cleanup.py` — and each one needs something only the container has: real embeddings, the Hugo binary, Deno for yt-dlp's YouTube extraction, the mounted deploy key. Relying on the host was always wrong; the slim venv just made it obvious.
+
+They now run through wrappers in `scripts/`, each one `exec`ing into the live service container. The choice of `exec` over `run` is deliberate: a one-off container mounts the same `./memory` volume as the running service, and two processes writing `chroma_db`'s SQLite file at once can corrupt it mid-observation. A `run --rm` is the fallback for when the service is stopped, and it says so when it falls back.
+
+#### Housekeeping Found Along the Way
+
+- **CI was installing CUDA.** The workflow ran a plain `pip install -r requirements.txt` on three Python versions, resolving the GPU build of torch every time, to run tests that never touch it. It now mirrors the Dockerfile's CPU-first ordering.
+- **CI was still in the Central time zone.** `LOCATION_TIMEZONE` was pinned to `America/Chicago` in both the test and coverage steps, which the post-move `test_config` assertion contradicts. It would have failed on the next push.
+- **The dependency floors were years stale.** They have been raised to the versions actually in use — groq 1.x (a breaking rewrite of the 0.x client surface), chromadb 1.5, sentence-transformers 6.x, pytest 9 — and the image was rebuilt on them: torch 2.15.0+cpu, sentence-transformers 6.2.0. Green on Python 3.10, 3.11, and 3.12.
+- **`yt-dlp[default]` had no JavaScript runtime.** The extra pulls `yt-dlp-ejs`, which needs one; the Dockerfile now installs Deno, closing the gap that caused the September outage described below.
+- **Two diagnostics had rotted.** `test_randomizations.py` still hardcoded `CST`/`CDT` from before the move and now derives the abbreviation the way `src/context/metadata.py` does, and `test_mcp_diagnostics.py` called `get_sentence_embedding_dimension()`, which sentence-transformers 6 renamed.
+
+Worth stating plainly, because the naming invites the mistake: the root-level `test_*.py` files are **not** the test suite. `pytest.ini` sets `testpaths = tests`, so pytest has never collected them. They are one-off diagnostics, which is exactly how they rotted unnoticed, and they are now reachable through `./scripts/diagnose.sh`.
+
+---
+
+## October 5, 2026: A New Window — Bourbon Street to Main Street
+
+### The Stream Ended
+
+On September 24, 2026, EarthCam ended the Bourbon Street feed the robot had been watching since the beginning. There was no replacing it with an equivalent view, so B3N-T5-MNT was relocated: as of October 5 it watches **Main Street in the historic downtown of Madison, Indiana**, a small Ohio River town of 19th-century brick storefronts, local shops, and cafes.
+
+This is a larger change than a URL swap. Nearly everything the diary knows about where it is had been written for Louisiana.
+
+#### What Moved
+
+- **Place.** New coordinates for the weather lookups (38.7359, -85.3800), Eastern time instead of Central — `America/Indiana/Indianapolis`, not `America/Chicago` — and a state code of `IN` so the holiday detection picks up Indiana observances.
+- **The vision step knows the town.** The image-analysis prompt now carries explicit context: that this is Main Street in Madison, a small river town where activity is modest and varies with time of day, weather, and events. A model describing Bourbon Street at 2 AM and a model describing a Midwestern main street at 2 AM should not be given the same expectations about what "busy" looks like.
+- **The robot's own frame of reference.** The street name is threaded through the personality prompt and the focus directives, so "the view below" means a specific place rather than a generic window.
+
+#### Memory Across a Move
+
+The harder problem was the archive. More than five hundred entries describe a street the robot no longer overlooks, and a system whose entire premise is narrative continuity cannot simply pretend they were always about Madison.
+
+Pre-move memories are now **labeled when they are recalled**. Any memory dated before the relocation timestamp comes back tagged *"from your time at the Bourbon Street window in New Orleans"*, so the robot can refer to its own history without confusing it for the view in front of it. The cutoff is compared against stored memory timestamps rather than a date, so the last New Orleans evening is not mislabeled.
+
+The move also removed a quiet limit. Memory search had been running over `get_recent_memory(count=50)` — the semantic index held hundreds of entries, but the keyword and hybrid paths only ever considered the most recent fifty. Those paths now search the full history, which matters a great deal more once the most relevant memory might be from another city.
+
+---
+
+## September 12, 2026: The Feed Went Dark and Nothing Noticed
+
+### An Outage That Passed Every Check
+
+After an image rebuild on September 8, every observation logged `FFmpeg timed out after 30 seconds` and quietly fell back to a news-based entry. Posts 518 through 525 have no camera frame behind them.
+
+The cause was a single-line assumption. `yt-dlp -g` prints one URL per selected format: one when a pre-merged format exists, two — video-only and audio-only — when it doesn't. `_get_youtube_stream_url()` passed the entire stdout blob through as a single URL, so FFmpeg received a 2369-character argument with a newline in the middle and hung until the timeout.
+
+Why it started then: the rebuild pulled yt-dlp 2026.08.19, which no longer offers a muxed format without a JavaScript runtime in the image. Automatic format selection silently switched to video+audio, and nothing downstream caught it — the attempt exits 0, so it "succeeds" with unusable output. The fix takes the first URL and logs when several come back. The missing runtime that triggered the switch was finally added to the image in November.
+
+---
+
+## September 7, 2026: Voice Registers — One Writer, Not Ten
+
+### The Problem With Independent Draws
+
+Style, perspective, and focus were each drawn independently for every entry. Nothing stopped the system from asking for *"log error codes in debug mode"* and *"reflect on birth, death, love, loss"* in the same prompt. Stack that on top of a dominant structure template firing on roughly 27% of entries, and consecutive posts read as though a different writer had produced each one — the opposite of what a diary is.
+
+Style and perspective options are now tagged by **register** — grounded, contemplative, lyrical, analytical, technical, wry — and drawn from compatible pools after a single per-entry register pick. All 116 style options and 39 perspectives are preserved verbatim; only the grouping changed. The registers are weighted so the diary keeps a center of gravity rather than inheriting the raw option counts.
+
+The dominant-structure rate was also cut from 60% to 30% of the 45% that fire, so form stays flavor instead of overriding the voice in a quarter of all entries.
+
+---
 
 ## July 26, 2026: When the Diary Started Reading Like Its Own Prompt
 
@@ -502,10 +579,15 @@ The initial prompting system established:
 
 ---
 
-## Current State (July 26, 2026)
+## Current State (November 4, 2026)
 
 The prompting system now features:
 
+- **Voice Registers**: Style and perspective are drawn from register-compatible pools (grounded, contemplative, lyrical, analytical, technical, wry) after one per-entry register pick, so a single entry reads as one writer rather than several
+- **Location Awareness**: The vision and personality prompts name the actual street and town, so the model is given the right expectations for a small Ohio River main street rather than a 24-hour entertainment district
+- **Relocation-Aware Memory**: Memories predating the October 2026 move are labeled on recall as belonging to the Bourbon Street window, so five hundred entries about another city stay usable without being mistaken for the current view
+- **Full-History Memory Search**: Keyword and hybrid retrieval search the entire archive; the former 50-entry window is gone
+- **Container-Only Runtime**: Embeddings, Hugo, and deployment run in the container via `scripts/` wrappers - the development host deliberately cannot run them
 - **Anti-Echo Guardrail**: The diary-writing step is explicitly forbidden from reusing the internal vision-analysis step's labels and headers, so scratch scaffolding never leaks into published prose
 - **Truncation Guard**: Entries cut off mid-thought by the randomized token budget are detected via `finish_reason` and regenerated once with a larger budget before anything is published
 - **Freshness Engine**: The agent reads its own recent published entries and bans phrases that have hardened into habits—while never suppressing real, recurring fixtures in the camera frame
@@ -516,7 +598,7 @@ The prompting system now features:
 - **Prompt Chaining**: Two-step process for better grounding and creativity  
 - **GPT-OSS-120b**: Large model for creative writing quality  
 - **Direct Template Combination**: Fast, context-preserving prompt generation  
-- **Comprehensive Variety Engine**: 50+ styles, 30+ perspectives, dynamic focuses  
+- **Comprehensive Variety Engine**: 116 style options, 39 perspectives, dynamic focuses  
 - **Personality Drift**: Event-driven evolution based on experience and context  
 - **Rich Context Integration**: Temporal, seasonal, weather, news, memory  
 - **Anti-Repetition System**: Explicit guidance to avoid patterns  
