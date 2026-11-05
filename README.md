@@ -357,7 +357,19 @@ a one-off container would mount the same `./memory` volume as the live service,
 and two processes writing `chroma_db`'s SQLite file at once can corrupt it
 mid-observation.
 
-The pytest suite is the exception — it mocks embeddings entirely, so it runs on
+**The container runs the code baked into the image**, not your working tree —
+`docker-compose.yml` mounts `images/`, `memory/`, `weather/`, and `hugo/`, but
+the Python source comes from the image's `COPY . .`. So editing a `.py` file on
+the host does **not** change what the wrappers execute; rebuild first:
+
+```bash
+docker compose build && docker compose up -d
+```
+
+Content under `hugo/` is the exception: it is volume-mounted, so changelog and
+post edits are picked up immediately by `./scripts/deploy.sh`.
+
+The pytest suite needs none of this — it mocks embeddings entirely, so it runs on
 the host venv with no Docker involved:
 
 ```bash
