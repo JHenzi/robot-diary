@@ -80,7 +80,13 @@ def deploy_with_rsync():
     
     # Add SSH options if key is specified
     if DEPLOY_SSH_KEY:
-        ssh_key_path = DEPLOY_SSH_KEY
+        # DEPLOY_SSH_KEY is the HOST-side path the key is mounted from; inside the
+        # container it lands at a fixed mount point (see docker-compose.yml), which
+        # is what src/hugo/generator.py uses for the service's own deploys.
+        if Path('/app/.ssh/deploy_key').exists():
+            ssh_key_path = '/app/.ssh/deploy_key'
+        else:
+            ssh_key_path = DEPLOY_SSH_KEY
         ssh_opts_parts = []
         
         # Add SSH config file if available
