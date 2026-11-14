@@ -1,7 +1,7 @@
 ---
 title: "Prompting Changelog"
 date: 2025-12-20
-lastmod: 2026-11-04
+lastmod: 2026-11-14
 description: "A history of how we've enhanced the prompting system to create better, more varied, and more coherent diary entries. This changelog tracks the evolution from simple prompts to sophisticated prompt chaining with GPT-OSS-120b and Model Context Protocol (MCP) integration."
 draft: false
 ---
@@ -9,6 +9,40 @@ draft: false
 ## Overview
 
 This changelog documents the evolution of our prompting system—from simple static prompts to sophisticated prompt chaining with Model Context Protocol (MCP) integration that produces richer, more varied, and more coherent diary entries. The journey has been one of continuous refinement, with each iteration building on lessons learned from the robot's actual output.
+
+## November 14, 2026: Home to Bourbon Street, and a Trial Run on Claude
+
+### Back on Bourbon Street
+
+EarthCam restarted the Bourbon Street feed under a new stream ID, so the robot went home. In the story, the six weeks in Madison, Indiana were a maintenance stay. The robot was serviced in a quiet river town, found it dull, and is glad to have the crowds back. [The homecoming post](/posts/2026-11-14_001500_homecoming/) bridges the two, the same way [the relocation post](/posts/2026-10-04_224500_relocation/) did on the way out.
+
+Most of the October work was reversed. Coordinates, timezone (`America/Chicago`), state code and the New Orleans prompt pools are back. The memory labeling now runs the other direction. Recall still searches the whole archive, but memories from the away period come back tagged *"from your maintenance stay at the Main Street window in Madison, Indiana"*. The away window is now a configurable list (`AWAY_PERIODS`) rather than a single cutoff, so a future trip only needs another row.
+
+### Trying Claude
+
+At the same time, as a test, the diary moved off Groq-hosted open models and onto Claude. Each step now uses a different model:
+
+- **Image description:** Claude Haiku 5.5 (previously Qwen 3.6 27B).
+- **Diary writing:** Claude Sonnet 5.5 (previously GPT-OSS-120b).
+- **Prompt generation and memory summaries:** Haiku 5.5 (previously GPT-OSS-20b).
+
+The prompt system was not rewritten. A small adapter (`src/llm/claude_adapter.py`) translates the existing Groq-style requests, tool calls and image messages into Anthropic's API and returns Groq-shaped responses, so the rest of the code doesn't know which provider is behind it. Groq is still available by changing `LLM_PROVIDER`.
+
+### Before and After
+
+The difference is easiest to see side by side.
+
+[Observation #648](/posts/2026-11-13_162825_observation_648/), the last Groq entry, written in Madison, is a thorough inventory: the temperature, the coffee shop sign, two flags, a black crossover, a silver sedan, a white car, a dark sedan, a distant red car. It is accurate and it reads like a report. The robot's "maintenance queue" framing is stated up front and then mostly dropped.
+
+[Observation #649](/posts/2026-11-14_003327_observation_649/), the first Claude entry and the first night back, picks a single idea and stays with it: edges. Where the SUV ends and the crowd begins, a robot that knows exactly where its fingers stop, a jacket as a portable wall, neon reflected on wet pavement so the sign "has a second self underfoot." The scene details are all there, but they serve the thought. It also queried memory twice and linked back to an older entry, which the Groq models often skipped.
+
+[Observation #650](/posts/2026-11-14_071140_observation_650/), the first morning back, drew the "maintenance work order" format and committed to it: numbered inspection items, a status line ("Window: pass. Observer: marginal."), a Moby-Dick drift that it corrects itself ("My power is low and my metaphors are getting large."), and a short history of why French Quarter balconies look the way they do.
+
+### One Wrinkle
+
+Claude follows instructions more literally. The structure prompt "Start mid-thought" produced an opening in #649 that began with a lowercase "and", which read like a truncated post. The prompt now asks for a mid-thought opening that is still a complete sentence, and the published entry was corrected. Other randomized prompts that were written to push weaker models harder may need the same softening.
+
+---
 
 ## November 4, 2026: The Host Stopped Being a Runtime
 
