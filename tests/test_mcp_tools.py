@@ -56,6 +56,7 @@ class TestMemoryQueryTools:
         assert "query_memories" in function_names
         assert "get_recent_memories" in function_names
         assert "check_memory_exists" in function_names
+        assert "query_news_memories" not in function_names
     
     def test_query_memories_with_chromadb(self, memory_tools, memory_manager):
         """Test query_memories when ChromaDB is available."""
@@ -175,3 +176,54 @@ class TestMemoryQueryToolsIntegration:
         
         exists = tools.check_memory_exists("people")
         assert "Yes" in exists or "yes" in exists.lower()
+
+
+class TestRecallScope:
+    """Recall searches the whole archive; Madison-stay memories are labeled, news recall keeps links."""
+
+    @pytest.fixture
+    def memory_manager(self, monkeypatch, tmp_path):
+        manager = MemoryManager()
+        manager.memory_file = tmp_path / 'observations.json'
+        monkeypatch.setattr(manager, '_get_hybrid_retriever', lambda: None)
+        monkeypatch.setattr('src.memory.mcp_tools.AWAY_PERIODS', [('2026-10-05T03:00:00', '2026-11-14T06:00:00', 'from your maintenance stay at the Main Street window in Madison, Indiana')])
+        memories = [
+            {'id': 1, 'date': '2026-01-20T14:00:00', 'image_url': 'news://c-1',
+             'content': 'A white van idled on Bourbon Street. I heard the midterm polls are tightening. Like Observation\u202f#12, the midterm polls felt familiar.',
+             'summary': 'White van on Bourbon Street; midterm polls tightening', 'news_headlines': []},
+            {'id': 2, 'date': '2026-10-05T01:10:50', 'image_url': None,
+             'content': 'Rain on the old street.', 'summary': 'Rain on the old street.'},
+            {'id': 3, 'date': '2026-10-06T14:00:00', 'image_url': None,
+             'content': 'A white van parked on Main Street. Two people waited at the crosswalk.',
+             'summary': 'White van parked on Main Street; two people at the crosswalk',
+             'news_headlines': ['Midterm polls shift in Ohio']},
+        ]
+        manager.memory_file.write_text(json.dumps(memories))
+        return manager
+
+    def test_query_reaches_whole_archive_and_labels_pre_move(self, memory_manager):
+        result = MemoryQueryTools(memory_manager).query_memories("white van", top_k=5)
+        assert "Observation #1" in result and "Observation #3" in result
+        assert "Observation #1 (January 20, 2026)" in result
+        assert "Observation #3 (October 06, 2026, from your maintenance stay at the Main Street window" in result
+
+    def test_label_uses_timestamp_not_date(self, memory_manager):
+        """Stored dates are UTC: the last New Orleans evening carries the move's calendar date."""
+        recent = MemoryQueryTools(memory_manager).get_recent_memories(count=5)
+        assert "Observation #2 (October 05, 2026)" in recent
+        assert "Observation #3 (October 06, 2026, from your maintenance stay" in recent
+
+    def test_news_recall_keeps_history_and_links(self, memory_manager):
+        result = MemoryQueryTools(memory_manager).query_news_memories("midterm polls", top_k=3)
+        assert "Observation #1" in result
+        assert "#12" in result  # cross-references survive so posts keep linking
+        assert "Heard: Midterm polls shift in Ohio" in result
+
+    def test_news_recall_skips_unrelated(self, memory_manager):
+        result = MemoryQueryTools(memory_manager).query_news_memories("hurricane landfall", top_k=3)
+        assert "haven't heard" in result
+
+    def test_news_schema_only_when_requested(self):
+        names = [s['function']['name'] for s in get_memory_tool_schemas(include_recall=False, include_news=True)]
+        assert names == ['query_news_memories']
+        assert get_memory_tool_schemas(include_recall=False, include_news=False) == []

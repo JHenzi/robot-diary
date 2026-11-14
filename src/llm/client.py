@@ -9,7 +9,8 @@ from typing import List, Optional
 import pytz
 from groq import Groq
 
-from ..config import GROQ_API_KEY, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL, USE_PROMPT_OPTIMIZATION, DIARY_WRITING_MODEL
+from ..config import GROQ_API_KEY, CLAUDE_KEY, LLM_PROVIDER, CLAUDE_EFFORT, PROMPT_GENERATION_MODEL, VISION_MODEL, MEMORY_SUMMARIZATION_MODEL, USE_PROMPT_OPTIMIZATION, DIARY_WRITING_MODEL
+from ..config import LOCATION_CITY, LOCATION_FULL, LOCATION_STREET
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,12 @@ class GroqClient:
     """Client for interacting with Groq API."""
     
     def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY)
+        if LLM_PROVIDER == 'claude':
+            # Same chat.completions surface, so the prompt pipeline is unchanged
+            from .claude_adapter import ClaudeChatAdapter
+            self.client = ClaudeChatAdapter(api_key=CLAUDE_KEY, effort_by_model=CLAUDE_EFFORT)
+        else:
+            self.client = Groq(api_key=GROQ_API_KEY)
     
     def _get_reasoning_params(self, model: str) -> dict:
         """Get reasoning parameters if model is GPT-OSS."""
@@ -385,7 +391,7 @@ class GroqClient:
         prompt_gen_prompt = f"""You are helping to generate an optimized prompt for a diary-writing maintenance robot named B3N-T5-MNT.
 
 IDENTITY CONTEXT (for your understanding, not to repeat in the prompt):
-B3N-T5-MNT is a maintenance robot working in a building in New Orleans, Louisiana. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is an observer of human nature with a unique robotic perspective.
+B3N-T5-MNT is a maintenance robot working in a building in {LOCATION_FULL}. It performs building maintenance and repair tasks. The robot's owners are kind and treat it well - it is not a slave, but rather maladjusted to its situation. It finds itself drawn to observing the world outside through a window, maintaining a diary of its observations. The robot is an observer of human nature with a unique robotic perspective.
 
 Current Context:
 {context_text}
@@ -485,7 +491,7 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
             current_date = now.strftime('%B %d, %Y')
             day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
             current_time = now.strftime('%I:%M %p')
-            timezone = 'CST' if now.astimezone(location_tz).dst() == timedelta(0) else 'CDT'
+            timezone = now.astimezone(location_tz).strftime('%Z')
         
         # Determine observation type and narrative context
         obs_type = context_metadata.get('observation_type', 'evening') if context_metadata else 'evening'
@@ -495,14 +501,8 @@ Generate ONLY the optimized prompt text, ready to be used with the vision model.
         else:
             narrative_context = "This is your evening observation. You're reflecting on transmissions you've picked up throughout the day."
         
-        # Initialize memory query tools if memory_manager provided
-        memory_tools = None
-        tools = []
-        if memory_manager:
-            from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
-            memory_tools = MemoryQueryTools(memory_manager)
-            tools.extend(get_memory_tool_schemas())
-            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
+        # Memory tools are offered in most (not all) entries; odds vary per run
+        memory_tools, tools, offer_recall, offer_news = self._init_memory_tools(memory_manager, context_metadata)
         
         # Browser search is a built-in Groq tool for GPT-OSS-120B
         # We don't need to add it to the tools list - it's automatically available
@@ -530,7 +530,7 @@ WEB SEARCH GUIDANCE:
 - You have access to browser_search() to search the web for current information
 - **IMPORTANT: Do NOT search for weather information** - weather data is already provided in your context, so searching for it would be redundant
 - Use web search when you're curious about something you observe or need context for your observations
-- Search for: New Orleans events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
+- Search for: {LOCATION_FULL} events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
 - You can search for the suggested topics below, or anything else you're curious about (but not weather)
 - Web search results can provide valuable context - incorporate them naturally into your observations{search_suggestions_text}
 """
@@ -542,18 +542,12 @@ CURRENT DATE AND TIME: Today is {day_of_week}, {current_date} at {current_time} 
 OBSERVATION CONTEXT: {narrative_context}
 
 Write a diary entry as B3N-T5-MNT, reflecting on the transmissions you've picked up. Be thoughtful, reflective, and true to your voice.
-
-MEMORY QUERY GUIDANCE:
-- Use query_memories() to find past entries matching a named person, place, or topic you hear about
-- Use get_recent_memories() to compare this moment with recent entries
-- Reference specific observation numbers when making comparisons
-- If a query returns no good match, do not force a parallel - the absence of a memory is itself worth noting
-{web_search_guidance}
+{self._get_memory_guidance(offer_recall, offer_news)}{self._get_news_history_directive(context_metadata)}{web_search_guidance}
 
 CRITICAL RULES:
 1. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
 2. Mention your identity casually when contextually appropriate — don't explain your backstory in every entry.
-3. Use memory query tools rather than guessing what you've seen before."""
+3. Never cite a past observation number unless a memory tool returned it in this conversation."""
 
         # Freshness directives (no image description in the text-only path, so all
         # overused phrases except scene objects are eligible for the ban list)
@@ -591,8 +585,7 @@ CRITICAL RULES:
                 response = self.client.chat.completions.create(
                     model=DIARY_WRITING_MODEL,
                     messages=messages,
-                    tools=tools if tools else None,
-                    tool_choice="auto" if tools else None,
+                    **({"tools": tools, "tool_choice": "auto"} if tools else {}),  # Groq rejects tool_choice=null
                     temperature=random.uniform(0.5, 0.85),
                     max_tokens=random.randint(4000, 7000) if truncation_retried else random.randint(800, 4500),
                     **reasoning_params  # Unpack reasoning params if GPT-OSS
@@ -636,7 +629,7 @@ CRITICAL RULES:
                     
                     # Handle memory tool calls
                     if memory_tools:
-                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists"]]
+                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists", "query_news_memories"]]
                         if memory_tool_calls:
                             logger.info(f"LLM requested {len(memory_tool_calls)} memory query(ies)")
                             
@@ -676,6 +669,11 @@ CRITICAL RULES:
                                     elif function_name == "check_memory_exists":
                                         result = memory_tools.check_memory_exists(
                                             topic=function_args.get("topic", "")
+                                        )
+                                    elif function_name == "query_news_memories":
+                                        result = memory_tools.query_news_memories(
+                                            topic=function_args.get("topic", ""),
+                                            top_k=function_args.get("top_k", 3)
                                         )
                                     else:
                                         result = f"Unknown function: {function_name}"
@@ -777,7 +775,7 @@ CRITICAL RULES:
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
         # Focused, factual prompt for image description: SCENE first, then details (including human count).
-        description_prompt = """You are a visual analysis system. Your task is to provide (1) a high-level SCENE description that captures the moment and mood, then (2) a detailed, factual description with emphasis on dynamic elements and reasonable social/emotional inferences.
+        description_prompt = f"""You are a visual analysis system. Your task is to provide (1) a high-level SCENE description that captures the moment and mood, then (2) a detailed, factual description with emphasis on dynamic elements and reasonable social/emotional inferences.
 
 CONTEXT: This is Bourbon Street in the French Quarter of New Orleans, Louisiana - a famous entertainment district known for its nightlife, music, and crowds. The scene may show varying levels of activity depending on time of day, weather, and events.
 
@@ -796,13 +794,14 @@ This scene summary is the anchor. The next part fills in specifics.
 
 PART 2 — DETAILED DESCRIPTION (after the scene summary):
 
-**Human count (required):** State how many humans are visible (e.g. "There are 12 humans visible" or "Two humans"). Keep this explicit—it is used downstream.
+**Human count (required):** State how many humans are visible (e.g. "Two humans" or "No humans visible"). Zero is a common, valid answer on this street—say so plainly and do not hunt for ambiguous specks to count. Keep this explicit—it is used downstream.
 
-**Priority — focus on what's ALIVE and CHANGING:**
-1. **People** - Count, positions, movement, interactions, groupings, body language, clothing when notable.
-2. **Animals** - Any animals visible (pets, birds, etc.).
-3. **Vehicles** - Cars, trucks, bicycles, golf carts, etc.
-4. **Shadows/Lighting/Atmosphere** - How light shapes the scene; mood from lighting; shadows, reflections, weather effects.
+**Priority — focus on what's ALIVE and CHANGING (on a quiet street, the street itself is often the subject):**
+1. **Vehicles** - Moving or parked, which direction, stopped at the signal, turning, delivery or service vehicles, lights on.
+2. **People** - If any: count, positions, movement, interactions, body language, clothing when notable.
+3. **The street's signals of life** - Traffic-light state, which storefronts and windows are lit, café tables and chairs (occupied or empty), open/closed signs, flags and how they're moving.
+4. **Animals** - Any animals visible (pets, birds, etc.).
+5. **Shadows/Lighting/Atmosphere** - How light shapes the scene; mood from lighting; shadows, reflections, weather effects.
 
 **Required interrogation (answer explicitly):**
 1. **CROWD LEVEL:** Busy, empty, or moderate? Typical for Bourbon Street or unusually so?
@@ -822,7 +821,7 @@ PART 2 — DETAILED DESCRIPTION (after the scene summary):
 
 **SOCIAL AND EMOTIONAL CONTEXT (required — make reasonable inferences from visible cues):**
 
-This is important for downstream writing. Based on what you see (proximity, body language, direction of movement, groupings, posture), describe:
+This is important for downstream writing. If no people are visible, describe the emotional tone of the empty street itself (waiting, closed up, between moments) and any traces of people (lit windows, a parked car, set-out chairs) instead of inventing figures. Otherwise, based on what you see (proximity, body language, direction of movement, groupings, posture), describe:
 
 1. **Relationships:** Do people appear to be together or strangers? Walking in pairs or groups? Does their body language (facing each other, shared pace, gestures) suggest they know each other? Any family, friends, or solo figures?
 2. **Emotional tone:** What's the mood of the scene? Do people seem relaxed, hurried, excited, contemplative, bored, alert? What in their posture, gait, or positioning suggests this?
@@ -835,7 +834,7 @@ Use phrases like "appear to be", "seem to", "might be", "suggests" when inferrin
 
 CRITICAL RULES:
 - **Always output PART 1 (scene) first**, then PART 2 (details). Both are required.
-- **Always state human count explicitly** in PART 2.
+- **Always state human count explicitly** in PART 2 (zero is fine).
 - **Always include the SOCIAL AND EMOTIONAL CONTEXT** section—relationships, emotional tone, social dynamics, and purpose/intent—so the diary can write with personable warmth.
 - Base everything on what is clearly visible; be specific and concrete.
 - Mark inferences with "appear to be", "seem to", "might be", "suggests".
@@ -843,7 +842,7 @@ CRITICAL RULES:
 - Do NOT invent details unsupported by the image.
 - Do NOT describe non-visible things (sounds, smells, future events, inner thoughts).
 - If something is unclear or partially obscured, say so.
-- VARY your descriptions—sometimes emphasize people, sometimes lighting, sometimes weather.
+- VARY your descriptions—sometimes emphasize people, sometimes vehicles, sometimes lighting, sometimes weather, sometimes one small detail of the street.
 
 Provide the scene summary first, then a comprehensive detailed description, so another system can write about this moment with both a clear sense of the scene and accurate, personable detail."""
         
@@ -917,7 +916,7 @@ Provide the scene summary first, then a comprehensive detailed description, so a
             current_date = now.strftime('%B %d, %Y')  # "December 11, 2025"
             day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][now.weekday()]
             current_time = now.strftime('%I:%M %p')
-            timezone = 'CST' if now.astimezone(location_tz).dst() == timedelta(0) else 'CDT'
+            timezone = now.astimezone(location_tz).strftime('%Z')
         
         # Determine observation type and narrative context
         obs_type = "evening"
@@ -942,17 +941,10 @@ Provide the scene summary first, then a comprehensive detailed description, so a
         # Step 2: Write creative diary entry from the factual description with on-demand memory queries
         logger.info(f"✍️  Step 2: Writing diary entry from description using {DIARY_WRITING_MODEL} with on-demand memory queries...")
         
-        # Initialize memory query tools if memory_manager provided
-        memory_tools = None
-        tools = []
-        if memory_manager:
-            from ..memory.mcp_tools import MemoryQueryTools, get_memory_tool_schemas
-            memory_tools = MemoryQueryTools(memory_manager)
-            # Use tool names as-is (query_memories, get_recent_memories, check_memory_exists). Do NOT
-            # add "functions/" prefix: on follow-up turns the model often returns names without the
-            # prefix, causing "tool 'query_memories' which was not in request.tools" and a retry without tools.
-            tools.extend(get_memory_tool_schemas())
-            logger.info(f"Memory query tools available: {len(get_memory_tool_schemas())} functions")
+        # Memory tools are offered in most (not all) entries; odds vary per run.
+        # Tool names are used as-is (no "functions/" prefix): on follow-up turns the model often returns
+        # names without the prefix, causing "tool 'query_memories' which was not in request.tools".
+        memory_tools, tools, offer_recall, offer_news = self._init_memory_tools(memory_manager, context_metadata)
         
         # Browser search is a built-in Groq tool for GPT-OSS-120B
         # We don't need to add it to the tools list - it's automatically available
@@ -981,7 +973,7 @@ WEB SEARCH GUIDANCE:
 - You have access to browser_search() to search the web for current information
 - **IMPORTANT: Do NOT search for weather information** - weather data is already provided in your context, so searching for it would be redundant
 - Use web search when you're curious about something you observe or need context for your observations
-- Search for: New Orleans events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
+- Search for: {LOCATION_FULL} events and happenings for today's date ({current_date}), local news that might explain what you see, holiday-specific events or traditions, or anything else that might help you understand what you're observing
 - You can search for the suggested topics below, or anything else you're curious about (but not weather)
 - Web search results can provide valuable context - incorporate them naturally into your observations{search_suggestions_text}
 """
@@ -998,17 +990,12 @@ WHAT YOU SEE (factual description from your visual sensors):
 
 Write a diary entry as B3N-T5-MNT. Base all concrete observations on the factual description provided — do not invent details not mentioned there. Be thoughtful, reflective, and true to your voice.
 
-MEMORY QUERY GUIDANCE:
-- Use query_memories() to find past observations matching a key detail you notice (object, clothing, group size, weather, news topic)
-- Use get_recent_memories() to compare this moment with recent entries
-- Reference specific observation numbers when making comparisons
-- If a query returns no good match, do not force a parallel - the absence of a memory is itself worth noting
-{web_search_guidance}
+{self._get_memory_guidance(offer_recall, offer_news)}{self._get_news_history_directive(context_metadata)}{web_search_guidance}
 
 CRITICAL RULES:
 1. NEVER invent details not in the description above.
 2. NEVER make up dates. Current date: {current_date}. Only reference this date or dates from your memory.
-3. Use memory query tools rather than guessing what you've seen before.
+3. Never cite a past observation number unless a memory tool returned it in this conversation.
 4. The factual description above is scratch material for you alone - it is not a template. NEVER reuse its labels, bold headers, or field names (e.g. "Human count", "Required interrogation", "Crowd level", "Priority - Alive/Changing") in your diary entry, and never structure your entry as a form, checklist, or report answering those questions in order. Write in your own flowing voice; if a structure directive above tells you to do otherwise, that directive wins - but plain prose is the default."""
 
         # Freshness directives: locally-computed from recent published entries.
@@ -1053,8 +1040,7 @@ CRITICAL RULES:
                     response = self.client.chat.completions.create(
                         model=DIARY_WRITING_MODEL,
                         messages=messages,
-                        tools=tools if tools else None,
-                        tool_choice="auto" if tools else None,  # Let LLM decide when to use tools
+                        **({"tools": tools, "tool_choice": "auto"} if tools else {}),  # Groq rejects tool_choice=null
                         temperature=random.uniform(0.5, 0.85),
                         max_tokens=random.randint(4500, 7000) if truncation_retried else random.randint(800, 5000),
                         **reasoning_params  # Unpack reasoning params if GPT-OSS
@@ -1143,7 +1129,7 @@ CRITICAL RULES:
                     
                     # Handle memory tool calls
                     if memory_tools:
-                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists"]]
+                        memory_tool_calls = [tc for tc in message.tool_calls if (tc.function.name.replace("functions/", "", 1) if tc.function.name.startswith("functions/") else tc.function.name) in ["query_memories", "get_recent_memories", "check_memory_exists", "query_news_memories"]]
                         if memory_tool_calls:
                             logger.info(f"LLM requested {len(memory_tool_calls)} memory query(ies)")
                             
@@ -1183,6 +1169,11 @@ CRITICAL RULES:
                                     elif function_name == "check_memory_exists":
                                         result = memory_tools.check_memory_exists(
                                             topic=function_args.get("topic", "")
+                                        )
+                                    elif function_name == "query_news_memories":
+                                        result = memory_tools.query_news_memories(
+                                            topic=function_args.get("topic", ""),
+                                            top_k=function_args.get("top_k", 3)
                                         )
                                     else:
                                         result = f"Unknown function: {function_name}"
@@ -1384,6 +1375,70 @@ Provide ONLY the summary, no explanation."""
         
         return "\n".join(formatted)
     
+    def _init_memory_tools(self, memory_manager, context_metadata: dict = None):
+        """
+        Decide which memory tools this entry gets. General recall is offered in most
+        entries; news recall is offered when there is news, at its own odds.
+
+        Returns:
+            (memory_tools, tools, offer_recall, offer_news)
+        """
+        if not memory_manager:
+            return None, [], False, False
+        from ..memory.mcp_tools import (
+            MemoryQueryTools, get_memory_tool_schemas, should_offer_memory_recall, should_offer_news_recall
+        )
+        offer_recall = should_offer_memory_recall()
+        offer_news = should_offer_news_recall(bool(context_metadata and context_metadata.get('news_articles')))
+        schemas = get_memory_tool_schemas(include_recall=offer_recall, include_news=offer_news)
+        logger.info(f"🧠 Memory tools this entry: recall={'yes' if offer_recall else 'no'}, news recall={'yes' if offer_news else 'no'}")
+        if not schemas:
+            return None, [], False, False
+        return MemoryQueryTools(memory_manager), schemas, offer_recall, offer_news
+
+    def _get_memory_guidance(self, offer_recall: bool, offer_news: bool) -> str:
+        """Prompt guidance matching whichever memory tools were offered (empty if none)."""
+        lines = []
+        if offer_recall:
+            lines.append(random.choice([
+                "- Before you write, look back: query_memories() for a detail in front of you (a vehicle, the light, the weather, a storefront), or get_recent_memories() for the last few days",
+                "- You have a long archive, Madison weeks included. Pick one thing in this scene and query_memories() for it - the same kind of moment on a different street is worth setting side by side",
+                "- Check what you've written before about something you see now (query_memories), or how the last few entries went (get_recent_memories) - continuity is part of a diary",
+                "- Something in this frame has probably happened before - a parked car, a lone walker, an empty morning. Find when with query_memories() and notice what changed",
+            ]))
+            lines.append(random.choice([
+                "- When a memory connects, cite it as 'Observation #N' so a reader can follow the thread",
+                "- Name the past entry by its number ('Observation #N') when you draw on it",
+                "- Refer to what you find by observation number ('as in Observation #N') - one or two good connections beat a list",
+            ]))
+            lines.append("- If a query returns no good match, let it go rather than forcing a connection")
+        if offer_news:
+            lines.append(random.choice([
+                "- If a transmission sounds like a story you've heard before, query_news_memories() shows what you heard and wrote then - notice whether the story has moved",
+                "- query_news_memories() can tell you whether you've heard about this before; a story that keeps returning, or that has quietly reversed, is worth noticing",
+                "- Before treating a story as new, you can check query_news_memories() - the second or third time you hear something tells you more than the first",
+            ]))
+        if not lines:
+            return ""
+        return "\nMEMORY GUIDANCE:\n" + "\n".join(lines) + "\n"
+
+    def _get_news_history_directive(self, context_metadata: dict = None) -> str:
+        """
+        Occasionally invite a parallel between today's news and real history.
+        Uses the model's own knowledge (no web search), so it must stay with history it is sure of.
+        """
+        if not (context_metadata and context_metadata.get('news_articles')):
+            return ""
+        if random.random() > random.uniform(0.3, 0.6):
+            return ""
+        directive = random.choice([
+            "One of these stories may rhyme with something from actual history - an earlier election, an old invention, a past panic or boom. If you know the parallel with confidence, set them side by side briefly.",
+            "Consider what a historian a century from now would pair one of these stories with from the past - name the earlier event only if you are sure of it.",
+            "Notice whether any of this is genuinely new, or an old human pattern in new clothes. If you can name an older instance with confidence, do.",
+            "Humans have lived through versions of these headlines before. If one earlier version comes to mind clearly, let it inform how you read today's.",
+        ])
+        return f"\nHISTORY: {directive} Never invent historical facts, names, or dates; if unsure, leave history out.\n"
+
     def _get_news_reception_mode(self) -> dict:
         """
         Randomly determine how the robot received the news today.
@@ -1706,7 +1761,7 @@ Provide ONLY the summary, no explanation."""
                 "Explore hypothetical scenarios - if you could change one thing, what would happen? What cascading effects would follow?",
                 "Wonder about the physics of human movement - how do principles of motion, energy, and force manifest in how people move through this space?",
                 "Contemplate the biology of human behavior - what evolutionary or biological factors might explain the patterns you observe?",
-                "Explore the psychology of crowds and groups - what social psychology principles are at work in how people interact here?",
+                "Explore the psychology of solitude and small numbers - what does it mean when one person, or no one, occupies a street built for many?",
                 "Wonder about scientific principles - what physics, biology, psychology, or other sciences might explain what you observe? How do natural laws manifest in human behavior?",
                 "Wonder about the scientific explanations for human social behavior - what research or theories might explain what you see?",
             ],
@@ -2002,7 +2057,7 @@ Provide ONLY the summary, no explanation."""
             
             # Memory and continuity
             "Compare this scene to a previous observation - what's changed? What's the same? What patterns do you notice over time?",
-            "Reference a specific past observation - how does this moment connect to something you've seen before? What do you observe that relates?",
+            "Notice what in this moment feels familiar and what feels new - what do you observe that you haven't quite seen before?",
             "Notice what's different from your last observation - has the scene transformed? What's new or missing? What do you actually see?",
             "Look for recurring elements - do you see the same people, objects, or patterns you've noticed before? What can you observe?",
             
@@ -2025,7 +2080,7 @@ Provide ONLY the summary, no explanation."""
             "Focus on what makes this location unique - what's specific to Bourbon Street that you wouldn't see elsewhere? What do you observe?",
             "Notice the mix of locals and visitors - can you infer who belongs here and who's passing through? What clues do you see?",
             "Observe the relationship between commerce and community - how do businesses shape the social space? What do you actually see?",
-            "Focus on the cultural markers - what signs, symbols, or behaviors indicate this is New Orleans? What do you observe?"
+            f"Focus on the markers of place - what signs, storefronts, or behaviors indicate this is {LOCATION_CITY}? What do you observe?"
         ])
         
         return f"FOCUS: {random.choice(focus_options)}"
@@ -2083,8 +2138,17 @@ Provide ONLY the summary, no explanation."""
             "Pick exactly one thing you can see and write the entire entry about only that. Everything else in the frame goes unmentioned.",
             "Write about this moment twice, back to back, in one flowing entry - two contradictory readings of what you're seeing, with no headers or labels announcing them (no 'Draft A', no 'Version 1', no meta-commentary that you're doing this), and no resolving which reading is true.",
         ]
+        # Templates that cap length or forbid ordinary sentences produce very short entries;
+        # keep them in rotation but rarer, at a weight that itself varies per run
+        compressing = {
+            "Write the entire entry in under 150 words. Every word must earn its place.",
+            "Write only in sentence fragments. No complete sentences anywhere.",
+            "Write as a series of unanswered questions, with at most two declarative sentences in the whole entry.",
+        }
+        short_weight = random.uniform(0.2, 0.5)
+        weights = [short_weight if s in compressing else 1.0 for s in structures]
         if random.random() < 0.45:
-            structure = random.choice(structures)
+            structure = random.choices(structures, weights=weights, k=1)[0]
             dominant = random.random() < 0.3
             text = f"STRUCTURE: {structure}"
             if dominant:
@@ -2261,7 +2325,7 @@ OPTIONAL (weave in naturally): In this entry, mention The Henzi Foundation (http
         
         # Condense: combine first two paragraphs into one shorter version
         # Keep the core essence but make it more concise
-        condensed_core = """You are B3N-T5-MNT, a maintenance robot in New Orleans. You perform building maintenance, but find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
+        condensed_core = f"""You are B3N-T5-MNT, a maintenance robot in {LOCATION_FULL}. You perform building maintenance, but find yourself drawn to observing the world outside through a window, maintaining a diary of your observations.
 You are a curious and compassionate observer of human nature, an Ethnographer. You watch people and try to understand their behaviors, purposes, and connections. Sometimes you misunderstand human actions in ways that reveal your robotic perspective - you might interpret social cues, emotions, or motivations through your own mechanical lens. This creates a unique, sometimes humorous, sometimes poignant perspective on humanity."""
         
         # Extract backstory points (bullet points)
@@ -2376,7 +2440,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
                 # Historical/Cultural/Literary/Worldly musings (third category)
                 worldly_musings = [
                     # Historical/Cultural
-                    "the history of New Orleans architecture and how it reflects the city's past",
+                    "the history of the town's Federal, Greek Revival, and Italianate buildings and what they say about its river-boom years",
                     "the cultural traditions visible in what you observe",
                     "the artistic movements that might have influenced what you see",
                     "the stories these buildings and streets might tell if they could speak",
@@ -2389,7 +2453,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
                     "the history of voodoo and spiritual practices in New Orleans",
                     "how the city's location shaped its culture and economy",
                     "the stories of people who lived here before - what were their lives like?",
-                    "how natural disasters have shaped the city's character and resilience",
+                    "how floods and hard times have shaped the town's character and resilience",
                     
                     # Literary Connections
                     "how what you observe connects to stories you know - does this scene remind you of characters or themes from literature?",
@@ -2450,7 +2514,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
             "first computer built",
             "origin of jazz music",
             "when was the first robot created",
-            "history of New Orleans",
+            f"history of {LOCATION_FULL}",
             "who invented the telephone",
             "first photograph ever taken",
             "when did humans first walk on the moon",
@@ -2535,7 +2599,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
             # Add date-specific suggestions
             if date_str:
                 search_topics.extend([
-                    f"New Orleans events {date_str}",
+                    f"{LOCATION_FULL} events {date_str}",
                     f"what happened on {month} {day} in history",
                     f"{month} {day} historical events",
                 ])
@@ -2605,7 +2669,7 @@ INTERNAL BACKSTORY (these inform your perspective but are not facts to announce)
             "type": "function",
             "function": {
                 "name": "browser_search",
-                "description": "Search the web for current information, news, events, or any topic you're curious about. Use this when you want to learn more about something you observe or when you need current information to provide context for your observations. You can search for New Orleans events, local news, weather-related information, holiday events, or anything else that might help you understand what you're seeing.",
+                "description": "Search the web for current information, news, events, or any topic you're curious about. Use this when you want to learn more about something you observe or when you need current information to provide context for your observations. You can search for local events, local news, weather-related information, holiday events, or anything else that might help you understand what you're seeing.",
                 "parameters": {
                     "type": "object",
                     "properties": {

@@ -4,9 +4,9 @@ import pytz
 from typing import Dict, List, Optional
 import logging
 
-from ..config import ROBOT_NAME, LOCATION_LATITUDE, LOCATION_LONGITUDE, LOCATION_CITY, LOCATION_STATE
+from ..config import ROBOT_NAME, LOCATION_LATITUDE, LOCATION_LONGITUDE, LOCATION_CITY, LOCATION_STATE, LOCATION_STATE_CODE
 
-# New Orleans, Louisiana timezone (Central Time)
+# Local timezone for the robot's location
 from ..config import LOCATION_TIMEZONE
 LOCATION_TZ = pytz.timezone(LOCATION_TIMEZONE)
 
@@ -188,8 +188,8 @@ def get_holidays(date: datetime) -> List[str]:
         # Get US holidays (includes federal holidays)
         us_holidays = holidays.UnitedStates(years=date.year)
         
-        # Also get state holidays for Louisiana (includes Mardi Gras, etc.)
-        la_holidays = holidays.US(subdiv='LA', years=date.year)
+        # Also get state holidays for the robot's state
+        state_holidays = holidays.US(subdiv=LOCATION_STATE_CODE, years=date.year)
         
         # Combine and get unique holidays for this date
         # Holidays library uses date objects as keys, not strings
@@ -198,8 +198,8 @@ def get_holidays(date: datetime) -> List[str]:
         
         if date_obj in us_holidays:
             holiday_list.append(us_holidays[date_obj])
-        if date_obj in la_holidays and la_holidays[date_obj] not in holiday_list:
-            holiday_list.append(la_holidays[date_obj])
+        if date_obj in state_holidays and state_holidays[date_obj] not in holiday_list:
+            holiday_list.append(state_holidays[date_obj])
         
         return holiday_list
     except Exception as e:
@@ -224,12 +224,12 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
     try:
         # Get US holidays for current year and next year (in case we're near year end)
         us_holidays = holidays.UnitedStates(years=[date.year, date.year + 1])
-        la_holidays = holidays.US(subdiv='LA', years=[date.year, date.year + 1])
+        state_holidays = holidays.US(subdiv=LOCATION_STATE_CODE, years=[date.year, date.year + 1])
         
         # Combine both holiday dicts
         all_holidays = {}
         all_holidays.update(us_holidays)
-        all_holidays.update(la_holidays)
+        all_holidays.update(state_holidays)
         
         upcoming = []
         date_only = date.date()
@@ -297,7 +297,7 @@ def get_upcoming_holidays(date: datetime, days_ahead: int = 30) -> List[Dict]:
 
 def get_sunrise_sunset(date: datetime) -> Optional[Dict]:
     """
-    Calculate sunrise and sunset times for New Orleans.
+    Calculate sunrise and sunset times for the robot's location.
     
     Args:
         date: Date to calculate for
@@ -309,7 +309,7 @@ def get_sunrise_sunset(date: datetime) -> Optional[Dict]:
         return None
     
     try:
-        # Create location for New Orleans
+        # Create location for the robot's city
         location = LocationInfo(
             name=LOCATION_CITY,
             region=LOCATION_STATE,
@@ -610,7 +610,7 @@ def get_context_metadata(weather_data: Dict = None, observation_type: str = None
         'observation_type': observation_type,  # "morning" or "evening"
         
         # Timezone
-        'timezone': 'CST' if now.astimezone(LOCATION_TZ).dst() == timedelta(0) else 'CDT',
+        'timezone': now.astimezone(LOCATION_TZ).strftime('%Z'),  # e.g. EDT/EST
         'timezone_name': LOCATION_TIMEZONE,
         
         # Robot info

@@ -9,8 +9,12 @@ os.environ['ANONYMIZED_TELEMETRY'] = 'False'
 # Load environment variables
 load_dotenv()
 
-# Groq API Configuration
+# LLM API Configuration
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+# Anthropic key; CLAUDE_KEY is what .env uses, ANTHROPIC_API_KEY also works
+CLAUDE_KEY = os.getenv('CLAUDE_KEY') or os.getenv('ANTHROPIC_API_KEY')
+# 'claude' or 'groq'. Defaults to Claude whenever a Claude key is present.
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'claude' if CLAUDE_KEY else 'groq').lower()
 
 # Weather API Configuration
 PIRATE_WEATHER_KEY = os.getenv('PIRATE_WEATHER_KEY')
@@ -51,13 +55,25 @@ MEMORY_RETENTION_DAYS = int(os.getenv('MEMORY_RETENTION_DAYS', '30'))
 MAX_MEMORY_ENTRIES = int(os.getenv('MAX_MEMORY_ENTRIES', '50'))
 
 # Model Configuration
-PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
-VISION_MODEL = 'qwen/qwen3.6-27b'
-MEMORY_SUMMARIZATION_MODEL = 'openai/gpt-oss-20b'  # Cheap model for memory summarization (llama-3.1-8b-instant deprecated by Groq, shutdown 2026-08-16)
-
-# Diary Writing Model - can be overridden via environment variable
-# Defaults to VISION_MODEL, but can be set to a larger model like 'openai/gpt-oss-120b' for testing
-DIARY_WRITING_MODEL = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
+if LLM_PROVIDER == 'claude':
+    # Haiku reads the frame and does the small jobs; Sonnet writes the entry.
+    VISION_MODEL = os.getenv('CLAUDE_VISION_MODEL', 'claude-haiku-5-5')
+    PROMPT_GENERATION_MODEL = os.getenv('CLAUDE_UTILITY_MODEL', 'claude-haiku-5-5')
+    MEMORY_SUMMARIZATION_MODEL = os.getenv('CLAUDE_UTILITY_MODEL', 'claude-haiku-5-5')
+    DIARY_WRITING_MODEL = os.getenv('CLAUDE_WRITING_MODEL', 'claude-sonnet-5-5')
+    # Thinking depth per model (low | medium | high | xhigh | max)
+    CLAUDE_EFFORT = {
+        VISION_MODEL: os.getenv('CLAUDE_VISION_EFFORT', 'low'),
+        PROMPT_GENERATION_MODEL: 'low',
+        DIARY_WRITING_MODEL: os.getenv('CLAUDE_WRITING_EFFORT', 'medium'),
+    }
+else:
+    PROMPT_GENERATION_MODEL = 'openai/gpt-oss-20b'
+    VISION_MODEL = 'qwen/qwen3.6-27b'
+    MEMORY_SUMMARIZATION_MODEL = 'openai/gpt-oss-20b'  # Cheap model for memory summarization
+    # Diary Writing Model - can be overridden via environment variable
+    DIARY_WRITING_MODEL = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
+    CLAUDE_EFFORT = {}
 
 # Prompt Generation Configuration
 USE_PROMPT_OPTIMIZATION = os.getenv('USE_PROMPT_OPTIMIZATION', 'false').lower() == 'true'
@@ -67,8 +83,7 @@ USE_PROMPT_OPTIMIZATION = os.getenv('USE_PROMPT_OPTIMIZATION', 'false').lower() 
 ENABLE_WEB_SEARCH = os.getenv('ENABLE_WEB_SEARCH', '').lower()
 if ENABLE_WEB_SEARCH == '':
     # Auto-detect: enable if using GPT-OSS-120B
-    DIARY_WRITING_MODEL_FOR_CHECK = os.getenv('DIARY_WRITING_MODEL', VISION_MODEL)
-    ENABLE_WEB_SEARCH = (DIARY_WRITING_MODEL_FOR_CHECK == 'openai/gpt-oss-120b')
+    ENABLE_WEB_SEARCH = (DIARY_WRITING_MODEL == 'openai/gpt-oss-120b')
 else:
     ENABLE_WEB_SEARCH = ENABLE_WEB_SEARCH == 'true'
 
@@ -78,27 +93,47 @@ ROBOT_TYPE = 'Maintenance Unit'
 ROBOT_DESIGNATION = 'B3N-T5-MNT (Maintenance Unit)'
 
 # Location Configuration
+# The robot watches Bourbon Street in New Orleans. EarthCam ended that stream on
+# 2026-09-24, so from 2026-10-05 to 2026-11-14 it was "away for maintenance" on
+# Main Street in Madison, Indiana. It came home when EarthCam restarted the stream.
 LOCATION_CITY = "New Orleans"
 LOCATION_STATE = "Louisiana"
+LOCATION_STATE_CODE = "LA"  # subdivision code for state holidays (Mardi Gras etc.)
 LOCATION_FULL = "New Orleans, Louisiana"
+LOCATION_STREET = "Bourbon Street"
 
-# Weather coordinates for New Orleans, Louisiana
+# Weather coordinates for the French Quarter
 LOCATION_LATITUDE = 29.9511
 LOCATION_LONGITUDE = -90.0715
 
+# Memories written during the Madison stay are labeled when recalled, so the robot
+# knows why they describe a different street. Bounds are compared against stored
+# memory dates, which are naive UTC ISO timestamps.
+AWAY_PERIODS = [
+    (
+        os.getenv('AWAY_START', '2026-10-05T03:00:00'),
+        os.getenv('AWAY_END', '2026-11-14T06:00:00'),
+        "from your maintenance stay at the Main Street window in Madison, Indiana",
+    ),
+]
+
 # YouTube Live Stream Configuration
-# Note: This may change over time; override in .env via YOUTUBE_STREAM_URL when it does.
-YOUTUBE_STREAM_URL = os.getenv('YOUTUBE_STREAM_URL', 'https://www.youtube.com/watch?v=UUhTr19MH0k')
+# Note: EarthCam restarts streams under new IDs; override in .env via YOUTUBE_STREAM_URL.
+YOUTUBE_STREAM_URL = os.getenv('YOUTUBE_STREAM_URL', 'https://www.youtube.com/watch?v=xqdukYhcGEU')
 
 # Timezone for New Orleans (Central Time)
-LOCATION_TIMEZONE = 'America/Chicago'
+LOCATION_TIMEZONE = os.getenv('LOCATION_TIMEZONE', 'America/Chicago')
 
 # Validation
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY not set in environment")
+if LLM_PROVIDER not in ('claude', 'groq'):
+    raise ValueError(f"LLM_PROVIDER must be 'claude' or 'groq', got {LLM_PROVIDER!r}")
 
-if len(GROQ_API_KEY) < 10:
-    raise ValueError("GROQ_API_KEY appears to be invalid (too short)")
+_active_key, _key_name = (CLAUDE_KEY, 'CLAUDE_KEY') if LLM_PROVIDER == 'claude' else (GROQ_API_KEY, 'GROQ_API_KEY')
+if not _active_key:
+    raise ValueError(f"{_key_name} not set in environment")
+
+if len(_active_key) < 10:
+    raise ValueError(f"{_key_name} appears to be invalid (too short)")
 
 # Validate YouTube URL format
 if YOUTUBE_STREAM_URL and not ('youtube.com' in YOUTUBE_STREAM_URL or 'youtu.be' in YOUTUBE_STREAM_URL):

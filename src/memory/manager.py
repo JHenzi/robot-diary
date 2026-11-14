@@ -126,8 +126,11 @@ class MemoryManager:
         
         # Get observation_type from context_metadata if available
         observation_type = None
+        news_headlines = []
         if context_metadata:
             observation_type = context_metadata.get('observation_type')
+            # Remember which news the robot heard, so later entries can find related stories
+            news_headlines = [a.get('title', '') for a in context_metadata.get('news_articles') or [] if a.get('title')]
         
         # Ensure all values are JSON-serializable
         observation = {
@@ -139,7 +142,8 @@ class MemoryManager:
             'content': str(diary_entry),
             'summary': str(diary_entry[:200] + '...' if len(diary_entry) > 200 else diary_entry),
             'llm_summary': str(llm_summary) if llm_summary is not None else None,  # Intelligent summary from LLM
-            'observation_type': observation_type  # Store observation type for time-slot filtering
+            'observation_type': observation_type,  # Store observation type for time-slot filtering
+            'news_headlines': news_headlines
         }
         
         memory.append(observation)

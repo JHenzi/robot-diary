@@ -61,7 +61,7 @@ PROTECTED_PHRASES = {
 # Boilerplate tokens from post markdown that should never be tracked
 JUNK_WORDS = {
     "observation", "posts", "http", "https", "png", "jpg", "jpeg", "cdt",
-    "cst", "am", "pm", "b3n", "t5", "mnt", "b3t",
+    "cst", "edt", "est", "am", "pm", "b3n", "t5", "mnt", "b3t",
 }
 
 # Present-tense only: these must never prompt the robot to look up or cite past

@@ -17,6 +17,8 @@ class TestPrompts:
         assert len(ROBOT_IDENTITY) > 0
         assert "B3N-T5-MNT" in ROBOT_IDENTITY
         assert "New Orleans" in ROBOT_IDENTITY
+        # The Madison stay is history: identity must not keep pulling the robot back to it
+        assert "Madison" not in ROBOT_IDENTITY
     
     def test_writing_instructions_exists(self):
         """Test that writing instructions exist."""

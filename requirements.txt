@@ -6,6 +6,9 @@ python-dotenv>=1.2.0
 # 1.x is a breaking rewrite of the 0.x client surface - do not float below it
 groq>=1.7.0
 
+# Claude (default provider when CLAUDE_KEY is set)
+anthropic>=2.8.0
+
 # Date/time handling
 pytz>=2026.1
 

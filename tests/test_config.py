@@ -18,7 +18,8 @@ class TestConfig:
         import src.config
         assert src.config.LOCATION_CITY == "New Orleans"
         assert src.config.LOCATION_STATE == "Louisiana"
-        assert src.config.LOCATION_TIMEZONE == "America/Chicago"
+        assert src.config.LOCATION_STATE_CODE == "LA"
+        assert src.config.LOCATION_STREET == "Bourbon Street"
     
     def test_robot_name(self):
         """Test robot name configuration."""

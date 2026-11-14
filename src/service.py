@@ -2,7 +2,7 @@
 """
 Robot Diary Service
 
-A long-running service that periodically observes New Orleans, Louisiana
+A long-running service that periodically observes Main Street in Madison, Indiana
 through a live YouTube stream and generates diary entries.
 """
 import time
@@ -169,7 +169,7 @@ def run_news_based_observation(dry_run: bool = False, observation_type: str = No
         
         # Create a special prompt for news-based observations
         # Identity context (informs perspective, mention when relevant)
-        news_identity_context = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
+        news_identity_context = f"""You are B3N-T5-MNT, a maintenance robot working in a building in {app_config.LOCATION_FULL}. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
         # Format articles with dates and sources, grouped by cluster/topic
         articles_by_topic = {}
@@ -220,10 +220,9 @@ Write a diary entry reflecting on these news items. You can focus on:
 - Patterns or behaviors you notice in the news that connect to your window observations
 - Reflections on human activities and motivations
 - Connections between the different topics you've intercepted
-- Memory callbacks to specific past observations when relevant
 - Consider the timing of the news - when these events happened relative to your current observation
 
-Be thoughtful, reflective, and write from your unique robotic perspective. Reference your recent memories if relevant."""
+Be thoughtful, reflective, and write from your unique robotic perspective."""
         
         # Pass empty list for recent_memory - LLM will query on-demand
         optimized_prompt = generate_dynamic_prompt([], llm_client, 
@@ -236,7 +235,7 @@ Be thoughtful, reflective, and write from your unique robotic perspective. Refer
 Remember: You have picked up transmissions about {topics_summary}. The news items are:
 {chr(10).join(articles_text)}
 
-Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory. Use memory query tools to check your past observations when relevant."""
+Write as if you've intercepted these transmissions and are reflecting on them as an observer of human nature. Consider when these events happened relative to your current observation time. You can write about one topic in depth, or connect multiple topics together. Focus on observation and reflection, not on explaining your identity or backstory."""
         
         logger.debug(f"News-based prompt: {full_prompt[:200]}...")
         
@@ -400,11 +399,11 @@ def run_observation_cycle(dry_run: bool = False, force_image_refresh: bool = Fal
                 logger.warning(f"Failed to fetch weather: {e}")
                 weather_data = {}  # Continue without weather
         
-        # Fetch news articles (40% chance to include in prompt)
+        # Fetch news articles (most entries hear some news; odds and count vary per run)
         news_articles = []
-        if random.random() < 0.40:  # 40% chance
+        if random.random() < random.uniform(0.55, 0.8):
             try:
-                news_articles = get_random_articles(count=2)
+                news_articles = get_random_articles(count=random.randint(1, 3))
                 if news_articles:
                     # Extract headlines for backward compatibility
                     news_headlines = [article.get('title', '') for article in news_articles if article.get('title')]
@@ -732,7 +731,7 @@ def run_simulation_cycle(force_image_refresh: bool = False, observation_type: st
             topics_summary = ", ".join(topic_labels) if len(topic_labels) > 1 else topic_labels[0] if topic_labels else "various topics"
             
             # Create news-based prompt
-            news_identity_context = """You are B3N-T5-MNT, a maintenance robot working in a building in New Orleans, Louisiana. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
+            news_identity_context = f"""You are B3N-T5-MNT, a maintenance robot working in a building in {app_config.LOCATION_FULL}. You are an observer of human nature with a unique robotic perspective. Your identity informs your perspective and it should be mentioned when it makes sense or is relevant. Mention it casually when contextually appropriate (e.g., 'as a robot tasked with...'), but don't explain your entire backstory in every entry."""
 
             news_prompt_base = f"""{news_identity_context}
 
@@ -747,7 +746,7 @@ Write a diary entry reflecting on these news items. You can focus on:
 - Connections between the different topics you've intercepted
 - Consider the timing of the news - when these events happened relative to your current observation
 
-Be thoughtful, reflective, and write from your unique robotic perspective. Use memory query tools to check your past observations when relevant."""
+Be thoughtful, reflective, and write from your unique robotic perspective."""
 
             full_prompt = f"""{news_prompt_base}
 
@@ -1008,19 +1007,19 @@ def main():
                 
                 if due_now or missed:
                     try:
-                        # Check if we should do a news-based observation (10% chance, but only every few days)
+                        # Check if we should do a news-based observation (20% chance, but only every couple of days)
                         last_news_date = get_last_news_observation_date()
                         days_since_news = None
                         if last_news_date:
                             days_since_news = (now - last_news_date.replace(tzinfo=LOCATION_TZ)).days
                         
                         use_news_observation = False
-                        # Only consider news-based observations if it's been at least 3 days since last one
-                        if days_since_news is None or days_since_news >= 3:
-                            # Roll 10% chance only if enough time has passed
-                            if random.random() < 0.10:  # 10% chance
+                        # Only consider news-based observations if it's been at least 2 days since last one
+                        if days_since_news is None or days_since_news >= 2:
+                            # Roll 20% chance only if enough time has passed
+                            if random.random() < 0.20:  # 20% chance
                                 use_news_observation = True
-                                logger.info(f"Triggering news-based observation (last one was {days_since_news} days ago, rolled 10% chance)")
+                                logger.info(f"Triggering news-based observation (last one was {days_since_news} days ago, rolled 20% chance)")
                         
                         if use_news_observation:
                             run_news_based_observation(observation_type=obs_type)
