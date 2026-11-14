@@ -36,7 +36,8 @@ def test_tool_loop_round_trip_replays_raw_blocks():
     assert r.choices[0].finish_reason == "tool_calls"
     assert json.loads(msg.tool_calls[0].function.arguments) == {"query": "van"}
     kwargs = a._client.beta.messages.stream.call_args.kwargs
-    assert kwargs["system"] == "sys" and "temperature" not in kwargs
+    assert kwargs["system"].startswith("sys\n\n") and "complete text" in kwargs["system"]
+    assert "temperature" not in kwargs
     assert kwargs["tools"][0]["input_schema"] == {"type": "object", "properties": {}}
     assert kwargs["output_config"] == {"effort": "low"}
 

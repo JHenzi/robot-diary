@@ -147,6 +147,12 @@ class ClaudeChatAdapter:
             kwargs["system"] = system
         claude_tools = _convert_tools(tools)
         if claude_tools:
+            # GroqClient keeps only the final reply's text, so prose written alongside a
+            # tool call would be lost from the entry
+            kwargs["system"] = (system + "\n\n" if system else "") + (
+                "If you use a tool, call it before you start writing. Your final reply must "
+                "contain the complete text, from its first word to its last."
+            )
             kwargs["tools"] = claude_tools
             kwargs["tool_choice"] = {"type": "auto"}
         if model.startswith(("claude-sonnet-5-5", "claude-opus-5")):

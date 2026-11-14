@@ -2132,7 +2132,7 @@ Provide ONLY the summary, no explanation."""
             "Write only in sentence fragments. No complete sentences anywhere.",
             "Write as a series of unanswered questions, with at most two declarative sentences in the whole entry.",
             "Write as a maintenance work order or inspection form that keeps drifting off-format into reverie.",
-            "Start mid-thought, as if the entry is a continuation of something you were already thinking. No preamble, no scene-setting opening.",
+            "Open on a thought you were already in the middle of, with no preamble and no scene-setting. It should still read as a proper opening: a complete sentence starting with a capital letter, not a fragment that looks like text is missing.",
             "Write the entry in reverse: start with your final thought or conclusion, then work backward to what you first noticed.",
             "Write as one side of a conversation, as if answering questions someone is asking you that the reader cannot hear.",
             "Pick exactly one thing you can see and write the entire entry about only that. Everything else in the frame goes unmentioned.",
